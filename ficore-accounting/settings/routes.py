@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, is_valid_email, format_currency
-from app import mongo
+from utils import trans_function, requires_role, is_valid_email, format_currency, get_mongo_db
 from bson import ObjectId
 from datetime import datetime
 import logging
@@ -33,7 +32,8 @@ def profile():
     })
     if form.validate_on_submit():
         try:
-            if form.email.data != current_user.email and mongo.users.find_one({'email': form.email.data}):
+            db = get_mongo_db()
+            if form.email.data != current_user.email and db.users.find_one({'email': form.email.data}):
                 flash(trans_function('email_exists', default='Email already in use'), 'danger')
                 return render_template('settings/profile.html', form=form)
             update_data = {
@@ -42,7 +42,7 @@ def profile():
                 'phone': form.phone.data,
                 'updated_at': datetime.utcnow()
             }
-            mongo.users.update_one(
+            db.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$set': update_data}
             )
@@ -64,12 +64,13 @@ def notifications():
     })
     if form.validate_on_submit():
         try:
+            db = get_mongo_db()
             update_data = {
                 'email_notifications': form.email_notifications.data,
                 'sms_notifications': form.sms_notifications.data,
                 'updated_at': datetime.utcnow()
             }
-            mongo.users.update_one(
+            db.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$set': update_data}
             )
@@ -88,8 +89,9 @@ def language():
     form = LanguageForm(data={'language': session.get('language', 'en')})
     if form.validate_on_submit():
         try:
+            db = get_mongo_db()
             session['language'] = form.language.data
-            mongo.users.update_one(
+            db.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$set': {'language': form.language.data, 'updated_at': datetime.utcnow()}}
             )
