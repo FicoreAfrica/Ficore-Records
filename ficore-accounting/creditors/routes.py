@@ -16,7 +16,7 @@ creditors_bp = Blueprint('creditors', __name__, url_prefix='/creditors')
 def index():
     """List all creditor invoices for the current user."""
     try:
-        creditors = mongo.db.invoices.find({
+        creditors = mongo.invoices.find({
             'user_id': str(current_user.id),
             'type': 'creditor'
         }).sort('created_at', -1)
@@ -55,12 +55,12 @@ def add():
                 'payments': [],
                 'created_at': datetime.utcnow()
             }
-            mongo.db.invoices.insert_one(invoice)
-            mongo.db.users.update_one(
+            mongo.invoices.insert_one(invoice)
+            mongo.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$inc': {'coin_balance': -1}}
             )
-            mongo.db.coin_transactions.insert_one({
+            mongo.coin_transactions.insert_one({
                 'user_id': str(current_user.id),
                 'amount': -1,
                 'type': 'spend',
@@ -81,7 +81,7 @@ def edit(id):
     """Edit an existing creditor invoice."""
     from app.forms import InvoiceForm
     try:
-        creditor = mongo.db.invoices.find_one({
+        creditor = mongo.invoices.find_one({
             '_id': ObjectId(id),
             'user_id': str(current_user.id),
             'type': 'creditor'
@@ -109,7 +109,7 @@ def edit(id):
                     'due_date': form.due_date.data,
                     'updated_at': datetime.utcnow()
                 }
-                mongo.db.invoices.update_one(
+                mongo.invoices.update_one(
                     {'_id': ObjectId(id)},
                     {'$set': updated_invoice}
                 )
@@ -130,7 +130,7 @@ def edit(id):
 def delete(id):
     """Delete a creditor invoice."""
     try:
-        result = mongo.db.invoices.delete_one({
+        result = mongo.invoices.delete_one({
             '_id': ObjectId(id),
             'user_id': str(current_user.id),
             'type': 'creditor'
