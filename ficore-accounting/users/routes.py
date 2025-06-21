@@ -8,7 +8,7 @@ from flask_mail import Message
 import logging
 import uuid
 from datetime import datetime, timedelta
-from app.utils import trans_function as trans, is_valid_email
+from utils import trans_function, is_valid_email
 import re
 import random
 from itsdangerous import URLSafeTimedSerializer
