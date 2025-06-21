@@ -131,8 +131,6 @@ def load_user(user_id):
         return None
 
 # Register blueprints
-from invoices.routes import invoices_bp
-from transactions.routes import transactions_bp
 from users.routes import users_bp
 from coins.routes import coins_bp
 from admin.routes import admin_bp
