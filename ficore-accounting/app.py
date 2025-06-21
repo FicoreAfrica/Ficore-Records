@@ -23,6 +23,13 @@ from flask_babel import Babel
 from functools import wraps
 from gridfs import GridFS
 
+# Debug dnspython import
+try:
+    import dns
+    print("dnspython is importable")
+except ImportError:
+    raise RuntimeError("dnspython is not installed or not importable")
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -34,9 +41,9 @@ CSRFProtect(app)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 if not app.config['SECRET_KEY']:
     raise ValueError("SECRET_KEY must be set in environment variables")
-app.config['MONGO_URI'] = os.getenv('MONGO_URI', 'mongodb://localhost:27017/ficore')
+app.config['MONGO_URI'] = os.getenv('MONGO_URI', 'mongodb://localhost:27017/ficore_accounting')
 app.config['SESSION_TYPE'] = 'mongodb'
-app.config['SESSION_MONGODB_DB'] = 'ficore'
+app.config['SESSION_MONGODB_DB'] = 'ficore_accounting'
 app.config['SESSION_MONGODB_COLLECTION'] = 'sessions'
 app.config['SESSION_PERMANENT'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
@@ -82,7 +89,7 @@ babel = Babel(app)
 # Localization configuration
 def get_locale():
     return session.get('lang', request.accept_languages.best_match(['en', 'ha'], default='en'))
-babel.localeselector(get_locale)
+babel.locale_selector_func(get_locale)
 
 # PWA configuration
 app.config['PWA_NAME'] = 'Ficore'
