@@ -270,6 +270,14 @@ def set_language(lang):
 def contact():
     return render_template('general/contact.html')
 
+@app.route('/privacy')
+def privacy():
+    return render_template('general/privacy.html')
+
+@app.route('/terms')
+def terms():
+    return render_template('general/terms.html')
+
 @app.route('/set_dark_mode', methods=['POST'])
 def set_dark_mode():
     data = request.get_json()
