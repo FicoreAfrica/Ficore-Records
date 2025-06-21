@@ -1,21 +1,18 @@
 import os
 import sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from flask import Flask, session, redirect, url_for, flash, render_template, request, Response, jsonify
-import pymongo
+import logging
+from datetime import datetime, date, timedelta
+from flask import Flask, session, redirect, url_for, flash, render_template, request, Response, jsonify, g
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, current_user, login_required
 from flask_mailman import Mail
 from werkzeug.security import generate_password_hash
-from datetime import datetime, date, timedelta
 import jinja2
 from flask_wtf import CSRFProtect
-import logging
 from bson import ObjectId
 from utils import trans_function as trans, is_valid_email
 from flask_session import Session
-from pymongo import ASCENDING, DESCENDING
+from pymongo import MongoClient, ASCENDING, DESCENDING
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from itsdangerous import URLSafeTimedSerializer
@@ -30,9 +27,11 @@ try:
 except ImportError:
     raise RuntimeError("dnspython is not installed or not importable")
 
+# Logging setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Flask app initialization
 app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app)
 CSRFProtect(app)
@@ -66,13 +65,6 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'support@ficoreapp.com')
 
-# Initialize MongoDB
-mongo_client = pymongo.MongoClient(app.config['MONGO_URI'])
-mongo = mongo_client[app.config['SESSION_MONGODB_DB']]
-app.extensions['pymongo'] = mongo
-app.extensions['gridfs'] = GridFS(mongo)
-app.config['SESSION_MONGODB'] = mongo_client
-
 # Initialize extensions
 mail = Mail(app)
 sess = Session(app)
@@ -92,20 +84,27 @@ def get_locale():
 
 babel.locale_selector = get_locale
 
-# PWA configuration
-app.config['PWA_NAME'] = 'Ficore'
-app.config['PWA_SHORT_NAME'] = 'Ficore'
-app.config['PWA_DESCRIPTION'] = 'Manage your finances with ease'
-app.config['PWA_THEME_COLOR'] = '#007bff'
-app.config['PWA_BACKGROUND_COLOR'] = '#ffffff'
-app.config['PWA_DISPLAY'] = 'standalone'
-app.config['PWA_SCOPE'] = '/'
-app.config['PWA_START_URL'] = '/'
-
 # Login manager
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'users.login'
+
+# MongoDB connection management
+def get_db():
+    if 'db' not in g:
+        g.mongo_client = MongoClient(app.config['MONGO_URI'])
+        g.db = g.mongo_client[app.config['SESSION_MONGODB_DB']]
+        g.gridfs = GridFS(g.db)
+        app.extensions['pymongo'] = g.db
+        app.extensions['gridfs'] = g.gridfs
+        app.config['SESSION_MONGODB'] = g.mongo_client
+    return g.db
+
+@app.teardown_appcontext
+def close_db(error=None):
+    client = g.pop('mongo_client', None)
+    if client is not None:
+        client.close()
 
 # Role-based access control decorator
 def requires_role(roles):
@@ -117,7 +116,7 @@ def requires_role(roles):
             if not current_user.is_authenticated:
                 flash(trans('login_required', default='Please log in'), 'danger')
                 return redirect(url_for('users.login'))
-            user = mongo.users.find_one({'_id': current_user.id})
+            user = get_db().users.find_one({'_id': current_user.id})
             if not user or user.get('role') not in roles:
                 flash(trans('forbidden_access', default='Access denied'), 'danger')
                 return redirect(url_for('index'))
@@ -129,7 +128,7 @@ def requires_role(roles):
 def check_coin_balance(required_coins):
     if not current_user.is_authenticated:
         return False
-    user = mongo.users.find_one({'_id': current_user.id})
+    user = get_db().users.find_one({'_id': current_user.id})
     return user.get('coin_balance', 0) >= required_coins
 
 class User(UserMixin):
@@ -140,13 +139,13 @@ class User(UserMixin):
         self.role = role
 
     def get(self, key, default=None):
-        user = mongo.users.find_one({'_id': self.id})
+        user = get_db().users.find_one({'_id': self.id})
         return user.get(key, default) if user else default
 
 @login_manager.user_loader
 def load_user(user_id):
     try:
-        user_data = mongo.users.find_one({'_id': user_id})
+        user_data = get_db().users.find_one({'_id': user_id})
         if user_data:
             return User(user_data['_id'], user_data['email'], user_data.get('display_name'), user_data.get('role', 'personal'))
         return None
@@ -260,7 +259,7 @@ def set_language(lang):
     if lang in valid_langs:
         session['lang'] = lang
         if current_user.is_authenticated:
-            mongo.users.update_one({'_id': current_user.id}, {'$set': {'language': lang}})
+            get_db().users.update_one({'_id': current_user.id}, {'$set': {'language': lang}})
         flash(trans('language_updated', default='Language updated'), 'success')
     else:
         flash(trans('invalid_language', default='Invalid language'), 'danger')
@@ -284,12 +283,12 @@ def set_dark_mode():
     dark_mode = str(data.get('dark_mode', False)).lower() == 'true'
     session['dark_mode'] = dark_mode
     if current_user.is_authenticated:
-        mongo.users.update_one({'_id': current_user.id}, {'$set': {'dark_mode': dark_mode}})
+        get_db().users.update_one({'_id': current_user.id}, {'$set': {'dark_mode': dark_mode}})
     return Response(status=204)
 
 def setup_database():
     try:
-        db = mongo
+        db = get_db()
         collections = db.list_collection_names()
         db.command('ping')
         logger.info("MongoDB connection successful")
@@ -513,14 +512,14 @@ def service_worker():
 @app.route('/manifest.json')
 def manifest():
     return {
-        'name': app.config['PWA_NAME'],
-        'short_name': app.config['PWA_SHORT_NAME'],
-        'description': app.config['PWA_DESCRIPTION'],
-        'theme_color': app.config['PWA_THEME_COLOR'],
-        'background_color': app.config['PWA_BACKGROUND_COLOR'],
-        'display': app.config['PWA_DISPLAY'],
-        'scope': app.config['PWA_SCOPE'],
-        'start_url': app.config['PWA_START_URL'],
+        'name': 'FiCore',
+        'short_name': 'FiCore',
+        'description': 'Manage your finances with ease',
+        'theme_color': '#007bff',
+        'background_color': '#ffffff',
+        'display': 'standalone',
+        'scope': '/',
+        'start_url': '/',
         'icons': [
             {'src': '/static/icons/icon-192x192.png', 'sizes': '192x192', 'type': 'image/png'},
             {'src': '/static/icons/icon-512x512.png', 'sizes': '512x512', 'type': 'image/png'}
@@ -565,8 +564,9 @@ def feedback():
             if not rating or not rating.isdigit() or int(rating) < 1 or int(rating) > 5:
                 flash(trans('invalid_rating', default='Invalid rating'), 'danger')
                 return render_template('general/feedback.html', tool_options=tool_options)
-            mongo.users.update_one({'_id': current_user.id}, {'$inc': {'coin_balance': -1}})
-            mongo.coin_transactions.insert_one({
+            db = get_db()
+            db.users.update_one({'_id': current_user.id}, {'$inc': {'coin_balance': -1}})
+            db.coin_transactions.insert_one({
                 'user_id': current_user.id,
                 'amount': -1,
                 'type': 'spend',
@@ -580,8 +580,8 @@ def feedback():
                 'comment': comment or None,
                 'timestamp': datetime.utcnow()
             }
-            mongo.feedback.insert_one(feedback_entry)
-            mongo.audit_logs.insert_one({
+            db.feedback.insert_one(feedback_entry)
+            db.audit_logs.insert_one({
                 'admin_id': 'system',
                 'action': 'submit_feedback',
                 'details': {'user_id': current_user.id, 'tool_name': tool_name},
@@ -600,10 +600,11 @@ def feedback():
 @requires_role('admin')
 def admin_dashboard():
     try:
-        inventory = list(mongo.inventory.find().sort('created_at', DESCENDING).limit(50))
-        payments = list(mongo.payments.find().sort('created_at', DESCENDING).limit(50))
-        receipts = list(mongo.receipts.find().sort('upload_date', DESCENDING).limit(50))
-        coin_transactions = list(mongo.coin_transactions.find().sort('date', DESCENDING).limit(50))
+        db = get_db()
+        inventory = list(db.inventory.find().sort('created_at', DESCENDING).limit(50))
+        payments = list(db.payments.find().sort('created_at', DESCENDING).limit(50))
+        receipts = list(db.receipts.find().sort('upload_date', DESCENDING).limit(50))
+        coin_transactions = list(db.coin_transactions.find().sort('date', DESCENDING).limit(50))
         for item in inventory:
             item['_id'] = str(item['_id'])
         for payment in payments:
@@ -626,14 +627,15 @@ def admin_dashboard():
 @login_required
 def general_dashboard():
     try:
-        user = mongo.users.find_one({'_id': current_user.id})
+        db = get_db()
+        user = db.users.find_one({'_id': current_user.id})
         query = {'user_id': current_user.id}
         if user.get('role') == 'admin':
             query = {}
-        recent_inventory = list(mongo.inventory.find(query).sort('created_at', DESCENDING).limit(50))
-        recent_payments = list(mongo.payments.find(query).sort('created_at', DESCENDING).limit(50))
-        recent_receipts = list(mongo.receipts.find(query).sort('upload_date', DESCENDING).limit(50))
-        recent_coin_txs = list(mongo.coin_transactions.find(query).sort('date', DESCENDING).limit(10))
+        recent_inventory = list(db.inventory.find(query).sort('created_at', DESCENDING).limit(50))
+        recent_payments = list(db.payments.find(query).sort('created_at', DESCENDING).limit(50))
+        recent_receipts = list(db.receipts.find(query).sort('upload_date', DESCENDING).limit(50))
+        recent_coin_txs = list(db.coin_transactions.find(query).sort('date', DESCENDING).limit(10))
         for item in recent_inventory:
             item['_id'] = str(item['_id'])
         for payment in recent_payments:
