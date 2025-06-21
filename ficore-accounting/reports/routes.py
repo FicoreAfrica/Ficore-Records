@@ -58,7 +58,7 @@ def profit_loss():
                 {'_id': ObjectId(current_user.id)},
                 {'$inc': {'coin_balance': -1}}
             )
-            mongo.coin_transactions.insert_one(
+            mongo.coin_transactions.insert_one({
                 'user_id': str(current_user.id),
                 'amount': -1,
                 'type': 'spend',
