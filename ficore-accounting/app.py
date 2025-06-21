@@ -40,10 +40,25 @@ CSRFProtect(app)
 # Environment configuration
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 if not app.config['SECRET_KEY']:
+    logger.error("SECRET_KEY environment variable is not set")
     raise ValueError("SECRET_KEY must be set in environment variables")
+
 app.config['MONGO_URI'] = os.getenv('MONGO_URI')
 if not app.config['MONGO_URI']:
+    logger.error("MONGO_URI environment variable is not set")
     raise ValueError("MONGO_URI must be set in environment variables")
+
+# MongoDB connection test
+try:
+    test_client = MongoClient(app.config['MONGO_URI'], serverSelectionTimeoutMS=5000)
+    test_client.admin.command('ping')
+    logger.info("MongoDB connection test successful")
+    app.config['SESSION_MONGODB'] = test_client
+except ConnectionFailure as e:
+    logger.error(f"Failed to connect to MongoDB at {app.config['MONGO_URI']}: {str(e)}")
+    raise RuntimeError(f"Cannot connect to MongoDB: {str(e)}")
+
+# Session configuration
 app.config['SESSION_TYPE'] = 'mongodb'
 app.config['SESSION_MONGODB_DB'] = 'ficore_accounting'
 app.config['SESSION_MONGODB_COLLECTION'] = 'sessions'
@@ -68,33 +83,6 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'support@ficoreapp.com')
 
-# MongoDB connection test
-try:
-    test_client = MongoClient(app.config['MONGO_URI'], serverSelectionTimeoutMS=5000)
-    test_client.admin.command('ping')
-    logger.info("MongoDB connection test successful")
-    test_client.close()
-except ConnectionFailure as e:
-    logger.error(f"Failed to connect to MongoDB: {str(e)}")
-    raise RuntimeError(f"Cannot connect to MongoDB at {app.config['MONGO_URI']}: {str(e)}")
-
-# MongoDB connection management
-def get_db():
-    if 'db' not in g:
-        g.mongo_client = MongoClient(app.config['MONGO_URI'], serverSelectionTimeoutMS=20000)
-        g.db = g.mongo_client[app.config['SESSION_MONGODB_DB']]
-        g.gridfs = GridFS(g.db)
-        app.extensions['pymongo'] = g.db
-        app.extensions['gridfs'] = g.gridfs
-        app.config['SESSION_MONGODB'] = g.mongo_client
-    return g.db
-
-@app.teardown_appcontext
-def close_db(error=None):
-    client = g.pop('mongo_client', None)
-    if client is not None:
-        client.close()
-
 # Initialize extensions
 mail = Mail(app)
 sess = Session(app)
@@ -118,6 +106,22 @@ babel.locale_selector = get_locale
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'users.login'
+
+# MongoDB connection management
+def get_db():
+    if 'db' not in g:
+        g.mongo_client = MongoClient(app.config['MONGO_URI'], serverSelectionTimeoutMS=20000)
+        g.db = g.mongo_client[app.config['SESSION_MONGODB_DB']]
+        g.gridfs = GridFS(g.db)
+        app.extensions['pymongo'] = g.db
+        app.extensions['gridfs'] = g.gridfs
+    return g.db
+
+@app.teardown_appcontext
+def close_db(error=None):
+    client = g.pop('mongo_client', None)
+    if client is not None:
+        client.close()
 
 # Role-based access control decorator
 def requires_role(roles):
@@ -304,7 +308,7 @@ def setup_database():
         db = get_db()
         collections = db.list_collection_names()
         db.command('ping')
-        logger.info("MongoDB connection successful")
+        logger.info("MongoDB connection successful during setup")
 
         # Clean up guest data
         db.feedback.delete_many({'user_id': {'$in': ['guest', None]}})
