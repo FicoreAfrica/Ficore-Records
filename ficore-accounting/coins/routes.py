@@ -4,7 +4,7 @@ from wtforms import FloatField, StringField, SelectField, validators, SubmitFiel
 from flask_wtf.file import FileField, FileAllowed
 from flask_login import login_required, current_user
 from datetime import datetime
-from app.utils import trans_function as trans, requires_role, check_coin_balance
+from utils import trans_function as trans, requires_role, check_coin_balance
 from bson import ObjectId
 from app import limiter
 import logging
