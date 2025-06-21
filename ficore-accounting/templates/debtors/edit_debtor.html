@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ trans('edit_debtor', default='Edit Debtor') }} - FiCore{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">{{ trans('edit_debtor', default='Edit Debtor') }}</h1>
+    <form action="{{ url_for('debtors.edit', id=debtor._id) }}" method="POST" class="row g-3">
+        {{ form.hidden_tag() }}
+        <div class="col-12">
+            <label for="party_name" class="form-label">{{ trans('party_name', default='Party Name') }}</label>
+            {{ form.party_name(class="form-control", required=True) }}
+            {% if form.party_name.errors %}
+                <p class="text-danger mt-1">{{ form.party_name.errors[0] }}</p>
+            {% endif %}
+        </div>
+        <div class="col-12">
+            <label for="phone" class="form-label">{{ trans('phone', default='Phone') }}</label>
+            {{ form.phone(class="form-control") }}
+            {% if form.phone.errors %}
+                <p class="text-danger mt-1">{{ form.phone.errors[0] }}</p>
+            {% endif %}
+        </div>
+        <div class="col-12">
+            <label for="due_date" class="form-label">{{ trans('due_date', default='Due Date') }}</label>
+            {{ form.due_date(class="form-control", type="date", required=True) }}
+            {% if form.due_date.errors %}
+                <p class="text-danger mt-1">{{ form.due_date.errors[0] }}</p>
+            {% endif %}
+        </div>
+        <div class="col-12">
+            <label class="form-label">{{ trans('items', default='Items') }}</label>
+            {{ form.items(class="form-control") }}
+            {% if form.items.errors %}
+                <p class="text-danger mt-1">{{ form.items.errors[0] }}</p>
+            {% endif %}
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary w-100">{{ trans('save', default='Save') }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
