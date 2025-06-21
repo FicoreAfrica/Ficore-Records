@@ -18,7 +18,7 @@ def index():
         return render_template('settings/index.html', user=current_user)
     except Exception as e:
         logger.error(f"Error loading settings for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
         return redirect(url_for('dashboard.index'))
 
 @settings_bp.route('/profile', methods=['GET', 'POST'])
@@ -34,7 +34,7 @@ def profile():
     if form.validate_on_submit():
         try:
             if form.email.data != current_user.email and mongo.db.users.find_one({'email': form.email.data}):
-                flash(trans('email_exists', default='Email already in use'), 'danger')
+                flash(trans_function('email_exists', default='Email already in use'), 'danger')
                 return render_template('settings/profile.html', form=form)
             update_data = {
                 'name': form.name.data,
@@ -46,11 +46,11 @@ def profile():
                 {'_id': ObjectId(current_user.id)},
                 {'$set': update_data}
             )
-            flash(trans('profile_updated', default='Profile updated successfully'), 'success')
+            flash(trans_function('profile_updated', default='Profile updated successfully'), 'success')
             return redirect(url_for('settings.index'))
         except Exception as e:
             logger.error(f"Error updating profile for user {current_user.id}: {str(e)}")
-            flash(trans('something_went_wrong'), 'danger')
+            flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return render_template('settings/profile.html', form=form)
 
 @settings_bp.route('/notifications', methods=['GET', 'POST'])
@@ -73,11 +73,11 @@ def notifications():
                 {'_id': ObjectId(current_user.id)},
                 {'$set': update_data}
             )
-            flash(trans('notifications_updated', default='Notification preferences updated successfully'), 'success')
+            flash(trans_function('notifications_updated', default='Notification preferences updated successfully'), 'success')
             return redirect(url_for('settings.index'))
         except Exception as e:
             logger.error(f"Error updating notifications for user {current_user.id}: {str(e)}")
-            flash(trans('something_went_wrong'), 'danger')
+            flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return render_template('settings/notifications.html', form=form)
 
 @settings_bp.route('/language', methods=['GET', 'POST'])
@@ -93,9 +93,9 @@ def language():
                 {'_id': ObjectId(current_user.id)},
                 {'$set': {'language': form.language.data, 'updated_at': datetime.utcnow()}}
             )
-            flash(trans('language_updated', default='Language updated successfully'), 'success')
+            flash(trans_function('language_updated', default='Language updated successfully'), 'success')
             return redirect(url_for('settings.index'))
         except Exception as e:
             logger.error(f"Error updating language for user {current_user.id}: {str(e)}")
-            flash(trans('something_went_wrong'), 'danger')
+            flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return render_template('settings/language.html', form=form)
