@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template, Response, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date
-from app import mongo
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db
 from bson import ObjectId
 from datetime import datetime
 from reportlab.lib.pagesizes import A4
@@ -42,23 +41,24 @@ def profit_loss():
     query = {'user_id': str(current_user.id)}
     if form.validate_on_submit():
         try:
+            db = get_mongo_db()
             if form.start_date.data:
                 query['date'] = {'$gte': form.start_date.data}
             if form.end_date.data:
                 query['date'] = query.get('date', {}) | {'$lte': form.end_date.data}
             if form.category.data:
                 query['category'] = form.category.data
-            transactions = mongo.transactions.find(query).sort('date', -1)
+            transactions = db.transactions.find(query).sort('date', -1)
             output_format = request.form.get('format', 'html')
             if output_format == 'pdf':
                 return generate_profit_loss_pdf(transactions)
             elif output_format == 'csv':
                 return generate_profit_loss_csv(transactions)
-            mongo.users.update_one(
+            db.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$inc': {'coin_balance': -1}}
             )
-            mongo.coin_transactions.insert_one({
+            db.coin_transactions.insert_one({
                 'user_id': str(current_user.id),
                 'amount': -1,
                 'type': 'spend',
@@ -69,7 +69,8 @@ def profit_loss():
             logger.error(f"Error generating profit/loss report for user {current_user.id}: {str(e)}")
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     else:
-        transactions = mongo.transactions.find(query).sort('date', -1)
+        db = get_mongo_db()
+        transactions = db.transactions.find(query).sort('date', -1)
     return render_template('reports/profit_loss.html', form=form, transactions=transactions, format_currency=format_currency, format_date=format_date)
 
 @reports_bp.route('/inventory', methods=['GET', 'POST'])
@@ -86,19 +87,20 @@ def inventory():
     query = {'user_id': str(current_user.id)}
     if form.validate_on_submit():
         try:
+            db = get_mongo_db()
             if form.item_name.data:
                 query['item_name'] = {'$regex': form.item_name.data, '$options': 'i'}
-            items = mongo.inventory.find(query).sort('item_name', 1)
+            items = db.inventory.find(query).sort('item_name', 1)
             output_format = request.form.get('format', 'html')
             if output_format == 'pdf':
                 return generate_inventory_pdf(items)
             elif output_format == 'csv':
                 return generate_inventory_csv(items)
-            mongo.users.update_one(
+            db.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$inc': {'coin_balance': -1}}
             )
-            mongo.coin_transactions.insert_one({
+            db.coin_transactions.insert_one({
                 'user_id': str(current_user.id),
                 'amount': -1,
                 'type': 'spend',
@@ -109,7 +111,8 @@ def inventory():
             logger.error(f"Error generating inventory report for user {current_user.id}: {str(e)}")
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     else:
-        items = mongo.inventory.find(query).sort('item_name', 1)
+        db = get_mongo_db()
+        items = db.inventory.find(query).sort('item_name', 1)
     return render_template('reports/inventory.html', form=form, items=items, format_currency=format_currency)
 
 def generate_profit_loss_pdf(transactions):
