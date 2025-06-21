@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from flask import Flask, session, redirect, url_for, flash, render_template, request, Response, jsonify
 import pymongo
 from flask_cors import CORS
@@ -5,7 +9,6 @@ from flask_login import LoginManager, UserMixin, login_user, current_user, login
 from flask_mailman import Mail
 from werkzeug.security import generate_password_hash
 from datetime import datetime, date, timedelta
-import os
 import jinja2
 from flask_wtf import CSRFProtect
 import logging
@@ -75,6 +78,11 @@ limiter = Limiter(
 )
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 babel = Babel(app)
+
+# Localization configuration
+def get_locale():
+    return session.get('lang', request.accept_languages.best_match(['en', 'ha'], default='en'))
+babel.localeselector(get_locale)
 
 # PWA configuration
 app.config['PWA_NAME'] = 'Ficore'
@@ -230,11 +238,6 @@ with app.app_context():
         except Exception as e:
             logger.warning(f"Error formatting date {value}: {str(e)}")
             return str(value)
-
-# Localization configuration
-@babel.localeselector
-def get_locale():
-    return session.get('lang', request.accept_languages.best_match(['en', 'ha'], default='en'))
 
 @app.route('/api/translations/<lang>')
 def get_translations(lang):
