@@ -1,0 +1,93 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+{% extends 'base.html' %}
+{% block title %}{{ trans('privacy_title', default='Privacy Policy') }}{% endblock %}
+{% block content %}
+<div class="privacy-page py-5">
+    <div class="container">
+        <h1 class="text-center mb-4">{{ trans('privacy_title', default='Privacy Policy') }}</h1>
+        <p class="text-center mb-5">{{ trans('privacy_intro', default='Our Privacy Policy outlines how we collect, use, and protect your personal information.') }}</p>
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <p>{{ trans('privacy_content', default='At FiCore Africa, we are committed to safeguarding your privacy. We collect only the data necessary to provide our services, such as your email and account details. This information is securely stored and used solely for operational purposes. We do not share your data with third parties without your consent, except as required by law. For questions, contact us at ficoreafrica@gmail.com.') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+    // Enhanced language toggle to handle redirect response
+    function toggleLanguage() {
+        fetch('{{ url_for("set_language", lang="ha" if session.get("lang", "en") == "en" else "en") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lang: '{{ "ha" if session.get("lang", "en") == "en" else "en" }}' })
+        }).then(response => {
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                console.error('Language toggle failed:', response.status);
+            }
+        }).catch(error => console.error('Language toggle error:', error));
+    }
+
+    // Enhanced dark mode toggle to handle 204 response
+    function toggleDarkMode() {
+        fetch('{{ url_for("set_dark_mode") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dark_mode: !{{ session.get('dark_mode', False) | tojson }} })
+        }).then(response => {
+            if (response.ok) {
+                document.documentElement.classList.toggle('dark-mode');
+                window.location.reload();
+            } else {
+                console.error('Dark mode toggle failed:', response.status);
+            }
+        }).catch(error => console.error('Dark mode toggle error:', error));
+    }
+</script>
+{% endblock %}
