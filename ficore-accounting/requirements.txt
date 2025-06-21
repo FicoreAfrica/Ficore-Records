@@ -16,4 +16,4 @@ flask-limiter==3.8.0
 reportlab==4.2.2
 itsdangerous==2.2.0
 dnspython==2.6.1  # Added to support mongodb+srv:// URIs
-certifi>=2023.7.22
+certifi>=2024.2.2
