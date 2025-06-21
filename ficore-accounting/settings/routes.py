@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_required, current_user
-from app.utils import requires_role, is_valid_email, format_currency
-from app.translations import trans_function as trans
+from utils import trans_function, requires_role, is_valid_email, format_currency
 from app import mongo
 from bson import ObjectId
 from datetime import datetime
