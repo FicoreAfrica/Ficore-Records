@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ trans('coin_history', default='Coin History') }} - FiCore{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">{{ trans('coin_history', default='Coin History') }}</h1>
+    <div class="d-flex gap-2 mb-4">
+        <a href="{{ url_for('coins.purchase') }}" class="btn btn-primary">{{ trans('purchase_coins', default='Purchase Coins') }}</a>
+        <a href="{{ url_for('coins.receipt_upload') }}" class="btn btn-primary">{{ trans('upload_receipt', default='Upload Receipt') }}</a>
+    </div>
+    <p class="mb-4">{{ trans('coin_balance', default='Coin Balance') }}: <span id="coin-balance">{{ coin_balance }}</span></p>
+    {% if transactions %}
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>{{ trans('date', default='Date') }}</th>
+                        <th>{{ trans('type', default='Type') }}</th>
+                        <th>{{ trans('amount', default='Amount') }}</th>
+                        <th>{{ trans('reference', default='Reference') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in transactions %}
+                        <tr>
+                            <td>{{ tx.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ trans(tx.type, default=tx.type) }}</td>
+                            <td>{{ tx.amount }}</td>
+                            <td>{{ tx.ref }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <p class="text-muted">{{ trans('no_transactions', default='No transactions found') }}</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
