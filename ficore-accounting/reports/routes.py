@@ -25,7 +25,7 @@ def index():
         return render_template('reports/index.html')
     except Exception as e:
         logger.error(f"Error loading reports index for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
         return redirect(url_for('dashboard.index'))
 
 @reports_bp.route('/profit_loss', methods=['GET', 'POST'])
@@ -36,7 +36,7 @@ def profit_loss():
     from app.forms import ReportForm
     form = ReportForm()
     if not check_coin_balance(1):
-        flash(trans('insufficient_coins', default='Insufficient coins to generate a report. Purchase more coins.'), 'danger')
+        flash(trans_function('insufficient_coins', default='Insufficient coins to generate a report. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     transactions = []
     query = {'user_id': str(current_user.id)}
@@ -67,7 +67,7 @@ def profit_loss():
             })
         except Exception as e:
             logger.error(f"Error generating profit/loss report for user {current_user.id}: {str(e)}")
-            flash(trans('something_went_wrong'), 'danger')
+            flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     else:
         transactions = mongo.db.transactions.find(query).sort('date', -1)
     return render_template('reports/profit_loss.html', form=form, transactions=transactions, format_currency=format_currency, format_date=format_date)
@@ -80,7 +80,7 @@ def inventory():
     from app.forms import InventoryReportForm
     form = InventoryReportForm()
     if not check_coin_balance(1):
-        flash(trans('insufficient_coins', default='Insufficient coins to generate a report. Purchase more coins.'), 'danger')
+        flash(trans_function('insufficient_coins', default='Insufficient coins to generate a report. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     items = []
     query = {'user_id': str(current_user.id)}
@@ -107,7 +107,7 @@ def inventory():
             })
         except Exception as e:
             logger.error(f"Error generating inventory report for user {current_user.id}: {str(e)}")
-            flash(trans('something_went_wrong'), 'danger')
+            flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     else:
         items = mongo.db.inventory.find(query).sort('item_name', 1)
     return render_template('reports/inventory.html', form=form, items=items, format_currency=format_currency)
@@ -117,24 +117,24 @@ def generate_profit_loss_pdf(transactions):
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=A4)
     p.setFont("Helvetica", 12)
-    p.drawString(1 * inch, 10.5 * inch, trans('profit_loss_report', default='Profit/Loss Report'))
-    p.drawString(1 * inch, 10.2 * inch, f"{trans('generated_on', default='Generated on')}: {format_date(datetime.utcnow())}")
+    p.drawString(1 * inch, 10.5 * inch, trans_function('profit_loss_report', default='Profit/Loss Report'))
+    p.drawString(1 * inch, 10.2 * inch, f"{trans_function('generated_on', default='Generated on')}: {format_date(datetime.utcnow())}")
     y = 9.5 * inch
     p.setFillColor(colors.black)
-    p.drawString(1 * inch, y, trans('date', default='Date'))
-    p.drawString(2.5 * inch, y, trans('party_name', default='Party Name'))
-    p.drawString(4 * inch, y, trans('type', default='Type'))
-    p.drawString(5 * inch, y, trans('amount', default='Amount'))
-    p.drawString(6.5 * inch, y, trans('category', default='Category'))
+    p.drawString(1 * inch, y, trans_function('date', default='Date'))
+    p.drawString(2.5 * inch, y, trans_function('party_name', default='Party Name'))
+    p.drawString(4 * inch, y, trans_function('type', default='Type'))
+    p.drawString(5 * inch, y, trans_function('amount', default='Amount'))
+    p.drawString(6.5 * inch, y, trans_function('category', default='Category'))
     y -= 0.3 * inch
     total_income = 0
     total_expense = 0
     for t in transactions:
         p.drawString(1 * inch, y, format_date(t['date']))
         p.drawString(2.5 * inch, y, t['party_name'])
-        p.drawString(4 * inch, y, trans(t['type'], default=t['type']))
+        p.drawString(4 * inch, y, trans_function(t['type'], default=t['type']))
         p.drawString(5 * inch, y, format_currency(t['amount']))
-        p.drawString(6.5 * inch, y, trans(t['category'], default=t['category']))
+        p.drawString(6.5 * inch, y, trans_function(t['category'], default=t['category']))
         if t['type'] == 'receipt':
             total_income += t['amount']
         else:
@@ -144,11 +144,11 @@ def generate_profit_loss_pdf(transactions):
             p.showPage()
             y = 10.5 * inch
     y -= 0.3 * inch
-    p.drawString(1 * inch, y, f"{trans('total_income', default='Total Income')}: {format_currency(total_income)}")
+    p.drawString(1 * inch, y, f"{trans_function('total_income', default='Total Income')}: {format_currency(total_income)}")
     y -= 0.3 * inch
-    p.drawString(1 * inch, y, f"{trans('total_expense', default='Total Expense')}: {format_currency(total_expense)}")
+    p.drawString(1 * inch, y, f"{trans_function('total_expense', default='Total Expense')}: {format_currency(total_expense)}")
     y -= 0.3 * inch
-    p.drawString(1 * inch, y, f"{trans('net_profit', default='Net Profit')}: {format_currency(total_income - total_expense)}")
+    p.drawString(1 * inch, y, f"{trans_function('net_profit', default='Net Profit')}: {format_currency(total_income - total_expense)}")
     p.showPage()
     p.save()
     buffer.seek(0)
@@ -157,18 +157,18 @@ def generate_profit_loss_pdf(transactions):
 def generate_profit_loss_csv(transactions):
     """Generate CSV for profit/loss report."""
     output = []
-    output.append([trans('date', default='Date'), trans('party_name', default='Party Name'), trans('type', default='Type'), trans('amount', default='Amount'), trans('category', default='Category')])
+    output.append([trans_function('date', default='Date'), trans_function('party_name', default='Party Name'), trans_function('type', default='Type'), trans_function('amount', default='Amount'), trans_function('category', default='Category')])
     total_income = 0
     total_expense = 0
     for t in transactions:
-        output.append([format_date(t['date']), t['party_name'], trans(t['type'], default=t['type']), format_currency(t['amount']), trans(t['category'], default=t['category'])])
+        output.append([format_date(t['date']), t['party_name'], trans_function(t['type'], default=t['type']), format_currency(t['amount']), trans_function(t['category'], default=t['category'])])
         if t['type'] == 'receipt':
             total_income += t['amount']
         else:
             total_expense += t['amount']
-    output.append(['', '', '', f"{trans('total_income', default='Total Income')}: {format_currency(total_income)}", ''])
-    output.append(['', '', '', f"{trans('total_expense', default='Total Expense')}: {format_currency(total_expense)}", ''])
-    output.append(['', '', '', f"{trans('net_profit', default='Net Profit')}: {format_currency(total_income - total_expense)}", ''])
+    output.append(['', '', '', f"{trans_function('total_income', default='Total Income')}: {format_currency(total_income)}", ''])
+    output.append(['', '', '', f"{trans_function('total_expense', default='Total Expense')}: {format_currency(total_expense)}", ''])
+    output.append(['', '', '', f"{trans_function('net_profit', default='Net Profit')}: {format_currency(total_income - total_expense)}", ''])
     buffer = BytesIO()
     writer = csv.writer(buffer, lineterminator='\n')
     writer.writerows(output)
@@ -180,21 +180,21 @@ def generate_inventory_pdf(items):
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=A4)
     p.setFont("Helvetica", 12)
-    p.drawString(1 * inch, 10.5 * inch, trans('inventory_report', default='Inventory Report'))
-    p.drawString(1 * inch, 10.2 * inch, f"{trans('generated_on', default='Generated on')}: {format_date(datetime.utcnow())}")
+    p.drawString(1 * inch, 10.5 * inch, trans_function('inventory_report', default='Inventory Report'))
+    p.drawString(1 * inch, 10.2 * inch, f"{trans_function('generated_on', default='Generated on')}: {format_date(datetime.utcnow())}")
     y = 9.5 * inch
     p.setFillColor(colors.black)
-    p.drawString(1 * inch, y, trans('item_name', default='Item Name'))
-    p.drawString(2.5 * inch, y, trans('quantity', default='Quantity'))
-    p.drawString(3.5 * inch, y, trans('unit', default='Unit'))
-    p.drawString(4.5 * inch, y, trans('buying_price', default='Buying Price'))
-    p.drawString(5.5 * inch, y, trans('selling_price', default='Selling Price'))
-    p.drawString(6.5 * inch, y, trans('threshold', default='Threshold'))
+    p.drawString(1 * inch, y, trans_function('item_name', default='Item Name'))
+    p.drawString(2.5 * inch, y, trans_function('quantity', default='Quantity'))
+    p.drawString(3.5 * inch, y, trans_function('unit', default='Unit'))
+    p.drawString(4.5 * inch, y, trans_function('buying_price', default='Buying Price'))
+    p.drawString(5.5 * inch, y, trans_function('selling_price', default='Selling Price'))
+    p.drawString(6.5 * inch, y, trans_function('threshold', default='Threshold'))
     y -= 0.3 * inch
     for item in items:
         p.drawString(1 * inch, y, item['item_name'])
         p.drawString(2.5 * inch, y, str(item['qty']))
-        p.drawString(3.5 * inch, y, trans(item['unit'], default=item['unit']))
+        p.drawString(3.5 * inch, y, trans_function(item['unit'], default=item['unit']))
         p.drawString(4.5 * inch, y, format_currency(item['buying_price']))
         p.drawString(5.5 * inch, y, format_currency(item['selling_price']))
         p.drawString(6.5 * inch, y, str(item['threshold']))
@@ -210,9 +210,9 @@ def generate_inventory_pdf(items):
 def generate_inventory_csv(items):
     """Generate CSV for inventory report."""
     output = []
-    output.append([trans('item_name', default='Item Name'), trans('quantity', default='Quantity'), trans('unit', default='Unit'), trans('buying_price', default='Buying Price'), trans('selling_price', default='Selling Price'), trans('threshold', default='Threshold')])
+    output.append([trans_function('item_name', default='Item Name'), trans_function('quantity', default='Quantity'), trans_function('unit', default='Unit'), trans_function('buying_price', default='Buying Price'), trans_function('selling_price', default='Selling Price'), trans_function('threshold', default='Threshold')])
     for item in items:
-        output.append([item['item_name'], item['qty'], trans(item['unit'], default=item['unit']), format_currency(item['buying_price']), format_currency(item['selling_price']), item['threshold']])
+        output.append([item['item_name'], item['qty'], trans_function(item['unit'], default=item['unit']), format_currency(item['buying_price']), format_currency(item['selling_price']), item['threshold']])
     buffer = BytesIO()
     writer = csv.writer(buffer, lineterminator='\n')
     writer.writerows(output)
