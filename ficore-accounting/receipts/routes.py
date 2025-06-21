@@ -23,7 +23,7 @@ def index():
         return render_template('receipts/index.html', receipts=receipts, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching receipts for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
         return redirect(url_for('dashboard.index'))
 
 @receipts_bp.route('/add', methods=['GET', 'POST'])
@@ -34,7 +34,7 @@ def add():
     from app.forms import TransactionForm
     form = TransactionForm()
     if not check_coin_balance(1):
-        flash(trans('insufficient_coins', default='Insufficient coins to add a receipt. Purchase more coins.'), 'danger')
+        flash(trans_function('insufficient_coins', default='Insufficient coins to add a receipt. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
         try:
@@ -60,11 +60,11 @@ def add():
                 'date': datetime.utcnow(),
                 'ref': f"Receipt creation: {transaction['party_name']}"
             })
-            flash(trans('add_receipt_success', default='Receipt added successfully'), 'success')
+            flash(trans_function('add_receipt_success', default='Receipt added successfully'), 'success')
             return redirect(url_for('receipts.index'))
         except Exception as e:
             logger.error(f"Error adding receipt for user {current_user.id}: {str(e)}")
-            flash(trans('something_went_wrong'), 'danger')
+            flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return render_template('receipts/add.html', form=form)
 
 @receipts_bp.route('/edit/<id>', methods=['GET', 'POST'])
@@ -80,7 +80,7 @@ def edit(id):
             'type': 'receipt'
         })
         if not receipt:
-            flash(trans('transaction_not_found'), 'danger')
+            flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
             return redirect(url_for('receipts.index'))
         form = TransactionForm(data={
             'party_name': receipt['party_name'],
@@ -103,15 +103,15 @@ def edit(id):
                     {'_id': ObjectId(id)},
                     {'$set': updated_transaction}
                 )
-                flash(trans('edit_receipt_success', default='Receipt updated successfully'), 'success')
+                flash(trans_function('edit_receipt_success', default='Receipt updated successfully'), 'success')
                 return redirect(url_for('receipts.index'))
             except Exception as e:
                 logger.error(f"Error updating receipt {id} for user {current_user.id}: {str(e)}")
-                flash(trans('something_went_wrong'), 'danger')
+                flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
         return render_template('receipts/edit.html', form=form, receipt=receipt)
     except Exception as e:
         logger.error(f"Error fetching receipt {id} for user {current_user.id}: {str(e)}")
-        flash(trans('transaction_not_found'), 'danger')
+        flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
         return redirect(url_for('receipts.index'))
 
 @receipts_bp.route('/delete/<id>', methods=['POST'])
@@ -126,10 +126,10 @@ def delete(id):
             'type': 'receipt'
         })
         if result.deleted_count:
-            flash(trans('delete_receipt_success', default='Receipt deleted successfully'), 'success')
+            flash(trans_function('delete_receipt_success', default='Receipt deleted successfully'), 'success')
         else:
-            flash(trans('transaction_not_found'), 'danger')
+            flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
     except Exception as e:
         logger.error(f"Error deleting receipt {id} for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return redirect(url_for('receipts.index'))
