@@ -15,22 +15,22 @@ logger = logging.getLogger(__name__)
 coins_bp = Blueprint('coins', __name__, template_folder='templates/coins')
 
 class PurchaseForm(FlaskForm):
-    amount = SelectField(trans('coin_amount', default='Coin Amount'), choices=[
+    amount = SelectField(trans_function('coin_amount', default='Coin Amount'), choices=[
         ('10', '10 Coins'),
         ('50', '50 Coins'),
         ('100', '100 Coins')
     ], validators=[validators.DataRequired()])
-    payment_method = SelectField(trans('payment_method', default='Payment Method'), choices=[
-        ('card', trans('card', default='Credit/Debit Card')),
-        ('bank', trans('bank', default='Bank Transfer'))
+    payment_method = SelectField(trans_function('payment_method', default='Payment Method'), choices=[
+        ('card', trans_function('card', default='Credit/Debit Card')),
+        ('bank', trans_function('bank', default='Bank Transfer'))
     ], validators=[validators.DataRequired()])
-    submit = SubmitField(trans('purchase', default='Purchase'))
+    submit = SubmitField(trans_function('purchase', default='Purchase'))
 
 class ReceiptUploadForm(FlaskForm):
-    receipt = FileField(trans('receipt', default='Receipt'), validators=[
-        FileAllowed(['jpg', 'png', 'pdf'], trans('invalid_file_type', default='Only JPG, PNG, or PDF files are allowed'))
+    receipt = FileField(trans_function('receipt', default='Receipt'), validators=[
+        FileAllowed(['jpg', 'png', 'pdf'], trans_function('invalid_file_type', default='Only JPG, PNG, or PDF files are allowed'))
     ])
-    submit = SubmitField(trans('upload_receipt', default='Upload Receipt'))
+    submit = SubmitField(trans_function('upload_receipt', default='Upload Receipt'))
 
 def credit_coins(user_id, amount, ref, type='purchase'):
     """Credit coins to a user and log transaction."""
@@ -71,12 +71,12 @@ def purchase():
             payment_method = form.payment_method.data
             payment_ref = f"PAY_{datetime.utcnow().isoformat()}"
             credit_coins(str(current_user.id), amount, payment_ref, 'purchase')
-            flash(trans('purchase_success', default='Coins purchased successfully'), 'success')
+            flash(trans_function('purchase_success', default='Coins purchased successfully'), 'success')
             logger.info(f"User {current_user.id} purchased {amount} coins via {payment_method}")
             return redirect(url_for('coins.history'))
         except Exception as e:
             logger.error(f"Error purchasing coins for user {current_user.id}: {str(e)}")
-            flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+            flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
             return render_template('coins/purchase.html', form=form), 500
     return render_template('coins/purchase.html', form=form)
 
@@ -97,7 +97,7 @@ def history():
         return render_template('coins/history.html', transactions=transactions, coin_balance=user.get('coin_balance', 0))
     except Exception as e:
         logger.error(f"Error fetching coin history for user {current_user.id}: {str(e)}")
-        flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+        flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
         return render_template('coins/history.html', transactions=[], coin_balance=0), 500
 
 @coins_bp.route('/receipt_upload', methods=['GET', 'POST'])
@@ -108,7 +108,7 @@ def receipt_upload():
     """Upload payment receipt."""
     form = ReceiptUploadForm()
     if not check_coin_balance(1):
-        flash(trans('insufficient_coins', default='Insufficient coins to upload receipt. Purchase more coins.'), 'danger')
+        flash(trans_function('insufficient_coins', default='Insufficient coins to upload receipt. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
         try:
@@ -134,12 +134,12 @@ def receipt_upload():
                 'details': {'user_id': str(current_user.id), 'file_id': str(file_id), 'ref': ref},
                 'timestamp': datetime.utcnow()
             })
-            flash(trans('receipt_uploaded', default='Receipt uploaded successfully'), 'success')
+            flash(trans_function('receipt_uploaded', default='Receipt uploaded successfully'), 'success')
             logger.info(f"User {current_user.id} uploaded receipt {file_id}")
             return redirect(url_for('coins.history'))
         except Exception as e:
             logger.error(f"Error uploading receipt for user {current_user.id}: {str(e)}")
-            flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+            flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
             return render_template('coins/receipt_upload.html', form=form), 500
     return render_template('coins/receipt_upload.html', form=form)
 
@@ -154,4 +154,4 @@ def get_balance():
         return jsonify({'coin_balance': user.get('coin_balance', 0)})
     except Exception as e:
         logger.error(f"Error fetching coin balance for user {current_user.id}: {str(e)}")
-        return jsonify({'error': trans('core_something_went_wrong', default='An error occurred')}), 500
+        return jsonify({'error': trans_function('core_something_went_wrong', default='An error occurred')}), 500
