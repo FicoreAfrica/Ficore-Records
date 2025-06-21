@@ -2,7 +2,7 @@ from flask import Flask, session, redirect, url_for, flash, render_template, req
 from flask_pymongo import PyMongo
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, current_user, login_required
-from flask_mail import Mail, Message
+from flask_mailman import Mail, EmailMessage
 from werkzeug.security import generate_password_hash
 from datetime import datetime, date, timedelta
 import os
@@ -11,7 +11,6 @@ from flask_wtf import CSRFProtect
 import logging
 from bson import ObjectId
 from utils import trans_function as trans, is_valid_email
-from translations import trans_function
 from flask_session import Session
 from pymongo import ASCENDING, DESCENDING, errors
 from pymongo.operations import UpdateOne
@@ -65,7 +64,13 @@ app.extensions['gridfs'] = GridFS(mongo.db)
 app.config['SESSION_MONGODB'] = mongo.cx
 mail = Mail(app)
 sess = Session(app)
-limiter = Limiter(get_remote_address, app=app, default_limits=["1000 per day", "100 per hour"])
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["1000 per day", "100 per hour"],
+    storage_uri=os.getenv('MONGO_URI', 'mongodb://localhost:27017/ficore'),
+    storage_options={}
+)
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 babel = Babel(app)
 
