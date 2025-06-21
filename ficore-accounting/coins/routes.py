@@ -5,7 +5,6 @@ from flask_wtf.file import FileField, FileAllowed
 from flask_login import login_required, current_user
 from datetime import datetime
 from utils import trans_function as trans, requires_role, check_coin_balance
-from translations import trans_function
 from bson import ObjectId
 from app import limiter
 import logging
