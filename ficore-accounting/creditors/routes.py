@@ -23,7 +23,7 @@ def index():
         return render_template('creditors/index.html', creditors=creditors, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching creditors for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong'), 'danger')
         return redirect(url_for('dashboard.index'))
 
 @creditors_bp.route('/add', methods=['GET', 'POST'])
@@ -34,7 +34,7 @@ def add():
     from app.forms import InvoiceForm
     form = InvoiceForm()
     if not check_coin_balance(1):
-        flash(trans('insufficient_coins', default='Insufficient coins to create a creditor. Purchase more coins.'), 'danger')
+        flash(trans_function('insufficient_coins', default='Insufficient coins to create a creditor. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
         try:
@@ -67,11 +67,11 @@ def add():
                 'date': datetime.utcnow(),
                 'ref': f"Creditor creation: {invoice['party_name']}"
             })
-            flash(trans('create_creditor_success', default='Creditor created successfully'), 'success')
+            flash(trans_function('create_creditor_success', default='Creditor created successfully'), 'success')
             return redirect(url_for('creditors.index'))
         except Exception as e:
             logger.error(f"Error creating creditor for user {current_user.id}: {str(e)}")
-            flash(trans('something_went_wrong'), 'danger')
+            flash(trans_function('something_went_wrong'), 'danger')
     return render_template('creditors/add.html', form=form)
 
 @creditors_bp.route('/edit/<id>', methods=['GET', 'POST'])
@@ -87,7 +87,7 @@ def edit(id):
             'type': 'creditor'
         })
         if not creditor:
-            flash(trans('invoice_not_found'), 'danger')
+            flash(trans_function('invoice_not_found'), 'danger')
             return redirect(url_for('creditors.index'))
         form = InvoiceForm(data={
             'party_name': creditor['party_name'],
@@ -113,15 +113,15 @@ def edit(id):
                     {'_id': ObjectId(id)},
                     {'$set': updated_invoice}
                 )
-                flash(trans('edit_creditor_success', default='Creditor updated successfully'), 'success')
+                flash(trans_function('edit_creditor_success', default='Creditor updated successfully'), 'success')
                 return redirect(url_for('creditors.index'))
             except Exception as e:
                 logger.error(f"Error updating creditor {id} for user {current_user.id}: {str(e)}")
-                flash(trans('something_went_wrong'), 'danger')
+                flash(trans_function('something_went_wrong'), 'danger')
         return render_template('creditors/edit.html', form=form, creditor=creditor)
     except Exception as e:
         logger.error(f"Error fetching creditor {id} for user {current_user.id}: {str(e)}")
-        flash(trans('invoice_not_found'), 'danger')
+        flash(trans_function('invoice_not_found'), 'danger')
         return redirect(url_for('creditors.index'))
 
 @creditors_bp.route('/delete/<id>', methods=['POST'])
@@ -136,10 +136,10 @@ def delete(id):
             'type': 'creditor'
         })
         if result.deleted_count:
-            flash(trans('delete_creditor_success', default='Creditor deleted successfully'), 'success')
+            flash(trans_function('delete_creditor_success', default='Creditor deleted successfully'), 'success')
         else:
-            flash(trans('invoice_not_found'), 'danger')
+            flash(trans_function('invoice_not_found'), 'danger')
     except Exception as e:
         logger.error(f"Error deleting creditor {id} for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong'), 'danger')
     return redirect(url_for('creditors.index'))
