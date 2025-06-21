@@ -105,7 +105,7 @@ class ProfileForm(FlaskForm):
 
 class BusinessSetupForm(FlaskForm):
     business_name = StringField(trans_function('business_name', default='Business Name'), 
-                              validators=[validators.DataRequired(), validators.Length(min=255, max=0)], render_kw={'class': 'form-control'})
+                              validators=[validators.DataRequired(), validators.Length(min=1, max=255)], render_kw={'class': 'form-control'})
     address = TextAreaField('address', validators=[validators.DataRequired(), validators.Length(max=500)], render_kw={'class': 'form-control'})
     industry = SelectField(trans_function('industry', default='Industry'), 
                          choices=[
