@@ -266,6 +266,10 @@ def set_language(lang):
         flash(trans('invalid_language', default='Invalid language'), 'danger')
     return redirect(request.referrer or url_for('index'))
 
+@app.route('/contact')
+def contact():
+    return render_template('general/contact.html')
+
 @app.route('/set_dark_mode', methods=['POST'])
 def set_dark_mode():
     data = request.get_json()
