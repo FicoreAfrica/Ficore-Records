@@ -13,15 +13,15 @@ logger = logging.getLogger(__name__)
 admin_bp = Blueprint('admin', __name__, template_folder='templates/admin')
 
 class CreditForm(FlaskForm):
-    username = StringField(trans('username', default='Username'), [
+    username = StringField(trans_function('username', default='Username'), [
         validators.DataRequired(),
         validators.Length(min=3, max=50)
     ])
-    amount = FloatField(trans('coin_amount', default='Coin Amount'), [
+    amount = FloatField(trans_function('coin_amount', default='Coin Amount'), [
         validators.DataRequired(),
         validators.NumberRange(min=1)
     ])
-    submit = SubmitField(trans('credit_coins', default='Credit Coins'))
+    submit = SubmitField(trans_function('credit_coins', default='Credit Coins'))
 
 def log_audit_action(action, details):
     """Log an admin action to audit_logs collection."""
@@ -67,7 +67,7 @@ def dashboard():
         )
     except Exception as e:
         logger.error(f"Error loading admin dashboard: {str(e)}")
-        flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+        flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
         return render_template('admin/dashboard.html', stats={}, recent_users=[]), 500
 
 @admin_bp.route('/users', methods=['GET'])
@@ -84,7 +84,7 @@ def manage_users():
         return render_template('admin/users.html', users=users)
     except Exception as e:
         logger.error(f"Error fetching users for admin: {str(e)}")
-        flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+        flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
         return render_template('admin/users.html', users=[]), 500
 
 @admin_bp.route('/users/suspend/<user_id>', methods=['POST'])
@@ -100,15 +100,15 @@ def suspend_user(user_id):
             {'$set': {'suspended': True, 'updated_at': datetime.utcnow()}}
         )
         if result.modified_count == 0:
-            flash(trans('user_not_found', default='User not found'), 'danger')
+            flash(trans_function('user_not_found', default='User not found'), 'danger')
         else:
-            flash(trans('user_suspended', default='User suspended successfully'), 'success')
+            flash(trans_function('user_suspended', default='User suspended successfully'), 'success')
             logger.info(f"Admin {current_user.id} suspended user {user_id}")
             log_audit_action('suspend_user', {'user_id': user_id})
         return redirect(url_for('admin.manage_users'))
     except Exception as e:
         logger.error(f"Error suspending user {user_id}: {str(e)}")
-        flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+        flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
         return redirect(url_for('admin.manage_users')), 500
 
 @admin_bp.route('/users/delete/<user_id>', methods=['POST'])
@@ -126,15 +126,15 @@ def delete_user(user_id):
         mongo.db.audit_logs.delete_many({'details.user_id': user_id})
         result = mongo.db.users.delete_one({'_id': ObjectId(user_id), 'role': {'$ne': 'admin'}})
         if result.deleted_count == 0:
-            flash(trans('user_not_found', default='User not found'), 'danger')
+            flash(trans_function('user_not_found', default='User not found'), 'danger')
         else:
-            flash(trans('user_deleted', default='User deleted successfully'), 'success')
+            flash(trans_function('user_deleted', default='User deleted successfully'), 'success')
             logger.info(f"Admin {current_user.id} deleted user {user_id}")
             log_audit_action('delete_user', {'user_id': user_id})
         return redirect(url_for('admin.manage_users'))
     except Exception as e:
         logger.error(f"Error deleting user {user_id}: {str(e)}")
-        flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+        flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
         return redirect(url_for('admin.manage_users')), 500
 
 @admin_bp.route('/data/delete/<collection>/<item_id>', methods=['POST'])
@@ -145,21 +145,21 @@ def delete_item(collection, item_id):
     """Delete an item from a collection."""
     valid_collections = ['invoices', 'transactions', 'inventory']
     if collection not in valid_collections:
-        flash(trans('invalid_collection', default='Invalid collection'), 'danger')
+        flash(trans_function('invalid_collection', default='Invalid collection'), 'danger')
         return redirect(url_for('admin.dashboard'))
     try:
         mongo = current_app.extensions['pymongo']
         result = mongo.db[collection].delete_one({'_id': ObjectId(item_id)})
         if result.deleted_count == 0:
-            flash(trans('item_not_found', default='Item not found'), 'danger')
+            flash(trans_function('item_not_found', default='Item not found'), 'danger')
         else:
-            flash(trans('item_deleted', default='Item deleted successfully'), 'success')
+            flash(trans_function('item_deleted', default='Item deleted successfully'), 'success')
             logger.info(f"Admin {current_user.id} deleted {collection} item {item_id}")
             log_audit_action(f'delete_{collection}_item', {'item_id': item_id, 'collection': collection})
         return redirect(url_for('admin.dashboard'))
     except Exception as e:
         logger.error(f"Error deleting {collection} item {item_id}: {str(e)}")
-        flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+        flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
         return redirect(url_for('admin.dashboard')), 500
 
 @admin_bp.route('/coins/credit', methods=['GET', 'POST'])
@@ -176,7 +176,7 @@ def credit_coins():
             amount = int(form.amount.data)
             user = mongo.db.users.find_one({'username': username})
             if not user:
-                flash(trans('user_not_found', default='User not found'), 'danger')
+                flash(trans_function('user_not_found', default='User not found'), 'danger')
                 return render_template('admin/coins_credit.html', form=form)
             mongo.db.users.update_one(
                 {'_id': user['_id']},
@@ -190,13 +190,13 @@ def credit_coins():
                 'ref': ref,
                 'date': datetime.utcnow()
             })
-            flash(trans('credit_success', default='Coins credited successfully'), 'success')
+            flash(trans_function('credit_success', default='Coins credited successfully'), 'success')
             logger.info(f"Admin {current_user.id} credited {amount} coins to user {username}")
             log_audit_action('credit_coins', {'user_id': str(user['_id']), 'amount': amount, 'ref': ref})
             return redirect(url_for('admin.dashboard'))
         except Exception as e:
             logger.error(f"Error crediting coins by admin {current_user.id}: {str(e)}")
-            flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+            flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
             return render_template('admin/coins_credit.html', form=form), 500
     return render_template('admin/coins_credit.html', form=form)
 
@@ -214,5 +214,5 @@ def audit():
         return render_template('admin/audit.html', logs=logs)
     except Exception as e:
         logger.error(f"Error fetching audit logs for admin {current_user.id}: {str(e)}")
-        flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+        flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
         return render_template('admin/audit.html', logs=[]), 500
