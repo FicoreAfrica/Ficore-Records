@@ -8,11 +8,11 @@ from flask_mail import Message
 import logging
 import uuid
 from datetime import datetime, timedelta
-from utils import trans_function, is_valid_email
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email
 import re
 import random
 from itsdangerous import URLSafeTimedSerializer
-from app import limiter, check_coin_balance, mail
+from app import limiter, mail
 from bson import ObjectId
 
 logger = logging.getLogger(__name__)
@@ -105,17 +105,16 @@ class ProfileForm(FlaskForm):
 
 class BusinessSetupForm(FlaskForm):
     business_name = StringField(trans_function('business_name', default='Business Name'), 
-                              validators=[validators.DataRequired(), validators.Length(min=2, max=100)], render_kw={'class': 'form-control'})
-    address = TextAreaField(trans_function('business_address', default='Business Address'), 
-                           validators=[validators.DataRequired(), validators.Length(max=500)], render_kw={'class': 'form-control'})
+                              validators=[validators.DataRequired(), validators.Length(min=255, max=0)], render_kw={'class': 'form-control'})
+    address = TextAreaField('address', validators=[validators.DataRequired(), validators.Length(max=500)], render_kw={'class': 'form-control'})
     industry = SelectField(trans_function('industry', default='Industry'), 
                          choices=[
-                             ('retail', trans_function('retail', default='Retail')),
-                             ('services', trans_function('services', default='Services')),
-                             ('manufacturing', trans_function('manufacturing', default='Manufacturing')),
-                             ('other', trans_function('other', default='Other'))
+                             ('retail', '', 'Retail'),
+                             ('services', '', 'Services'),
+                             ('manufacturing', '', 'Manufacturing'),
+                             ('other', '', 'Other')
                          ], 
-                         validators=[validators.DataRequired()], render_kw={'class': 'form-select'})
+                           validators=[validators.DataRequired()], render_kw={'class': 'form-control'})
     submit = SubmitField(trans_function('save_and_continue', default='Save and Continue'), render_kw={'class': 'btn btn-primary w-100'})
 
 def log_audit_action(action, details):
@@ -452,8 +451,6 @@ def logout():
 @users_bp.route('/auth/signin')
 def signin():
     return redirect(url_for('users.login'))
-
- sheltered
 
 @users_bp.route('/auth/signup')
 def signup_redirect():
