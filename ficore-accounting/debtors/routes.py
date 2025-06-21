@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from app.utils import requires_role, check_coin_balance, format_currency, format_date
-from app.translations import trans_function as trans
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date
 from app import mongo
 from bson import ObjectId
 from datetime import datetime
