@@ -33,7 +33,7 @@ def profile():
     })
     if form.validate_on_submit():
         try:
-            if form.email.data != current_user.email and mongo.db.users.find_one({'email': form.email.data}):
+            if form.email.data != current_user.email and mongo.users.find_one({'email': form.email.data}):
                 flash(trans_function('email_exists', default='Email already in use'), 'danger')
                 return render_template('settings/profile.html', form=form)
             update_data = {
@@ -42,7 +42,7 @@ def profile():
                 'phone': form.phone.data,
                 'updated_at': datetime.utcnow()
             }
-            mongo.db.users.update_one(
+            mongo.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$set': update_data}
             )
@@ -69,7 +69,7 @@ def notifications():
                 'sms_notifications': form.sms_notifications.data,
                 'updated_at': datetime.utcnow()
             }
-            mongo.db.users.update_one(
+            mongo.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$set': update_data}
             )
@@ -89,7 +89,7 @@ def language():
     if form.validate_on_submit():
         try:
             session['language'] = form.language.data
-            mongo.db.users.update_one(
+            mongo.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$set': {'language': form.language.data, 'updated_at': datetime.utcnow()}}
             )
