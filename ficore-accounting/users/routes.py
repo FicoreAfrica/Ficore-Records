@@ -4,7 +4,7 @@ from wtforms import StringField, PasswordField, TextAreaField, SelectField, Subm
 from flask_login import login_required, current_user, login_user, logout_user
 from pymongo import errors
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_mail import Message
+from flask_mailman import EmailMessage
 import logging
 import uuid
 from datetime import datetime, timedelta
@@ -12,7 +12,7 @@ from utils import trans_function, requires_role, check_coin_balance, format_curr
 import re
 import random
 from itsdangerous import URLSafeTimedSerializer
-from app import limiter, mail
+from app import limiter, mail, mongo
 from bson import ObjectId
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class LoginForm(FlaskForm):
     ], render_kw={'class': 'form-control'})
     password = PasswordField(trans_function('password', default='Password'), [
         validators.DataRequired(message=trans_function('password_required', default='Password is required')),
-        validators.Length(min=8, message=trans_function('password_length', default='Password must be at least 8 characters'))
+        validators.Length(min=8, message=trans_function('password_required', default='Password must be at least 8 characters'))
     ], render_kw={'class': 'form-control'})
     submit = SubmitField(trans_function('login', default='Login'), render_kw={'class': 'btn btn-primary w-100'})
 
@@ -105,25 +105,25 @@ class ProfileForm(FlaskForm):
 
 class BusinessSetupForm(FlaskForm):
     business_name = StringField(trans_function('business_name', default='Business Name'), 
-                              validators=[validators.DataRequired(), validators.Length(min=1, max=255)], render_kw={'class': 'form-control'})
+                               validators=[validators.DataRequired(), validators.Length(min=1, max=255)], render_kw={'class': 'form-control'})
     address = TextAreaField('address', validators=[validators.DataRequired(), validators.Length(max=500)], render_kw={'class': 'form-control'})
     industry = SelectField(trans_function('industry', default='Industry'), 
-                         choices=[
-                             ('retail', '', 'Retail'),
-                             ('services', '', 'Services'),
-                             ('manufacturing', '', 'Manufacturing'),
-                             ('other', '', 'Other')
-                         ], 
-                           validators=[validators.DataRequired()], render_kw={'class': 'form-control'})
+                          choices=[
+                              ('retail', trans_function('retail', default='Retail')),
+                              ('services', trans_function('services', default='Services')),
+                              ('manufacturing', trans_function('manufacturing', default='Manufacturing')),
+                              ('other', trans_function('other', default='Other'))
+                          ], 
+                          validators=[validators.DataRequired()], render_kw={'class': 'form-control'})
     submit = SubmitField(trans_function('save_and_continue', default='Save and Continue'), render_kw={'class': 'btn btn-primary w-100'})
 
-def log_audit_action(action, details):
+def log_audit_action(action, details=None):
+    """Log an audit action."""
     try:
-        mongo = current_app.extensions['pymongo']
-        mongo.db.audit_logs.insert_one({
-            'admin_id': current_user.id if current_user.is_authenticated else 'system',
+        mongo.audit_logs.insert_one({
+            'admin_id': str(current_user.id) if current_user.is_authenticated else 'system',
             'action': action,
-            'details': details,
+            'details': details or {},
             'timestamp': datetime.utcnow()
         })
     except Exception as e:
@@ -132,31 +132,31 @@ def log_audit_action(action, details):
 @users_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit("50 per hour")
 def login():
+    """Handle user login."""
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard.index'))
     form = LoginForm()
     if form.validate_on_submit():
         try:
-            mongo = current_app.extensions['pymongo']
             username = form.username.data.strip().lower()
             if not USERNAME_REGEX.match(username):
                 flash(trans_function('username_format', default='Invalid username format'), 'danger')
                 logger.warning(f"Invalid username format: {username}")
                 return render_template('users/login.html', form=form)
-            user = mongo.db.users.find_one({'_id': username})
+            user = mongo.users.find_one({'_id': username})
             if user and check_password_hash(user['password'], form.password.data):
-                if os.getenv('ENABLE_2FA', 'false').lower() == 'true':
-                    otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
-                    mongo.db.users.update_one(
+                if os.environ.get('ENABLE_2FA', 'true').lower() == 'true':
+                    otp = ''.join(str(random.randint(0, 9)) for _ in range(6))
+                    mongo.users.update_one(
                         {'_id': username},
                         {'$set': {'otp': otp, 'otp_expiry': datetime.utcnow() + timedelta(minutes=5)}}
                     )
-                    msg = Message(
+                    msg = EmailMessage(
                         subject=trans_function('otp_subject', default='Your One-Time Password'),
-                        recipients=[user['email']],
-                        body=trans_function('otp_body', default=f'Your OTP is {otp}. It expires in 5 minutes.')
+                        body=trans_function('otp_body', default=f'Your OTP is {otp}. It expires in 5 minutes.'),
+                        to=[user['email']]
                     )
-                    mail.send(msg)
+                    msg.send()
                     session['pending_user_id'] = username
                     return redirect(url_for('users.verify_2fa'))
                 from app import User
@@ -178,27 +178,27 @@ def login():
 @users_bp.route('/verify_2fa', methods=['GET', 'POST'])
 @limiter.limit("50 per hour")
 def verify_2fa():
+    """Verify 2FA OTP."""
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard.index'))
     if 'pending_user_id' not in session:
         return redirect(url_for('users.login'))
     form = TwoFactorForm()
     if form.validate_on_submit():
         try:
-            mongo = current_app.extensions['pymongo']
             username = session['pending_user_id']
-            user = mongo.db.users.find_one({'_id': username})
+            user = mongo.users.find_one({'_id': username})
             if user and user.get('otp') == form.otp.data and user.get('otp_expiry') > datetime.utcnow():
                 from app import User
                 login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
                 session['lang'] = user.get('language', 'en')
-                mongo.db.users.update_one(
+                mongo.users.update_one(
                     {'_id': username},
                     {'$unset': {'otp': '', 'otp_expiry': ''}}
                 )
                 log_audit_action('verify_2fa', {'user_id': username})
                 logger.info(f"User {username} verified 2FA successfully")
-                session.pop('pending_user_id')
+                session.pop('pending_user_id', None)
                 if not user.get('setup_complete', False):
                     return redirect(url_for('users.setup_wizard'))
                 return redirect(url_for('users.profile'))
@@ -213,17 +213,17 @@ def verify_2fa():
 @users_bp.route('/signup', methods=['GET', 'POST'])
 @limiter.limit("50 per hour")
 def signup():
+    """Handle user signup."""
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard.index'))
     form = SignupForm()
     if form.validate_on_submit():
         try:
-            mongo = current_app.extensions['pymongo']
             username = form.username.data.strip().lower()
             email = form.email.data.strip().lower()
             role = form.role.data
             language = form.language.data
-            if mongo.db.users.find_one({'_id': username}) or mongo.db.users.find_one({'email': email}):
+            if mongo.users.find_one({'_id': username}) or mongo.users.find_one({'email': email}):
                 flash(trans_function('user_exists', default='Username or email already exists'), 'danger')
                 return render_template('users/signup.html', form=form)
             user_data = {
@@ -239,8 +239,8 @@ def signup():
                 'display_name': username,
                 'created_at': datetime.utcnow()
             }
-            result = mongo.db.users.insert_one(user_data)
-            mongo.db.coin_transactions.insert_one({
+            mongo.users.insert_one(user_data)
+            mongo.coin_transactions.insert_one({
                 'user_id': username,
                 'amount': 10,
                 'type': 'credit',
@@ -262,30 +262,30 @@ def signup():
 @users_bp.route('/forgot_password', methods=['GET', 'POST'])
 @limiter.limit("50 per hour")
 def forgot_password():
+    """Handle forgot password request."""
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard.index'))
     form = ForgotPasswordForm()
     if form.validate_on_submit():
         try:
-            mongo = current_app.extensions['pymongo']
             email = form.email.data.strip().lower()
-            user = mongo.db.users.find_one({'email': email})
+            user = mongo.users.find_one({'email': email})
             if not user:
                 flash(trans_function('email_not_found', default='Email not found'), 'danger')
                 return render_template('users/forgot_password.html', form=form)
             reset_token = URLSafeTimedSerializer(current_app.config['SECRET_KEY']).dumps(email, salt='reset-salt')
             expiry = datetime.utcnow() + timedelta(minutes=15)
-            mongo.db.users.update_one(
+            mongo.users.update_one(
                 {'_id': user['_id']},
                 {'$set': {'reset_token': reset_token, 'reset_token_expiry': expiry}}
             )
             reset_url = url_for('users.reset_password', token=reset_token, _external=True)
-            msg = Message(
+            msg = EmailMessage(
                 subject=trans_function('reset_password_subject', default='Reset Your Password'),
-                recipients=[email],
-                body=trans_function('reset_password_body', default=f'Click the link to reset your password: {reset_url}\nLink expires in 15 minutes.')
+                body=trans_function('reset_password_body', default=f'Click the link to reset your password: {reset_url}\nLink expires in 15 minutes.'),
+                to=[email]
             )
-            mail.send(msg)
+            msg.send()
             log_audit_action('forgot_password', {'email': email})
             flash(trans_function('reset_email_sent', default='Password reset email sent'), 'success')
             return render_template('users/forgot_password.html', form=form)
@@ -298,8 +298,9 @@ def forgot_password():
 @users_bp.route('/reset_password', methods=['GET', 'POST'])
 @limiter.limit("50 per hour")
 def reset_password():
+    """Handle password reset."""
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard.index'))
     token = request.args.get('token')
     try:
         email = URLSafeTimedSerializer(current_app.config['SECRET_KEY']).loads(token, salt='reset-salt', max_age=900)
@@ -309,12 +310,11 @@ def reset_password():
     form = ResetPasswordForm()
     if form.validate_on_submit():
         try:
-            mongo = current_app.extensions['pymongo']
-            user = mongo.db.users.find_one({'email': email})
+            user = mongo.users.find_one({'email': email})
             if not user:
                 flash(trans_function('invalid_or_expired_token', default='Invalid or expired token'), 'danger')
                 return render_template('users/reset_password.html', form=form, token=token)
-            mongo.db.users.update_one(
+            mongo.users.update_one(
                 {'_id': user['_id']},
                 {'$set': {'password': generate_password_hash(form.password.data)}, 
                  '$unset': {'reset_token': '', 'reset_token_expiry': ''}}
@@ -332,12 +332,12 @@ def reset_password():
 @login_required
 @limiter.limit("50 per hour")
 def profile():
+    """Manage user profile."""
     try:
-        mongo = current_app.extensions['pymongo']
-        user = mongo.db.users.find_one({'_id': current_user.id})
+        user = mongo.users.find_one({'_id': current_user.id})
         if not user:
             flash(trans_function('user_not_found', default='User not found'), 'danger')
-            return redirect(url_for('index'))
+            return redirect(url_for('dashboard.index'))
         form = ProfileForm(data={
             'email': user['email'],
             'display_name': user['display_name'],
@@ -351,10 +351,10 @@ def profile():
                 new_email = form.email.data.strip().lower()
                 new_display_name = form.display_name.data.strip()
                 new_language = form.language.data
-                if new_email != user['email'] and mongo.db.users.find_one({'email': new_email}):
+                if new_email != user['email'] and mongo.users.find_one({'email': new_email}):
                     flash(trans_function('email_exists', default='Email already exists'), 'danger')
                     return render_template('users/profile.html', form=form, user=user)
-                mongo.db.users.update_one(
+                mongo.users.update_one(
                     {'_id': current_user.id},
                     {
                         '$set': {
@@ -366,7 +366,7 @@ def profile():
                         '$inc': {'coin_balance': -1}
                     }
                 )
-                mongo.db.coin_transactions.insert_one({
+                mongo.coin_transactions.insert_one({
                     'user_id': current_user.id,
                     'amount': -1,
                     'type': 'spend',
@@ -390,23 +390,23 @@ def profile():
     except errors.PyMongoError as e:
         logger.error(f"MongoDB error fetching profile: {str(e)}")
         flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
-        return redirect(url_for('index')), 500
+        return redirect(url_for('dashboard.index')), 500
 
 @users_bp.route('/setup_wizard', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("50 per hour")
 def setup_wizard():
-    mongo = current_app.extensions['pymongo']
-    user = mongo.db.users.find_one({'_id': current_user.id})
+    """Handle business setup wizard."""
+    user = mongo.users.find_one({'_id': current_user.id})
     if user.get('setup_complete', False):
-        return redirect(url_for('general_dashboard'))
+        return redirect(url_for('dashboard.index'))
     form = BusinessSetupForm()
     if form.validate_on_submit():
         try:
             if not check_coin_balance(1):
                 flash(trans_function('insufficient_coins', default='Insufficient coins to complete setup'), 'danger')
                 return redirect(url_for('coins.purchase'))
-            mongo.db.users.update_one(
+            mongo.users.update_one(
                 {'_id': current_user.id},
                 {
                     '$set': {
@@ -420,7 +420,7 @@ def setup_wizard():
                     '$inc': {'coin_balance': -1}
                 }
             )
-            mongo.db.coin_transactions.insert_one({
+            mongo.coin_transactions.insert_one({
                 'user_id': current_user.id,
                 'amount': -1,
                 'type': 'spend',
@@ -441,43 +441,48 @@ def setup_wizard():
 @login_required
 @limiter.limit("100 per hour")
 def logout():
+    """Handle user logout."""
     user_id = current_user.id
     logout_user()
     log_audit_action('logout', {'user_id': user_id})
     flash(trans_function('logged_out', default='Logged out successfully'), 'success')
     session.clear()
-    return redirect(url_for('index'))
+    return redirect(url_for('dashboard.index'))
 
 @users_bp.route('/auth/signin')
 def signin():
+    """Redirect to login."""
     return redirect(url_for('users.login'))
 
 @users_bp.route('/auth/signup')
 def signup_redirect():
+    """Redirect to signup."""
     return redirect(url_for('users.signup'))
 
 @users_bp.route('/auth/forgot-password')
 def forgot_password_redirect():
+    """Redirect to forgot password."""
     return redirect(url_for('users.forgot_password'))
 
 @users_bp.route('/auth/reset-password')
 def reset_password_redirect():
+    """Redirect to reset password."""
     return redirect(url_for('users.reset_password'))
 
 @users_bp.before_app_request
 def check_wizard_completion():
+    """Check if setup wizard is complete."""
     if request.endpoint and 'static' in request.endpoint:
         return
     if not current_user.is_authenticated:
         if request.endpoint not in ['users.login', 'users.signup', 'users.forgot_password', 
                                    'users.reset_password', 'users.verify_2fa', 'users.signin', 
                                    'users.signup_redirect', 'users.forgot_password_redirect', 
-                                   'users.reset_password_redirect', 'index', 'about']:
+                                   'users.reset_password_redirect', 'dashboard.index', 'about']:
             flash(trans_function('login_required', default='Please log in'), 'danger')
             return redirect(url_for('users.login'))
     elif current_user.is_authenticated:
-        mongo = current_app.extensions['pymongo']
-        user = mongo.db.users.find_one({'_id': current_user.id})
+        user = mongo.users.find_one({'_id': current_user.id})
         if user and not user.get('setup_complete', False):
             if request.endpoint not in ['users.setup_wizard', 'users.logout', 'users.profile', 
                                        'coins.purchase', 'coins.get_balance', 'set_language', 
