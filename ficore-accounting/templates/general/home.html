@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}{{ trans('home') | default('Home') }}{% endblock %}
+{% block content %}
+<div class="container">
+    <h1 class="text-center text-4xl font-bold mb-8">{{ trans('welcome') | default('Welcome to Ficore Records') }}</h1>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="card">
+            <h2 class="card-title">{{ trans('view_invoices') | default('Manage Invoices') }}</h2>
+            <p class="card-text">{{ trans('invoices_desc') | default('Create, edit, and track invoices') }}</p>
+            <a href="{{ url_for('invoices.dashboard') }}" class="btn-primary">{{ trans('go_to_invoices') | default('Go to Invoices') }}</a>
+        </div>
+        <div class="card">
+            <h2 class="card-title">{{ trans('create_invoice') | default('Create Invoice') }}</h2>
+            <p class="card-text">{{ trans('create_invoice_desc') | default('Quickly create a new invoice for a customer') }}</p>
+            <a href="{{ url_for('invoices.create') }}" class="btn-primary">{{ trans('create_invoice') | default('Create Invoice') }}</a>
+        </div>
+        <div class="card">
+            <h2 class="card-title">{{ trans('view_transactions') | default('Manage Transactions') }}</h2>
+            <p class="card-text">{{ trans('transactions_desc') | default('Record and view transactions') }}</p>
+            <a href="{{ url_for('transactions.history') }}" class="btn-primary">{{ trans('go_to_transactions') | default('Go to Transactions') }}</a>
+        </div>
+        <div class="card">
+            <h2 class="card-title">{{ trans('add_transaction') | default('Add Transaction') }}</h2>
+            <p class="card-text">{{ trans('add_transaction_desc') | default('Add a new income or expense transaction') }}</p>
+            <a href="{{ url_for('transactions.add') }}" class="btn-primary">{{ trans('add_transaction') | default('Add Transaction') }}</a>
+        </div>
+        <div class="card">
+            <h2 class="card-title">{{ trans('general_dashboard') | default('General Dashboard') }}</h2>
+            <p class="card-text">{{ trans('general_dashboard_desc') | default('See overall financial summary and stats') }}</p>
+            <a href="{{ url_for('general_dashboard') }}" class="btn-primary">{{ trans('go_to_dashboard') | default('Go to Dashboard') }}</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

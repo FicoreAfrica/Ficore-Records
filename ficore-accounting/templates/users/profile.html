@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}{{ trans('core_profile') | default('Profile') }}{% endblock %}
+{% block content %}
+<div class="container my-5">
+    <h1 class="text-center mb-4">{{ trans('core_profile') | default('Profile') }}</h1>
+    <div class="card mx-auto" style="max-width: 600px;">
+        <div class="card-body">
+            <h2 class="card-title">{{ trans('user_details') | default('User Details') }}</h2>
+            <p><strong>{{ trans('username') | default('Username') }}:</strong> {{ user._id | escape }}</p>
+            <p><strong>{{ trans('email') | default('Email') }}:</strong> {{ user.email | escape }}</p>
+            <p><strong>{{ trans('display_name') | default('Display Name') }}:</strong> {{ user.display_name | escape }}</p>
+            {% if user.business_details %}
+                <h2 class="card-title mt-4">{{ trans('business_details') | default('Business Details') }}</h2>
+                <p><strong>{{ trans('business_name') | default('Business Name') }}:</strong> {{ user.business_details.name | escape }}</p>
+                <p><strong>{{ trans('business_address') | default('Business Address') }}:</strong> {{ user.business_details.address | escape }}</p>
+                <p><strong>{{ trans('industry') | default('Industry') }}:</strong> {{ trans(user.business_details.industry, default=user.business_details.industry | capitalize) | escape }}</p>
+            {% else %}
+                <p class="text-warning">{{ trans('no_business_details') | default('No business details provided yet. Complete setup to add them.') }}</p>
+            {% endif %}
+            <h2 class="card-title mt-4">{{ trans('update_profile') | default('Update Profile') }}</h2>
+            <form class="validate-form" method="POST" action="{{ url_for('users.update_profile') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group mb-3">
+                    <label for="email" class="form-label">{{ trans('email') | default('Email') }}</label>
+                    <input type="email" name="email" id="email" class="form-control" value="{{ form.email.data or user.email | escape }}" required>
+                    <div class="invalid-feedback">{{ form.email.errors[0] if form.email.errors else trans('invalid_email') | default('Please enter a valid email') }}</div>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="display_name" class="form-label">{{ trans('display_name') | default('Display Name') }}</label>
+                    <input type="text" name="display_name" id="display_name" class="form-control" value="{{ form.display_name.data or user.display_name | escape }}" required>
+                    <div class="invalid-feedback">{{ form.display_name.errors[0] if form.display_name.errors else trans('required_field') | default('This field is required') }}</div>
+                </div>
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary">{{ trans('save') | default('Save') }}</button>
+                </div>
+            </form>
+            <div class="text-center mt-4">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary me-2">{{ trans('go_to_home') | default('Go to Home') }}</a>
+                <a href="{{ url_for('general_dashboard') }}" class="btn btn-secondary">{{ trans('go_to_general_dashboard') | default('Go to General Dashboard') }}</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

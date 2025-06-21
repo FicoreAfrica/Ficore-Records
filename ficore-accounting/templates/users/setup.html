@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}
+{{ trans('complete_business_setup', default='Complete Business Setup') | escape }}
+{% endblock %}
+{% block content %}
+<div class="container mt-5">
+    <h2>{{ trans('complete_business_setup', default='Complete Business Setup') | escape }}</h2>
+    <p>{{ trans('provide_business_details', default='Please provide your business details to complete the setup.') | escape }}</p>
+    
+    <form method="POST" class="needs-validation" novalidate>
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group mb-3">
+            {{ form.business_name.label(class="form-label") | safe }}
+            {{ form.business_name(class="form-control", required=True) | safe }}
+            {% if form.business_name.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.business_name.errors %}
+                        {{ error | escape }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group mb-3">
+            {{ form.address.label(class="form-label") | safe }}
+            {{ form.address(class="form-control", rows=4, required=True) | safe }}
+            {% if form.address.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.address.errors %}
+                        {{ error | escape }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group mb-3">
+            {{ form.industry.label(class="form-label") | safe }}
+            {{ form.industry(class="form-control", required=True) | safe }}
+            {% if form.industry.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.industry.errors %}
+                        {{ error | escape }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        {{ form.submit(class="btn btn-primary") | safe }}
+    </form>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+    // Bootstrap form validation
+    (function () {
+        'use strict';
+        var forms = document.querySelectorAll('.needs-validation');
+        Array.prototype.slice.call(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    })();
+</script>
+{% endblock %}
