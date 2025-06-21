@@ -51,13 +51,18 @@ try:
     test_client = MongoClient(app.config['MONGO_URI'], serverSelectionTimeoutMS=5000)
     test_client.admin.command('ping')
     logger.info("MongoDB connection test successful")
-    app.config['SESSION_MONGODB'] = test_client
 except ConnectionFailure as e:
     logger.error(f"Failed to connect to MongoDB at {app.config['MONGO_URI']}: {str(e)}")
     raise RuntimeError(f"Cannot connect to MongoDB: {str(e)}")
 
 # Session configuration
 app.config['SESSION_TYPE'] = 'mongodb'
+mongo_uri = os.getenv('MONGO_URI')
+if mongo_uri:
+    app.config['SESSION_MONGODB'] = MongoClient(mongo_uri)
+else:
+    logger.error("MONGO_URI environment variable not set. Session won't work correctly.")
+    raise ValueError("MONGO_URI environment variable is required for MongoDB sessions.")
 app.config['SESSION_MONGODB_DB'] = 'ficore_accounting'
 app.config['SESSION_MONGODB_COLLECTION'] = 'sessions'
 app.config['SESSION_PERMANENT'] = False
@@ -108,7 +113,7 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'users.login'
 
-# Role-based access control decorator (using utils.requires_role)
+# Role-based access control decorator
 from utils import requires_role, check_coin_balance
 
 class User(UserMixin):
