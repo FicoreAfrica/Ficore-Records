@@ -23,7 +23,7 @@ def index():
         return render_template('payments/index.html', payments=payments, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching payments for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
         return redirect(url_for('dashboard.index'))
 
 @payments_bp.route('/add', methods=['GET', 'POST'])
@@ -34,7 +34,7 @@ def add():
     from app.forms import TransactionForm
     form = TransactionForm()
     if not check_coin_balance(1):
-        flash(trans('insufficient_coins', default='Insufficient coins to add a payment. Purchase more coins.'), 'danger')
+        flash(trans_function('insufficient_coins', default='Insufficient coins to add a payment. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
         try:
@@ -60,11 +60,11 @@ def add():
                 'date': datetime.utcnow(),
                 'ref': f"Payment creation: {transaction['party_name']}"
             })
-            flash(trans('add_payment_success', default='Payment added successfully'), 'success')
+            flash(trans_function('add_payment_success', default='Payment added successfully'), 'success')
             return redirect(url_for('payments.index'))
         except Exception as e:
             logger.error(f"Error adding payment for user {current_user.id}: {str(e)}")
-            flash(trans('something_went_wrong'), 'danger')
+            flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return render_template('payments/add.html', form=form)
 
 @payments_bp.route('/edit/<id>', methods=['GET', 'POST'])
@@ -80,7 +80,7 @@ def edit(id):
             'type': 'payment'
         })
         if not payment:
-            flash(trans('transaction_not_found'), 'danger')
+            flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
             return redirect(url_for('payments.index'))
         form = TransactionForm(data={
             'party_name': payment['party_name'],
@@ -103,15 +103,15 @@ def edit(id):
                     {'_id': ObjectId(id)},
                     {'$set': updated_transaction}
                 )
-                flash(trans('edit_payment_success', default='Payment updated successfully'), 'success')
+                flash(trans_function('edit_payment_success', default='Payment updated successfully'), 'success')
                 return redirect(url_for('payments.index'))
             except Exception as e:
                 logger.error(f"Error updating payment {id} for user {current_user.id}: {str(e)}")
-                flash(trans('something_went_wrong'), 'danger')
+                flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
         return render_template('payments/edit.html', form=form, payment=payment)
     except Exception as e:
         logger.error(f"Error fetching payment {id} for user {current_user.id}: {str(e)}")
-        flash(trans('transaction_not_found'), 'danger')
+        flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
         return redirect(url_for('payments.index'))
 
 @payments_bp.route('/delete/<id>', methods=['POST'])
@@ -126,10 +126,10 @@ def delete(id):
             'type': 'payment'
         })
         if result.deleted_count:
-            flash(trans('delete_payment_success', default='Payment deleted successfully'), 'success')
+            flash(trans_function('delete_payment_success', default='Payment deleted successfully'), 'success')
         else:
-            flash(trans('transaction_not_found'), 'danger')
+            flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
     except Exception as e:
         logger.error(f"Error deleting payment {id} for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return redirect(url_for('payments.index'))
