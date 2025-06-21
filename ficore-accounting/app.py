@@ -2,15 +2,14 @@ import os
 import sys
 import logging
 from datetime import datetime, date, timedelta
-from flask import Flask, session, redirect, url_for, flash, render_template, request, Response, jsonify, g
+from flask import Flask, session, redirect, url_for, flash, render_template, request, Response, jsonify
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, current_user, login_required
 from flask_mailman import Mail
 from werkzeug.security import generate_password_hash
 import jinja2
 from flask_wtf import CSRFProtect
-from bson import ObjectId
-from utils import trans_function as trans, is_valid_email
+from utils import trans_function as trans, is_valid_email, get_mongo_db, close_mongo_db
 from flask_session import Session
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.errors import ConnectionFailure
@@ -19,7 +18,6 @@ from flask_limiter.util import get_remote_address
 from itsdangerous import URLSafeTimedSerializer
 from flask_babel import Babel
 from functools import wraps
-from gridfs import GridFS
 
 # Debug dnspython import
 try:
@@ -96,6 +94,9 @@ limiter = Limiter(
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 babel = Babel(app)
 
+# Register teardown handler
+app.teardown_appcontext(close_mongo_db)
+
 # Localization configuration
 def get_locale():
     return session.get('lang', request.accept_languages.best_match(['en', 'ha'], default='en'))
@@ -107,46 +108,8 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'users.login'
 
-# MongoDB connection management
-def get_db():
-    if 'db' not in g:
-        g.mongo_client = MongoClient(app.config['MONGO_URI'], serverSelectionTimeoutMS=20000)
-        g.db = g.mongo_client[app.config['SESSION_MONGODB_DB']]
-        g.gridfs = GridFS(g.db)
-        app.extensions['pymongo'] = g.db
-        app.extensions['gridfs'] = g.gridfs
-    return g.db
-
-@app.teardown_appcontext
-def close_db(error=None):
-    client = g.pop('mongo_client', None)
-    if client is not None:
-        client.close()
-
-# Role-based access control decorator
-def requires_role(roles):
-    if not isinstance(roles, list):
-        roles = [roles]
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            if not current_user.is_authenticated:
-                flash(trans('login_required', default='Please log in'), 'danger')
-                return redirect(url_for('users.login'))
-            user = get_db().users.find_one({'_id': current_user.id})
-            if not user or user.get('role') not in roles:
-                flash(trans('forbidden_access', default='Access denied'), 'danger')
-                return redirect(url_for('index'))
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
-
-# Coin gating utility
-def check_coin_balance(required_coins):
-    if not current_user.is_authenticated:
-        return False
-    user = get_db().users.find_one({'_id': current_user.id})
-    return user.get('coin_balance', 0) >= required_coins
+# Role-based access control decorator (using utils.requires_role)
+from utils import requires_role, check_coin_balance
 
 class User(UserMixin):
     def __init__(self, id, email, display_name=None, role='personal'):
@@ -156,13 +119,13 @@ class User(UserMixin):
         self.role = role
 
     def get(self, key, default=None):
-        user = get_db().users.find_one({'_id': self.id})
+        user = get_mongo_db().users.find_one({'_id': self.id})
         return user.get(key, default) if user else default
 
 @login_manager.user_loader
 def load_user(user_id):
     try:
-        user_data = get_db().users.find_one({'_id': user_id})
+        user_data = get_mongo_db().users.find_one({'_id': user_id})
         if user_data:
             return User(user_data['_id'], user_data['email'], user_data.get('display_name'), user_data.get('role', 'personal'))
         return None
@@ -276,7 +239,7 @@ def set_language(lang):
     if lang in valid_langs:
         session['lang'] = lang
         if current_user.is_authenticated:
-            get_db().users.update_one({'_id': current_user.id}, {'$set': {'language': lang}})
+            get_mongo_db().users.update_one({'_id': current_user.id}, {'$set': {'language': lang}})
         flash(trans('language_updated', default='Language updated'), 'success')
     else:
         flash(trans('invalid_language', default='Invalid language'), 'danger')
@@ -300,12 +263,12 @@ def set_dark_mode():
     dark_mode = str(data.get('dark_mode', False)).lower() == 'true'
     session['dark_mode'] = dark_mode
     if current_user.is_authenticated:
-        get_db().users.update_one({'_id': current_user.id}, {'$set': {'dark_mode': dark_mode}})
+        get_mongo_db().users.update_one({'_id': current_user.id}, {'$set': {'dark_mode': dark_mode}})
     return Response(status=204)
 
 def setup_database():
     try:
-        db = get_db()
+        db = get_mongo_db()
         collections = db.list_collection_names()
         db.command('ping')
         logger.info("MongoDB connection successful during setup")
@@ -581,7 +544,7 @@ def feedback():
             if not rating or not rating.isdigit() or int(rating) < 1 or int(rating) > 5:
                 flash(trans('invalid_rating', default='Invalid rating'), 'danger')
                 return render_template('general/feedback.html', tool_options=tool_options)
-            db = get_db()
+            db = get_mongo_db()
             db.users.update_one({'_id': current_user.id}, {'$inc': {'coin_balance': -1}})
             db.coin_transactions.insert_one({
                 'user_id': current_user.id,
@@ -617,7 +580,7 @@ def feedback():
 @requires_role('admin')
 def admin_dashboard():
     try:
-        db = get_db()
+        db = get_mongo_db()
         inventory = list(db.inventory.find().sort('created_at', DESCENDING).limit(50))
         payments = list(db.payments.find().sort('created_at', DESCENDING).limit(50))
         receipts = list(db.receipts.find().sort('upload_date', DESCENDING).limit(50))
@@ -644,7 +607,7 @@ def admin_dashboard():
 @login_required
 def general_dashboard():
     try:
-        db = get_db()
+        db = get_mongo_db()
         user = db.users.find_one({'_id': current_user.id})
         query = {'user_id': current_user.id}
         if user.get('role') == 'admin':
