@@ -87,9 +87,9 @@ serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 babel = Babel(app)
 
 # Localization configuration
+@babel.localeselector
 def get_locale():
     return session.get('lang', request.accept_languages.best_match(['en', 'ha'], default='en'))
-babel.locale_selector_func(get_locale)
 
 # PWA configuration
 app.config['PWA_NAME'] = 'Ficore'
