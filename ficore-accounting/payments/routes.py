@@ -16,7 +16,7 @@ payments_bp = Blueprint('payments', __name__, url_prefix='/payments')
 def index():
     """List all payments for the current user."""
     try:
-        payments = mongo.db.transactions.find({
+        payments = mongo.transactions.find({
             'user_id': str(current_user.id),
             'type': 'payment'
         }).sort('date', -1)
@@ -48,12 +48,12 @@ def add():
                 'category': form.category.data,
                 'created_at': datetime.utcnow()
             }
-            mongo.db.transactions.insert_one(transaction)
-            mongo.db.users.update_one(
+            mongo.transactions.insert_one(transaction)
+            mongo.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$inc': {'coin_balance': -1}}
             )
-            mongo.db.coin_transactions.insert_one({
+            mongo.coin_transactions.insert_one({
                 'user_id': str(current_user.id),
                 'amount': -1,
                 'type': 'spend',
@@ -74,7 +74,7 @@ def edit(id):
     """Edit an existing payment."""
     from app.forms import TransactionForm
     try:
-        payment = mongo.db.transactions.find_one({
+        payment = mongo.transactions.find_one({
             '_id': ObjectId(id),
             'user_id': str(current_user.id),
             'type': 'payment'
@@ -99,7 +99,7 @@ def edit(id):
                     'category': form.category.data,
                     'updated_at': datetime.utcnow()
                 }
-                mongo.db.transactions.update_one(
+                mongo.transactions.update_one(
                     {'_id': ObjectId(id)},
                     {'$set': updated_transaction}
                 )
@@ -120,7 +120,7 @@ def edit(id):
 def delete(id):
     """Delete a payment."""
     try:
-        result = mongo.db.transactions.delete_one({
+        result = mongo.transactions.delete_one({
             '_id': ObjectId(id),
             'user_id': str(current_user.id),
             'type': 'payment'
