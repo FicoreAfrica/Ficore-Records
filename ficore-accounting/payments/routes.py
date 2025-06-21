@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date
-from app import mongo
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db
 from bson import ObjectId
 from datetime import datetime
 import logging
@@ -16,7 +15,8 @@ payments_bp = Blueprint('payments', __name__, url_prefix='/payments')
 def index():
     """List all payments for the current user."""
     try:
-        payments = mongo.transactions.find({
+        db = get_mongo_db()
+        payments = db.transactions.find({
             'user_id': str(current_user.id),
             'type': 'payment'
         }).sort('date', -1)
@@ -38,6 +38,7 @@ def add():
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
         try:
+            db = get_mongo_db()
             transaction = {
                 'user_id': str(current_user.id),
                 'type': 'payment',
@@ -48,12 +49,12 @@ def add():
                 'category': form.category.data,
                 'created_at': datetime.utcnow()
             }
-            mongo.transactions.insert_one(transaction)
-            mongo.users.update_one(
+            db.transactions.insert_one(transaction)
+            db.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$inc': {'coin_balance': -1}}
             )
-            mongo.coin_transactions.insert_one({
+            db.coin_transactions.insert_one({
                 'user_id': str(current_user.id),
                 'amount': -1,
                 'type': 'spend',
@@ -74,7 +75,8 @@ def edit(id):
     """Edit an existing payment."""
     from app.forms import TransactionForm
     try:
-        payment = mongo.transactions.find_one({
+        db = get_mongo_db()
+        payment = db.transactions.find_one({
             '_id': ObjectId(id),
             'user_id': str(current_user.id),
             'type': 'payment'
@@ -99,7 +101,7 @@ def edit(id):
                     'category': form.category.data,
                     'updated_at': datetime.utcnow()
                 }
-                mongo.transactions.update_one(
+                db.transactions.update_one(
                     {'_id': ObjectId(id)},
                     {'$set': updated_transaction}
                 )
@@ -120,7 +122,8 @@ def edit(id):
 def delete(id):
     """Delete a payment."""
     try:
-        result = mongo.transactions.delete_one({
+        db = get_mongo_db()
+        result = db.transactions.delete_one({
             '_id': ObjectId(id),
             'user_id': str(current_user.id),
             'type': 'payment'
