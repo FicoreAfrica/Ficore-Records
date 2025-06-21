@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date
-from app import mongo
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db
 from bson import ObjectId
 from datetime import datetime
 import logging
@@ -16,7 +15,8 @@ inventory_bp = Blueprint('inventory', __name__, url_prefix='/inventory')
 def index():
     """List all inventory items for the current user."""
     try:
-        items = mongo.inventory.find({
+        db = get_mongo_db()
+        items = db.inventory.find({
             'user_id': str(current_user.id)
         }).sort('created_at', -1)
         return render_template('inventory/index.html', items=items, format_currency=format_currency)
@@ -31,9 +31,10 @@ def index():
 def low_stock():
     """List inventory items with low stock."""
     try:
-        low_stock_items = mongo.inventory.find({
+        db = get_mongo_db()
+        low_stock_items = db.inventory.find({
             'user_id': str(current_user.id),
-            'qty': {'$lte': mongo.inventory.threshold}
+            'qty': {'$lte': db.inventory.threshold}
         }).sort('qty', 1)
         return render_template('inventory/low_stock.html', items=low_stock_items, format_currency=format_currency)
     except Exception as e:
@@ -53,6 +54,7 @@ def add():
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
         try:
+            db = get_mongo_db()
             item = {
                 'user_id': str(current_user.id),
                 'item_name': form.item_name.data,
@@ -63,12 +65,12 @@ def add():
                 'threshold': form.threshold.data,
                 'created_at': datetime.utcnow()
             }
-            mongo.inventory.insert_one(item)
-            mongo.users.update_one(
+            db.inventory.insert_one(item)
+            db.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$inc': {'coin_balance': -1}}
             )
-            mongo.coin_transactions.insert_one({
+            db.coin_transactions.insert_one({
                 'user_id': str(current_user.id),
                 'amount': -1,
                 'type': 'spend',
@@ -89,7 +91,8 @@ def edit(id):
     """Edit an existing inventory item."""
     from app.forms import InventoryForm
     try:
-        item = mongo.inventory.find_one({
+        db = get_mongo_db()
+        item = db.inventory.find_one({
             '_id': ObjectId(id),
             'user_id': str(current_user.id)
         })
@@ -115,7 +118,7 @@ def edit(id):
                     'threshold': form.threshold.data,
                     'updated_at': datetime.utcnow()
                 }
-                mongo.inventory.update_one(
+                db.inventory.update_one(
                     {'_id': ObjectId(id)},
                     {'$set': updated_item}
                 )
@@ -136,7 +139,8 @@ def edit(id):
 def delete(id):
     """Delete an inventory item."""
     try:
-        result = mongo.inventory.delete_one({
+        db = get_mongo_db()
+        result = db.inventory.delete_one({
             '_id': ObjectId(id),
             'user_id': str(current_user.id)
         })
