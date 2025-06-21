@@ -3,9 +3,9 @@ from flask_login import login_required, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, FloatField, validators, SubmitField
 from datetime import datetime
-from utils import trans_function, requires_role
+from utils import trans_function, requires_role, get_mongo_db
 from bson import ObjectId
-from app import limiter, mongo
+from app import limiter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,8 @@ class CreditForm(FlaskForm):
 def log_audit_action(action, details):
     """Log an admin action to audit_logs collection."""
     try:
-        mongo.audit_logs.insert_one({
+        db = get_mongo_db()
+        db.audit_logs.insert_one({
             'admin_id': str(current_user.id),
             'action': action,
             'details': details,
@@ -42,13 +43,14 @@ def log_audit_action(action, details):
 def dashboard():
     """Admin dashboard with system stats."""
     try:
-        user_count = mongo.users.count_documents({'role': {'$ne': 'admin'}})
-        invoice_count = mongo.invoices.count_documents({})
-        transaction_count = mongo.transactions.count_documents({})
-        inventory_count = mongo.inventory.count_documents({})
-        coin_tx_count = mongo.coin_transactions.count_documents({})
-        audit_log_count = mongo.audit_logs.count_documents({})
-        recent_users = list(mongo.users.find({'role': {'$ne': 'admin'}}).sort('created_at', -1).limit(10))
+        db = get_mongo_db()
+        user_count = db.users.count_documents({'role': {'$ne': 'admin'}})
+        invoice_count = db.invoices.count_documents({})
+        transaction_count = db.transactions.count_documents({})
+        inventory_count = db.inventory.count_documents({})
+        coin_tx_count = db.coin_transactions.count_documents({})
+        audit_log_count = db.audit_logs.count_documents({})
+        recent_users = list(db.users.find({'role': {'$ne': 'admin'}}).sort('created_at', -1).limit(10))
         for user in recent_users:
             user['_id'] = str(user['_id'])
         return render_template(
@@ -75,7 +77,8 @@ def dashboard():
 def manage_users():
     """View and manage users."""
     try:
-        users = list(mongo.users.find({'role': {'$ne': 'admin'}}).sort('created_at', -1))
+        db = get_mongo_db()
+        users = list(db.users.find({'role': {'$ne': 'admin'}}).sort('created_at', -1))
         for user in users:
             user['_id'] = str(user['_id'])
         return render_template('admin/users.html', users=users)
@@ -91,7 +94,8 @@ def manage_users():
 def suspend_user(user_id):
     """Suspend a user account."""
     try:
-        result = mongo.users.update_one(
+        db = get_mongo_db()
+        result = db.users.update_one(
             {'_id': ObjectId(user_id), 'role': {'$ne': 'admin'}},
             {'$set': {'suspended': True, 'updated_at': datetime.utcnow()}}
         )
@@ -114,12 +118,13 @@ def suspend_user(user_id):
 def delete_user(user_id):
     """Delete a user and their data."""
     try:
-        mongo.invoices.delete_many({'user_id': user_id})
-        mongo.transactions.delete_many({'user_id': user_id})
-        mongo.inventory.delete_many({'user_id': user_id})
-        mongo.coin_transactions.delete_many({'user_id': user_id})
-        mongo.audit_logs.delete_many({'details.user_id': user_id})
-        result = mongo.users.delete_one({'_id': ObjectId(user_id), 'role': {'$ne': 'admin'}})
+        db = get_mongo_db()
+        db.invoices.delete_many({'user_id': user_id})
+        db.transactions.delete_many({'user_id': user_id})
+        db.inventory.delete_many({'user_id': user_id})
+        db.coin_transactions.delete_many({'user_id': user_id})
+        db.audit_logs.delete_many({'details.user_id': user_id})
+        result = db.users.delete_one({'_id': ObjectId(user_id), 'role': {'$ne': 'admin'}})
         if result.deleted_count == 0:
             flash(trans_function('user_not_found', default='User not found'), 'danger')
         else:
@@ -143,7 +148,8 @@ def delete_item(collection, item_id):
         flash(trans_function('invalid_collection', default='Invalid collection'), 'danger')
         return redirect(url_for('admin.dashboard'))
     try:
-        result = mongo[collection].delete_one({'_id': ObjectId(item_id)})
+        db = get_mongo_db()
+        result = db[collection].delete_one({'_id': ObjectId(item_id)})
         if result.deleted_count == 0:
             flash(trans_function('item_not_found', default='Item not found'), 'danger')
         else:
@@ -165,18 +171,19 @@ def credit_coins():
     form = CreditForm()
     if form.validate_on_submit():
         try:
+            db = get_mongo_db()
             username = form.username.data.strip().lower()
             amount = int(form.amount.data)
-            user = mongo.users.find_one({'username': username})
+            user = db.users.find_one({'username': username})
             if not user:
                 flash(trans_function('user_not_found', default='User not found'), 'danger')
                 return render_template('admin/coins_credit.html', form=form)
-            mongo.users.update_one(
+            db.users.update_one(
                 {'_id': user['_id']},
                 {'$inc': {'coin_balance': amount}}
             )
             ref = f"ADMIN_CREDIT_{datetime.utcnow().isoformat()}"
-            mongo.coin_transactions.insert_one({
+            db.coin_transactions.insert_one({
                 'user_id': str(user['_id']),
                 'amount': amount,
                 'type': 'admin_credit',
@@ -200,7 +207,8 @@ def credit_coins():
 def audit():
     """View audit logs of admin actions."""
     try:
-        logs = list(mongo.audit_logs.find().sort('timestamp', -1).limit(100))
+        db = get_mongo_db()
+        logs = list(db.audit_logs.find().sort('timestamp', -1).limit(100))
         for log in logs:
             log['_id'] = str(log['_id'])
         return render_template('admin/audit.html', logs=logs)
