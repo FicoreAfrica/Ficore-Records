@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date
-from app import mongo
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db
 from bson import ObjectId
 from datetime import datetime
 import logging
@@ -16,7 +15,8 @@ debtors_bp = Blueprint('debtors', __name__, url_prefix='/debtors')
 def index():
     """List all debtor invoices for the current user."""
     try:
-        debtors = mongo.invoices.find({
+        db = get_mongo_db()
+        debtors = db.invoices.find({
             'user_id': str(current_user.id),
             'type': 'debtor'
         }).sort('created_at', -1)
@@ -38,6 +38,7 @@ def add():
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
         try:
+            db = get_mongo_db()
             invoice = {
                 'user_id': str(current_user.id),
                 'type': 'debtor',
@@ -55,12 +56,12 @@ def add():
                 'payments': [],
                 'created_at': datetime.utcnow()
             }
-            mongo.invoices.insert_one(invoice)
-            mongo.users.update_one(
+            db.invoices.insert_one(invoice)
+            db.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$inc': {'coin_balance': -1}}
             )
-            mongo.coin_transactions.insert_one({
+            db.coin_transactions.insert_one({
                 'user_id': str(current_user.id),
                 'amount': -1,
                 'type': 'spend',
@@ -81,7 +82,8 @@ def edit(id):
     """Edit an existing debtor invoice."""
     from app.forms import InvoiceForm
     try:
-        debtor = mongo.invoices.find_one({
+        db = get_mongo_db()
+        debtor = db.invoices.find_one({
             '_id': ObjectId(id),
             'user_id': str(current_user.id),
             'type': 'debtor'
@@ -109,7 +111,7 @@ def edit(id):
                     'due_date': form.due_date.data,
                     'updated_at': datetime.utcnow()
                 }
-                mongo.invoices.update_one(
+                db.invoices.update_one(
                     {'_id': ObjectId(id)},
                     {'$set': updated_invoice}
                 )
@@ -130,7 +132,8 @@ def edit(id):
 def delete(id):
     """Delete a debtor invoice."""
     try:
-        result = mongo.invoices.delete_one({
+        db = get_mongo_db()
+        result = db.invoices.delete_one({
             '_id': ObjectId(id),
             'user_id': str(current_user.id),
             'type': 'debtor'
