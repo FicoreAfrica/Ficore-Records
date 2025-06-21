@@ -4,7 +4,6 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, FloatField, validators, SubmitField
 from datetime import datetime
 from utils import trans_function as trans, requires_role
-from translations import trans_function
 from bson import ObjectId
 from app import limiter
 import logging
