@@ -4,9 +4,9 @@ from wtforms import FloatField, StringField, SelectField, validators, SubmitFiel
 from flask_wtf.file import FileField, FileAllowed
 from flask_login import login_required, current_user
 from datetime import datetime
-from utils import trans_function, requires_role, check_coin_balance
+from utils import trans_function, requires_role, check_coin_balance, get_mongo_db
 from bson import ObjectId
-from app import limiter, mongo
+from app import limiter
 import logging
 from gridfs import GridFS
 
@@ -34,11 +34,12 @@ class ReceiptUploadForm(FlaskForm):
 
 def credit_coins(user_id, amount, ref, type='purchase'):
     """Credit coins to a user and log transaction."""
-    mongo.users.update_one(
+    db = get_mongo_db()
+    db.users.update_one(
         {'_id': ObjectId(user_id)},
         {'$inc': {'coin_balance': amount}}
     )
-    mongo.coin_transactions.insert_one({
+    db.coin_transactions.insert_one({
         'user_id': user_id,
         'amount': amount,
         'type': type,
@@ -47,7 +48,7 @@ def credit_coins(user_id, amount, ref, type='purchase'):
     })
     # Log audit action
     try:
-        mongo.audit_logs.insert_one({
+        db.audit_logs.insert_one({
             'admin_id': 'system' if type == 'purchase' else str(current_user.id),
             'action': f'credit_coins_{type}',
             'details': {'user_id': user_id, 'amount': amount, 'ref': ref},
@@ -84,11 +85,12 @@ def purchase():
 def history():
     """View coin transaction history."""
     try:
-        user = mongo.users.find_one({'_id': ObjectId(current_user.id)})
+        db = get_mongo_db()
+        user = db.users.find_one({'_id': ObjectId(current_user.id)})
         query = {'user_id': str(current_user.id)}
         if user.get('role') == 'admin':
             query.pop('user_id')
-        transactions = list(mongo.coin_transactions.find(query).sort('date', -1).limit(50))
+        transactions = list(db.coin_transactions.find(query).sort('date', -1).limit(50))
         for tx in transactions:
             tx['_id'] = str(tx['_id'])
         return render_template('coins/history.html', transactions=transactions, coin_balance=user.get('coin_balance', 0))
@@ -109,22 +111,23 @@ def receipt_upload():
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
         try:
+            db = get_mongo_db()
             fs = current_app.extensions['gridfs']
             receipt_file = form.receipt.data
             file_id = fs.put(receipt_file, filename=receipt_file.filename, user_id=str(current_user.id), upload_date=datetime.utcnow())
-            mongo.users.update_one(
+            db.users.update_one(
                 {'_id': ObjectId(current_user.id)},
                 {'$inc': {'coin_balance': -1}}
             )
             ref = f"RECEIPT_UPLOAD_{datetime.utcnow().isoformat()}"
-            mongo.coin_transactions.insert_one({
+            db.coin_transactions.insert_one({
                 'user_id': str(current_user.id),
                 'amount': -1,
                 'type': 'spend',
                 'ref': ref,
                 'date': datetime.utcnow()
             })
-            mongo.audit_logs.insert_one({
+            db.audit_logs.insert_one({
                 'admin_id': 'system',
                 'action': 'receipt_upload',
                 'details': {'user_id': str(current_user.id), 'file_id': str(file_id), 'ref': ref},
@@ -145,7 +148,8 @@ def receipt_upload():
 def get_balance():
     """API endpoint to fetch current coin balance."""
     try:
-        user = mongo.users.find_one({'_id': ObjectId(current_user.id)})
+        db = get_mongo_db()
+        user = db.users.find_one({'_id': ObjectId(current_user.id)})
         return jsonify({'coin_balance': user.get('coin_balance', 0)})
     except Exception as e:
         logger.error(f"Error fetching coin balance for user {current_user.id}: {str(e)}")
