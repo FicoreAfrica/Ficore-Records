@@ -5,7 +5,7 @@ from wtforms import StringField, FloatField, validators, SubmitField
 from datetime import datetime
 from utils import trans_function, requires_role
 from bson import ObjectId
-from app import limiter
+from app import limiter, mongo
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,8 +26,7 @@ class CreditForm(FlaskForm):
 def log_audit_action(action, details):
     """Log an admin action to audit_logs collection."""
     try:
-        mongo = current_app.extensions['pymongo']
-        mongo.db.audit_logs.insert_one({
+        mongo.audit_logs.insert_one({
             'admin_id': str(current_user.id),
             'action': action,
             'details': details,
@@ -43,14 +42,13 @@ def log_audit_action(action, details):
 def dashboard():
     """Admin dashboard with system stats."""
     try:
-        mongo = current_app.extensions['pymongo']
-        user_count = mongo.db.users.count_documents({'role': {'$ne': 'admin'}})
-        invoice_count = mongo.db.invoices.count_documents({})
-        transaction_count = mongo.db.transactions.count_documents({})
-        inventory_count = mongo.db.inventory.count_documents({})
-        coin_tx_count = mongo.db.coin_transactions.count_documents({})
-        audit_log_count = mongo.db.audit_logs.count_documents({})
-        recent_users = list(mongo.db.users.find({'role': {'$ne': 'admin'}}).sort('created_at', -1).limit(10))
+        user_count = mongo.users.count_documents({'role': {'$ne': 'admin'}})
+        invoice_count = mongo.invoices.count_documents({})
+        transaction_count = mongo.transactions.count_documents({})
+        inventory_count = mongo.inventory.count_documents({})
+        coin_tx_count = mongo.coin_transactions.count_documents({})
+        audit_log_count = mongo.audit_logs.count_documents({})
+        recent_users = list(mongo.users.find({'role': {'$ne': 'admin'}}).sort('created_at', -1).limit(10))
         for user in recent_users:
             user['_id'] = str(user['_id'])
         return render_template(
@@ -77,8 +75,7 @@ def dashboard():
 def manage_users():
     """View and manage users."""
     try:
-        mongo = current_app.extensions['pymongo']
-        users = list(mongo.db.users.find({'role': {'$ne': 'admin'}}).sort('created_at', -1))
+        users = list(mongo.users.find({'role': {'$ne': 'admin'}}).sort('created_at', -1))
         for user in users:
             user['_id'] = str(user['_id'])
         return render_template('admin/users.html', users=users)
@@ -94,8 +91,7 @@ def manage_users():
 def suspend_user(user_id):
     """Suspend a user account."""
     try:
-        mongo = current_app.extensions['pymongo']
-        result = mongo.db.users.update_one(
+        result = mongo.users.update_one(
             {'_id': ObjectId(user_id), 'role': {'$ne': 'admin'}},
             {'$set': {'suspended': True, 'updated_at': datetime.utcnow()}}
         )
@@ -118,13 +114,12 @@ def suspend_user(user_id):
 def delete_user(user_id):
     """Delete a user and their data."""
     try:
-        mongo = current_app.extensions['pymongo']
-        mongo.db.invoices.delete_many({'user_id': user_id})
-        mongo.db.transactions.delete_many({'user_id': user_id})
-        mongo.db.inventory.delete_many({'user_id': user_id})
-        mongo.db.coin_transactions.delete_many({'user_id': user_id})
-        mongo.db.audit_logs.delete_many({'details.user_id': user_id})
-        result = mongo.db.users.delete_one({'_id': ObjectId(user_id), 'role': {'$ne': 'admin'}})
+        mongo.invoices.delete_many({'user_id': user_id})
+        mongo.transactions.delete_many({'user_id': user_id})
+        mongo.inventory.delete_many({'user_id': user_id})
+        mongo.coin_transactions.delete_many({'user_id': user_id})
+        mongo.audit_logs.delete_many({'details.user_id': user_id})
+        result = mongo.users.delete_one({'_id': ObjectId(user_id), 'role': {'$ne': 'admin'}})
         if result.deleted_count == 0:
             flash(trans_function('user_not_found', default='User not found'), 'danger')
         else:
@@ -148,8 +143,7 @@ def delete_item(collection, item_id):
         flash(trans_function('invalid_collection', default='Invalid collection'), 'danger')
         return redirect(url_for('admin.dashboard'))
     try:
-        mongo = current_app.extensions['pymongo']
-        result = mongo.db[collection].delete_one({'_id': ObjectId(item_id)})
+        result = mongo[collection].delete_one({'_id': ObjectId(item_id)})
         if result.deleted_count == 0:
             flash(trans_function('item_not_found', default='Item not found'), 'danger')
         else:
@@ -171,19 +165,18 @@ def credit_coins():
     form = CreditForm()
     if form.validate_on_submit():
         try:
-            mongo = current_app.extensions['pymongo']
             username = form.username.data.strip().lower()
             amount = int(form.amount.data)
-            user = mongo.db.users.find_one({'username': username})
+            user = mongo.users.find_one({'username': username})
             if not user:
                 flash(trans_function('user_not_found', default='User not found'), 'danger')
                 return render_template('admin/coins_credit.html', form=form)
-            mongo.db.users.update_one(
+            mongo.users.update_one(
                 {'_id': user['_id']},
                 {'$inc': {'coin_balance': amount}}
             )
             ref = f"ADMIN_CREDIT_{datetime.utcnow().isoformat()}"
-            mongo.db.coin_transactions.insert_one({
+            mongo.coin_transactions.insert_one({
                 'user_id': str(user['_id']),
                 'amount': amount,
                 'type': 'admin_credit',
@@ -207,8 +200,7 @@ def credit_coins():
 def audit():
     """View audit logs of admin actions."""
     try:
-        mongo = current_app.extensions['pymongo']
-        logs = list(mongo.db.audit_logs.find().sort('timestamp', -1).limit(100))
+        logs = list(mongo.audit_logs.find().sort('timestamp', -1).limit(100))
         for log in logs:
             log['_id'] = str(log['_id'])
         return render_template('admin/audit.html', logs=logs)
