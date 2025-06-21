@@ -23,7 +23,7 @@ def index():
         return render_template('debtors/index.html', debtors=debtors, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching debtors for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
         return redirect(url_for('dashboard.index'))
 
 @debtors_bp.route('/add', methods=['GET', 'POST'])
@@ -34,7 +34,7 @@ def add():
     from app.forms import InvoiceForm
     form = InvoiceForm()
     if not check_coin_balance(1):
-        flash(trans('insufficient_coins', default='Insufficient coins to create a debtor. Purchase more coins.'), 'danger')
+        flash(trans_function('insufficient_coins', default='Insufficient coins to create a debtor. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
         try:
@@ -67,11 +67,11 @@ def add():
                 'date': datetime.utcnow(),
                 'ref': f"Debtor creation: {invoice['party_name']}"
             })
-            flash(trans('create_debtor_success', default='Debtor created successfully'), 'success')
+            flash(trans_function('create_debtor_success', default='Debtor created successfully'), 'success')
             return redirect(url_for('debtors.index'))
         except Exception as e:
             logger.error(f"Error creating debtor for user {current_user.id}: {str(e)}")
-            flash(trans('something_went_wrong'), 'danger')
+            flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return render_template('debtors/add.html', form=form)
 
 @debtors_bp.route('/edit/<id>', methods=['GET', 'POST'])
@@ -87,7 +87,7 @@ def edit(id):
             'type': 'debtor'
         })
         if not debtor:
-            flash(trans('invoice_not_found'), 'danger')
+            flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
             return redirect(url_for('debtors.index'))
         form = InvoiceForm(data={
             'party_name': debtor['party_name'],
@@ -113,15 +113,15 @@ def edit(id):
                     {'_id': ObjectId(id)},
                     {'$set': updated_invoice}
                 )
-                flash(trans('edit_debtor_success', default='Debtor updated successfully'), 'success')
+                flash(trans_function('edit_debtor_success', default='Debtor updated successfully'), 'success')
                 return redirect(url_for('debtors.index'))
             except Exception as e:
                 logger.error(f"Error updating debtor {id} for user {current_user.id}: {str(e)}")
-                flash(trans('something_went_wrong'), 'danger')
+                flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
         return render_template('debtors/edit.html', form=form, debtor=debtor)
     except Exception as e:
         logger.error(f"Error fetching debtor {id} for user {current_user.id}: {str(e)}")
-        flash(trans('invoice_not_found'), 'danger')
+        flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
         return redirect(url_for('debtors.index'))
 
 @debtors_bp.route('/delete/<id>', methods=['POST'])
@@ -136,10 +136,10 @@ def delete(id):
             'type': 'debtor'
         })
         if result.deleted_count:
-            flash(trans('delete_debtor_success', default='Debtor deleted successfully'), 'success')
+            flash(trans_function('delete_debtor_success', default='Debtor deleted successfully'), 'success')
         else:
-            flash(trans('invoice_not_found'), 'danger')
+            flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
     except Exception as e:
         logger.error(f"Error deleting debtor {id} for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return redirect(url_for('debtors.index'))
