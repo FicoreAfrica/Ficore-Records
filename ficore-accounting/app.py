@@ -1,5 +1,5 @@
 from flask import Flask, session, redirect, url_for, flash, render_template, request, Response, jsonify
-from flask_pymongo import PyMongo
+import pymongo
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, current_user, login_required
 from flask_mailman import Mail, EmailMessage
@@ -12,7 +12,7 @@ import logging
 from bson import ObjectId
 from utils import trans_function as trans, is_valid_email
 from flask_session import Session
-from pymongo import ASCENDING, DESCENDING, errors
+from pymongo import ASCENDING, DESCENDING
 from pymongo.operations import UpdateOne
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -57,18 +57,21 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'support@ficoreapp.com')
 
+# Initialize MongoDB
+mongo_client = pymongo.MongoClient(app.config['MONGO_URI'])
+mongo = mongo_client[app.config['SESSION_MONGODB_DB']]
+app.extensions['pymongo'] = mongo
+app.extensions['gridfs'] = GridFS(mongo)
+app.config['SESSION_MONGODB'] = mongo_client
+
 # Initialize extensions
-mongo = PyMongo(app)
-app.extensions['pymongo'] = mongo.db
-app.extensions['gridfs'] = GridFS(mongo.db)
-app.config['SESSION_MONGODB'] = mongo.cx
 mail = Mail(app)
 sess = Session(app)
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
     default_limits=["1000 per day", "100 per hour"],
-    storage_uri=os.getenv('MONGO_URI', 'mongodb://localhost:27017/ficore'),
+    storage_uri=app.config['MONGO_URI'],
     storage_options={}
 )
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
@@ -99,7 +102,7 @@ def requires_role(roles):
             if not current_user.is_authenticated:
                 flash(trans('login_required', default='Please log in'), 'danger')
                 return redirect(url_for('users.login'))
-            user = mongo.db.users.find_one({'_id': current_user.id})
+            user = mongo.users.find_one({'_id': current_user.id})
             if not user or user.get('role') not in roles:
                 flash(trans('forbidden_access', default='Access denied'), 'danger')
                 return redirect(url_for('index'))
@@ -111,7 +114,7 @@ def requires_role(roles):
 def check_coin_balance(required_coins):
     if not current_user.is_authenticated:
         return False
-    user = mongo.db.users.find_one({'_id': current_user.id})
+    user = mongo.users.find_one({'_id': current_user.id})
     return user.get('coin_balance', 0) >= required_coins
 
 class User(UserMixin):
@@ -122,13 +125,13 @@ class User(UserMixin):
         self.role = role
 
     def get(self, key, default=None):
-        user = mongo.db.users.find_one({'_id': self.id})
+        user = mongo.users.find_one({'_id': self.id})
         return user.get(key, default) if user else default
 
 @login_manager.user_loader
 def load_user(user_id):
     try:
-        user_data = mongo.db.users.find_one({'_id': user_id})
+        user_data = mongo.users.find_one({'_id': user_id})
         if user_data:
             return User(user_data['_id'], user_data['email'], user_data.get('display_name'), user_data.get('role', 'personal'))
         return None
@@ -249,7 +252,7 @@ def set_language(lang):
     if lang in valid_langs:
         session['lang'] = lang
         if current_user.is_authenticated:
-            mongo.db.users.update_one({'_id': current_user.id}, {'$set': {'language': lang}})
+            mongo.users.update_one({'_id': current_user.id}, {'$set': {'language': lang}})
         flash(trans('language_updated', default='Language updated'), 'success')
     else:
         flash(trans('invalid_language', default='Invalid language'), 'danger')
@@ -261,12 +264,12 @@ def set_dark_mode():
     dark_mode = str(data.get('dark_mode', False)).lower() == 'true'
     session['dark_mode'] = dark_mode
     if current_user.is_authenticated:
-        mongo.db.users.update_one({'_id': current_user.id}, {'$set': {'dark_mode': dark_mode}})
+        mongo.users.update_one({'_id': current_user.id}, {'$set': {'dark_mode': dark_mode}})
     return Response(status=204)
 
 def setup_database():
     try:
-        db = mongo.db
+        db = mongo
         collections = db.list_collection_names()
         db.command('ping')
         logger.info("MongoDB connection successful")
@@ -580,8 +583,8 @@ def feedback():
             if not rating or not rating.isdigit() or int(rating) < 1 or int(rating) > 5:
                 flash(trans('invalid_rating', default='Invalid rating'), 'danger')
                 return render_template('general/feedback.html', tool_options=tool_options)
-            mongo.db.users.update_one({'_id': current_user.id}, {'$inc': {'coin_balance': -1}})
-            mongo.db.coin_transactions.insert_one({
+            mongo.users.update_one({'_id': current_user.id}, {'$inc': {'coin_balance': -1}})
+            mongo.coin_transactions.insert_one({
                 'user_id': current_user.id,
                 'amount': -1,
                 'type': 'spend',
@@ -595,8 +598,8 @@ def feedback():
                 'comment': comment or None,
                 'timestamp': datetime.utcnow()
             }
-            mongo.db.feedback.insert_one(feedback_entry)
-            mongo.db.audit_logs.insert_one({
+            mongo.feedback.insert_one(feedback_entry)
+            mongo.audit_logs.insert_one({
                 'admin_id': 'system',
                 'action': 'submit_feedback',
                 'details': {'user_id': current_user.id, 'tool_name': tool_name},
@@ -615,9 +618,9 @@ def feedback():
 @requires_role('admin')
 def admin_dashboard():
     try:
-        invoices = list(mongo.db.invoices.find().sort('created_at', DESCENDING).limit(50))
-        transactions = list(mongo.db.transactions.find().sort('created_at', DESCENDING).limit(50))
-        coin_transactions = list(mongo.db.coin_transactions.find().sort('date', DESCENDING).limit(50))
+        invoices = list(mongo.invoices.find().sort('created_at', DESCENDING).limit(50))
+        transactions = list(mongo.transactions.find().sort('created_at', DESCENDING).limit(50))
+        coin_transactions = list(mongo.coin_transactions.find().sort('date', DESCENDING).limit(50))
         for invoice in invoices:
             invoice['_id'] = str(invoice['_id'])
         for transaction in transactions:
@@ -637,13 +640,13 @@ def admin_dashboard():
 @login_required
 def general_dashboard():
     try:
-        user = mongo.db.users.find_one({'_id': current_user.id})
+        user = mongo.users.find_one({'_id': current_user.id})
         query = {'user_id': current_user.id}
         if user.get('role') == 'admin':
             query = {}
-        recent_invoices = list(mongo.db.invoices.find(query).sort('created_at', DESCENDING).limit(50))
-        recent_transactions = list(mongo.db.transactions.find(query).sort('created_at', DESCENDING).limit(50))
-        recent_coin_txs = list(mongo.db.coin_transactions.find(query).sort('date', DESCENDING).limit(10))
+        recent_invoices = list(mongo.invoices.find(query).sort('created_at', DESCENDING).limit(50))
+        recent_transactions = list(mongo.transactions.find(query).sort('created_at', DESCENDING).limit(50))
+        recent_coin_txs = list(mongo.coin_transactions.find(query).sort('date', DESCENDING).limit(10))
         for invoice in recent_invoices:
             invoice['_id'] = str(invoice['_id'])
         for transaction in recent_transactions:
