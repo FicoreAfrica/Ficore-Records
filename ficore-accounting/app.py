@@ -2,7 +2,7 @@ from flask import Flask, session, redirect, url_for, flash, render_template, req
 import pymongo
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, current_user, login_required
-from flask_mailman import Mail, EmailMessage
+from flask_mailman import Mail
 from werkzeug.security import generate_password_hash
 from datetime import datetime, date, timedelta
 import os
@@ -13,7 +13,6 @@ from bson import ObjectId
 from utils import trans_function as trans, is_valid_email
 from flask_session import Session
 from pymongo import ASCENDING, DESCENDING
-from pymongo.operations import UpdateOne
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from itsdangerous import URLSafeTimedSerializer
@@ -151,8 +150,6 @@ from creditors.routes import creditors_bp
 from receipts.routes import receipts_bp
 from payments.routes import payments_bp
 
-app.register_blueprint(invoices_bp, url_prefix='/invoices')
-app.register_blueprint(transactions_bp, url_prefix='/transactions')
 app.register_blueprint(users_bp, url_prefix='/users')
 app.register_blueprint(coins_bp, url_prefix='/coins')
 app.register_blueprint(admin_bp, url_prefix='/admin')
@@ -275,10 +272,7 @@ def setup_database():
         logger.info("MongoDB connection successful")
 
         # Clean up guest data
-        db.invoices.delete_many({'user_id': 'guest'})
-        db.transactions.delete_many({'user_id': 'guest'})
         db.feedback.delete_many({'user_id': {'$in': ['guest', None]}})
-        logger.info("Cleaned up shared 'guest' data")
 
         # Users collection
         if 'users' not in collections:
@@ -415,6 +409,38 @@ def setup_database():
         db.payments.create_index([('user_id', ASCENDING)])
         db.payments.create_index([('created_at', DESCENDING)])
 
+        # Inventory collection
+        if 'inventory' not in collections:
+            db.create_collection('inventory', validator={
+                '$jsonSchema': {
+                    'bsonType': 'object',
+                    'required': ['user_id', 'item_name', 'qty', 'created_at'],
+                    'properties': {
+                        'user_id': {'bsonType': 'string'},
+                        'item_name': {'bsonType': 'string'},
+                        'qty': {'bsonType': 'int'},
+                        'created_at': {'bsonType': 'date'},
+                        'unit': {'bsonType': 'string'},
+                        'buying_price': {'bsonType': 'double'},
+                        'selling_price': {'bsonType': 'double'},
+                        'threshold': {'bsonType': 'int'}
+                    }
+                }
+            })
+        db.inventory.create_index([('user_id', ASCENDING)])
+        db.inventory.create_index([('created_at', DESCENDING)])
+
+        # Feedback collection
+        if 'feedback' not in collections:
+            db.create_collection('feedback')
+            db.feedback.create_index([('user_id', ASCENDING)], sparse=True)
+            db.feedback.create_index([('timestamp', DESCENDING)])
+
+        # Sessions collection
+        if 'sessions' not in collections:
+            db.create_collection('sessions')
+            db.sessions.create_index([('expires', ASCENDING)], expireAfterSeconds=0)
+
         # Admin user creation
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
         admin_email = os.getenv('ADMIN_EMAIL', 'admin@ficoreapp.com')
@@ -434,71 +460,6 @@ def setup_database():
                 'created_at': datetime.utcnow()
             })
             logger.info(f"Default admin user created: {admin_username}")
-
-        # Other collections
-        if 'invoices' not in collections:
-            db.create_collection('invoices', validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ['user_id', 'customer_name', 'amount', 'status', 'created_at', 'invoice_number'],
-                    'properties': {
-                        'user_id': {'bsonType': 'string'},
-                        'customer_name': {'bsonType': 'string'},
-                        'amount': {'bsonType': 'double'},
-                        'status': {'enum': ['pending', 'settled']},
-                        'created_at': {'bsonType': 'date'},
-                        'invoice_number': {'bsonType': 'string'}
-                    }
-                }
-            })
-            db.invoices.create_index([('user_id', ASCENDING)])
-            db.invoices.create_index([('created_at', DESCENDING)])
-            db.invoices.create_index([('status', ASCENDING)])
-            db.invoices.create_index([('due_date', ASCENDING)])
-            db.invoices.create_index([('invoice_number', ASCENDING)], unique=True)
-
-        if 'transactions' not in collections:
-            db.create_collection('transactions', validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ['user_id', 'type', 'amount', 'created_at'],
-                    'properties': {
-                        'user_id': {'bsonType': 'string'},
-                        'type': {'enum': ['income', 'expense']},
-                        'amount': {'bsonType': 'double'},
-                        'created_at': {'bsonType': 'date'}
-                    }
-                }
-            })
-            db.transactions.create_index([('user_id', ASCENDING)])
-            db.transactions.create_index([('created_at', DESCENDING)])
-            db.transactions.create_index([('category', ASCENDING)])
-
-        if 'inventory' not in collections:
-            db.create_collection('inventory', validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ['user_id', 'item_name', 'quantity', 'created_at'],
-                    'properties': {
-                        'user_id': {'bsonType': 'string'},
-                        'item_name': {'bsonType': 'string'},
-                        'quantity': {'bsonType': 'int'},
-                        'created_at': {'bsonType': 'date'},
-                        'price': {'bsonType': 'double'}
-                    }
-                }
-            })
-            db.inventory.create_index([('user_id', ASCENDING)])
-            db.inventory.create_index([('created_at', DESCENDING)])
-
-        if 'feedback' not in collections:
-            db.create_collection('feedback')
-            db.feedback.create_index([('user_id', ASCENDING)], sparse=True)
-            db.feedback.create_index([('timestamp', DESCENDING)])
-
-        if 'sessions' not in collections:
-            db.create_collection('sessions')
-            db.sessions.create_index([('expires', ASCENDING)], expireAfterSeconds=0)
 
         logger.info("Database setup completed successfully")
         return True
@@ -557,8 +518,6 @@ def about():
 def feedback():
     lang = session.get('lang', 'en')
     tool_options = [
-        ['invoices', trans('tool_invoices', default='Invoices')],
-        ['transactions', trans('tool_transactions', default='Transactions')],
         ['profile', trans('tool_profile', default='Profile')],
         ['coins', trans('tool_coins', default='Coins')],
         ['debtors', trans('debtors', default='Debtors')],
@@ -618,18 +577,22 @@ def feedback():
 @requires_role('admin')
 def admin_dashboard():
     try:
-        invoices = list(mongo.invoices.find().sort('created_at', DESCENDING).limit(50))
-        transactions = list(mongo.transactions.find().sort('created_at', DESCENDING).limit(50))
+        inventory = list(mongo.inventory.find().sort('created_at', DESCENDING).limit(50))
+        payments = list(mongo.payments.find().sort('created_at', DESCENDING).limit(50))
+        receipts = list(mongo.receipts.find().sort('upload_date', DESCENDING).limit(50))
         coin_transactions = list(mongo.coin_transactions.find().sort('date', DESCENDING).limit(50))
-        for invoice in invoices:
-            invoice['_id'] = str(invoice['_id'])
-        for transaction in transactions:
-            transaction['_id'] = str(transaction['_id'])
+        for item in inventory:
+            item['_id'] = str(item['_id'])
+        for payment in payments:
+            payment['_id'] = str(payment['_id'])
+        for receipt in receipts:
+            receipt['_id'] = str(receipt['_id'])
         for coin_tx in coin_transactions:
             coin_tx['_id'] = str(coin_tx['_id'])
-        return render_template('dashboard/admin_dashboard.html', 
-                              invoices=invoices, 
-                              transactions=transactions,
+        return render_template('dashboard/admin_dashboard.html',
+                              inventory=inventory,
+                              payments=payments,
+                              receipts=receipts,
                               coin_transactions=coin_transactions)
     except Exception as e:
         logger.error(f"Error loading admin dashboard: {str(e)}")
@@ -644,27 +607,32 @@ def general_dashboard():
         query = {'user_id': current_user.id}
         if user.get('role') == 'admin':
             query = {}
-        recent_invoices = list(mongo.invoices.find(query).sort('created_at', DESCENDING).limit(50))
-        recent_transactions = list(mongo.transactions.find(query).sort('created_at', DESCENDING).limit(50))
+        recent_inventory = list(mongo.inventory.find(query).sort('created_at', DESCENDING).limit(50))
+        recent_payments = list(mongo.payments.find(query).sort('created_at', DESCENDING).limit(50))
+        recent_receipts = list(mongo.receipts.find(query).sort('upload_date', DESCENDING).limit(50))
         recent_coin_txs = list(mongo.coin_transactions.find(query).sort('date', DESCENDING).limit(10))
-        for invoice in recent_invoices:
-            invoice['_id'] = str(invoice['_id'])
-        for transaction in recent_transactions:
-            transaction['_id'] = str(transaction['_id'])
+        for item in recent_inventory:
+            item['_id'] = str(item['_id'])
+        for payment in recent_payments:
+            payment['_id'] = str(payment['_id'])
+        for receipt in recent_receipts:
+            receipt['_id'] = str(receipt['_id'])
         for coin_tx in recent_coin_txs:
             coin_tx['_id'] = str(coin_tx['_id'])
         coin_balance = user.get('coin_balance', 0)
         return render_template('dashboard/general_dashboard.html',
-                              recent_invoices=recent_invoices,
-                              recent_transactions=recent_transactions,
+                              recent_inventory=recent_inventory,
+                              recent_payments=recent_payments,
+                              recent_receipts=recent_receipts,
                               recent_coin_txs=recent_coin_txs,
                               coin_balance=coin_balance)
     except Exception as e:
         logger.error(f"Error fetching dashboard data: {str(e)}")
         flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
         return render_template('dashboard/general_dashboard.html',
-                              recent_invoices=[],
-                              recent_transactions=[],
+                              recent_inventory=[],
+                              recent_payments=[],
+                              recent_receipts=[],
                               recent_coin_txs=[],
                               coin_balance=0), 500
 
