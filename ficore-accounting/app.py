@@ -10,7 +10,7 @@ import jinja2
 from flask_wtf import CSRFProtect
 import logging
 from bson import ObjectId
-from app.utils import trans_function as trans, is_valid_email
+from utils import trans_function as trans, is_valid_email
 from flask_session import Session
 from pymongo import ASCENDING, DESCENDING, errors
 from pymongo.operations import UpdateOne
