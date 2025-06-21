@@ -22,7 +22,7 @@ def index():
         return render_template('inventory/index.html', items=items, format_currency=format_currency)
     except Exception as e:
         logger.error(f"Error fetching inventory for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
         return redirect(url_for('dashboard.index'))
 
 @inventory_bp.route('/low_stock')
@@ -38,7 +38,7 @@ def low_stock():
         return render_template('inventory/low_stock.html', items=low_stock_items, format_currency=format_currency)
     except Exception as e:
         logger.error(f"Error fetching low stock items for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
         return redirect(url_for('inventory.index'))
 
 @inventory_bp.route('/add', methods=['GET', 'POST'])
@@ -49,7 +49,7 @@ def add():
     from app.forms import InventoryForm
     form = InventoryForm()
     if not check_coin_balance(1):
-        flash(trans('insufficient_coins', default='Insufficient coins to add an item. Purchase more coins.'), 'danger')
+        flash(trans_function('insufficient_coins', default='Insufficient coins to add an item. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
         try:
@@ -75,11 +75,11 @@ def add():
                 'date': datetime.utcnow(),
                 'ref': f"Inventory item creation: {item['item_name']}"
             })
-            flash(trans('add_item_success', default='Inventory item added successfully'), 'success')
+            flash(trans_function('add_item_success', default='Inventory item added successfully'), 'success')
             return redirect(url_for('inventory.index'))
         except Exception as e:
             logger.error(f"Error adding inventory item for user {current_user.id}: {str(e)}")
-            flash(trans('something_went_wrong'), 'danger')
+            flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return render_template('inventory/add.html', form=form)
 
 @inventory_bp.route('/edit/<id>', methods=['GET', 'POST'])
@@ -94,7 +94,7 @@ def edit(id):
             'user_id': str(current_user.id)
         })
         if not item:
-            flash(trans('item_not_found', default='Item not found'), 'danger')
+            flash(trans_function('item_not_found', default='Item not found'), 'danger')
             return redirect(url_for('inventory.index'))
         form = InventoryForm(data={
             'item_name': item['item_name'],
@@ -119,15 +119,15 @@ def edit(id):
                     {'_id': ObjectId(id)},
                     {'$set': updated_item}
                 )
-                flash(trans('edit_item_success', default='Inventory item updated successfully'), 'success')
+                flash(trans_function('edit_item_success', default='Inventory item updated successfully'), 'success')
                 return redirect(url_for('inventory.index'))
             except Exception as e:
                 logger.error(f"Error updating inventory item {id} for user {current_user.id}: {str(e)}")
-                flash(trans('something_went_wrong'), 'danger')
+                flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
         return render_template('inventory/edit.html', form=form, item=item)
     except Exception as e:
         logger.error(f"Error fetching inventory item {id} for user {current_user.id}: {str(e)}")
-        flash(trans('item_not_found'), 'danger')
+        flash(trans_function('item_not_found', default='Item not found'), 'danger')
         return redirect(url_for('inventory.index'))
 
 @inventory_bp.route('/delete/<id>', methods=['POST'])
@@ -141,10 +141,10 @@ def delete(id):
             'user_id': str(current_user.id)
         })
         if result.deleted_count:
-            flash(trans('delete_item_success', default='Inventory item deleted successfully'), 'success')
+            flash(trans_function('delete_item_success', default='Inventory item deleted successfully'), 'success')
         else:
-            flash(trans('item_not_found'), 'danger')
+            flash(trans_function('item_not_found', default='Item not found'), 'danger')
     except Exception as e:
         logger.error(f"Error deleting inventory item {id} for user {current_user.id}: {str(e)}")
-        flash(trans('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return redirect(url_for('inventory.index'))
