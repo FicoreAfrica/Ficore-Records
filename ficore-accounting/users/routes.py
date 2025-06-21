@@ -9,6 +9,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 from utils import trans_function, is_valid_email
+from translations import trans_function
 import re
 import random
 from itsdangerous import URLSafeTimedSerializer
