@@ -9,7 +9,7 @@ from flask_mailman import Mail
 from werkzeug.security import generate_password_hash
 import jinja2
 from flask_wtf import CSRFProtect
-from utils import trans_function as trans, is_valid_email, get_mongo_db, close_mongo_db
+from utils import trans_function as trans, is_valid_email
 from flask_session import Session
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.errors import ConnectionFailure
@@ -46,23 +46,28 @@ if not app.config['MONGO_URI']:
     logger.error("MONGO_URI environment variable is not set")
     raise ValueError("MONGO_URI must be set in environment variables")
 
-# MongoDB connection test
-try:
-    test_client = MongoClient(app.config['MONGO_URI'], serverSelectionTimeoutMS=5000)
-    test_client.admin.command('ping')
-    logger.info("MongoDB connection test successful")
-except ConnectionFailure as e:
-    logger.error(f"Failed to connect to MongoDB at {app.config['MONGO_URI']}: {str(e)}")
-    raise RuntimeError(f"Cannot connect to MongoDB: {str(e)}")
+# MongoDB connection management
+def get_mongo_db():
+    """Get MongoDB database instance, ensuring fork-safe connection."""
+    if not hasattr(app, 'mongo_client'):
+        try:
+            app.mongo_client = MongoClient(app.config['MONGO_URI'], serverSelectionTimeoutMS=5000)
+            app.mongo_client.admin.command('ping')
+            logger.info("MongoDB connection established")
+        except ConnectionFailure as e:
+            logger.error(f"Failed to connect to MongoDB: {str(e)}")
+            raise RuntimeError(f"Cannot connect to MongoDB: {str(e)}")
+    return app.mongo_client['ficore_accounting']
+
+def close_mongo_db(exception=None):
+    """Close MongoDB client connection."""
+    if hasattr(app, 'mongo_client') and app.mongo_client:
+        app.mongo_client.close()
+        del app.mongo_client
+        logger.info("MongoDB connection closed")
 
 # Session configuration
 app.config['SESSION_TYPE'] = 'mongodb'
-mongo_uri = os.getenv('MONGO_URI')
-if mongo_uri:
-    app.config['SESSION_MONGODB'] = MongoClient(mongo_uri)
-else:
-    logger.error("MONGO_URI environment variable not set. Session won't work correctly.")
-    raise ValueError("MONGO_URI environment variable is required for MongoDB sessions.")
 app.config['SESSION_MONGODB_DB'] = 'ficore_accounting'
 app.config['SESSION_MONGODB_COLLECTION'] = 'sessions'
 app.config['SESSION_PERMANENT'] = False
@@ -71,24 +76,22 @@ app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV', 'development') == '
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
 app.config['SESSION_COOKIE_NAME'] = 'ficore_session'
-app.jinja_env.undefined = jinja2.Undefined
 
-# Social links
-app.config['FACEBOOK_URL'] = os.getenv('FACEBOOK_URL', 'https://www.facebook.com')
-app.config['TWITTER_URL'] = os.getenv('TWITTER_URL', 'https://www.twitter.com')
-app.config['LINKEDIN_URL'] = os.getenv('LINKEDIN_URL', 'https://www.linkedin.com')
-
-# Email configuration
-app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
-app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
-app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'true').lower() == 'true'
-app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', 'ficorerecords@gmail.com')
+def init_session_mongo():
+    """Initialize MongoDB session client post-fork."""
+    if not hasattr(app, 'session_mongo_client'):
+        mongo_uri = os.getenv('MONGO_URI')
+        if not mongo_uri:
+            logger.error("MONGO_URI environment variable not set. Session won't work correctly.")
+            raise ValueError("MONGO_URI environment variable is required for MongoDB sessions.")
+        app.session_mongo_client = MongoClient(mongo_uri)
+        app.config['SESSION_MONGODB'] = app.session_mongo_client
+    return app.session_mongo_client
 
 # Initialize extensions
 mail = Mail(app)
-sess = Session(app)
+sess = Session()
+sess.init_app(app)
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
@@ -164,9 +167,9 @@ app.register_blueprint(payments_bp, url_prefix='/payments')
 # Jinja2 globals and filters
 with app.app_context():
     app.jinja_env.globals.update(
-        FACEBOOK_URL=app.config['FACEBOOK_URL'],
-        TWITTER_URL=app.config['TWITTER_URL'],
-        LINKEDIN_URL=app.config['LINKEDIN_URL'],
+        FACEBOOK_URL=app.config.get('FACEBOOK_URL', 'https://www.facebook.com'),
+        TWITTER_URL=app.config.get('TWITTER_URL', 'https://www.twitter.com'),
+        LINKEDIN_URL=app.config.get('LINKEDIN_URL', 'https://www.linkedin.com'),
         trans=trans
     )
 
@@ -235,8 +238,8 @@ with app.app_context():
 def get_translations(lang):
     valid_langs = ['en', 'ha']
     if lang in valid_langs:
-        return jsonify({'translations': app.config['TRANSLATIONS'].get(lang, app.config['TRANSLATIONS']['en'])})
-    return jsonify({'translations': app.config['TRANSLATIONS']['en']}), 400
+        return jsonify({'translations': app.config.get('TRANSLATIONS', {}).get(lang, app.config.get('TRANSLATIONS', {}).get('en', {}))})
+    return jsonify({'translations': app.config.get('TRANSLATIONS', {}).get('en', {})}), 400
 
 @app.route('/setlang/<lang>')
 def set_language(lang):
@@ -450,7 +453,7 @@ def setup_database():
 
         # Admin user creation
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
-        admin_email = os.getenv('ADMIN_EMAIL', 'admin@ficoreapp.com')
+        admin_email = os.getenv('ADMIN_EMAIL', 'ficorerecords@gmail.com')
         admin_password = os.getenv('ADMIN_PASSWORD', 'Admin123!')
         if not db.users.find_one({'_id': admin_username}):
             db.users.insert_one({
@@ -674,7 +677,16 @@ def page_not_found(e):
 def internal_server_error(e):
     return render_template('errors/500.html', message=trans('internal_server_error', default='Internal server error')), 500
 
+# Gunicorn worker exit hook
+def worker_exit(server, worker):
+    """Close MongoDB connections on worker exit."""
+    close_mongo_db()
+    if hasattr(app, 'session_mongo_client'):
+        app.session_mongo_client.close()
+        logger.info("MongoDB session client closed on worker exit")
+
 with app.app_context():
+    init_session_mongo()
     if os.getenv('FLASK_ENV', 'development') != 'production' or os.getenv('ALLOW_DB_SETUP', 'false').lower() == 'true':
         if not setup_database():
             logger.error("Application startup aborted due to database initialization failure")
