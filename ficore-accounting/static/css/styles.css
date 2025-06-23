@@ -1,5 +1,6 @@
 /* --- Root Variables (Light Mode) --- */
 :root {
+    --navbar-height: 60px; /* Navbar height for consistent spacing */
     --background-main: #F2EFEA;
     --card-bg: #ffffff;
     --button-primary-bg: #b88a44;
@@ -24,35 +25,36 @@
     --alert-warning-border: #ffe58f;
     --alert-warning-text: #ad8b00;
     --alert-info-bg: #e6f7ff;
-    --alert-info-border: #91d5ff;
     --alert-info-text: #0050b3;
+    --alert-info-border: #91d5ff;
     --text-color: #1e293b;
-    --text-secondary: #4a5568;
     --text-muted: #6b7280;
+    --text-secondary: #4a5568;
     --navbar-bg: #0F3D57;
     --navbar-text-color: #ffffff;
     --footer-bg: #0F3D57;
     --card-border: #e2e8f0;
     --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
-    --card-shadow-hover: 0 16px 32px rgba(0, 30, 80, 0.15);
-    --form-bg: #ffffff;
+    --card-shadow-hover: 0 16px 32px rgba(0, 15, 40, 0.1);
     --table-border: #e2e8f0;
     --table-header-bg: #0F3D57;
-    --table-text: #1e293b;
+    --table-text: #ffffff;
     --table-light-bg: #f8fafc;
     --table-striped-bg: #f1f5f9;
     --amount-highlight: #3A86FF;
     --error-highlight: #a8071a;
     --accent-blue: #3A86FF;
     --success-color: #10b981;
-    --table-row-even-bg: #FDFEFC;
-    --table-row-bg-overdue: #fefcbf;
-    --table-row-bg-pending: #fef9c3;
-    --table-row-bg-settled: #d1fae5;
+    --table-row-even-bg-bg-color: #f8f8f8;
+    --table-row-bg-color: #fefefe;
+    --table-row-bg-overdue-bg-color: #fefeee;
+    --table-row-bg-pending-bg-color: #fff9e0;
+    --table-row-bg-settled-bg-color: #e0f7e0;
 }
 
 /* --- Dark Mode Variables --- */
 .dark-mode {
+    --navbar-height: 60px;
     --background-main: #0f172a;
     --card-bg: #1e293b;
     --button-primary-bg: #4C78C9;
@@ -77,18 +79,17 @@
     --alert-warning-border: #ffeb3b;
     --alert-warning-text: #ffe082;
     --alert-info-bg: #0c2040;
-    --alert-info-border: #4d8ce8;
     --alert-info-text: #d4e8ff;
+    --alert-info-border: #4d8ce8;
     --text-color: #f1f5f9;
-    --text-secondary: #94a3b8;
     --text-muted: #9ca3af;
+    --text-secondary: #94a3b8;
     --navbar-bg: #0f172a;
     --navbar-text-color: #f1f5f9;
     --footer-bg: #1e293b;
     --card-border: #475569;
     --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
     --card-shadow-hover: 0 16px 32px rgba(0, 0, 0, 0.4);
-    --form-bg: #1e293b;
     --table-border: #475569;
     --table-header-bg: #1e3a8a;
     --table-text: #f1f5f9;
@@ -109,7 +110,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -136,21 +137,13 @@ h1, h2, h3 {
     color: var(--text-color);
 }
 
-h1 {
-    font-size: 2rem;
-}
-
-h2 {
-    font-size: 1.5rem;
-}
-
-h3 {
-    font-size: 1.25rem;
-}
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
 
 main {
     flex: 1;
-    padding-top: 100px;
+    padding-top: calc(var(--navbar-height) + 1rem); /* Ensure content starts below navbar */
 }
 
 /* --- Container --- */
@@ -167,6 +160,7 @@ main {
     position: fixed;
     top: 0;
     width: 100%;
+    height: var(--navbar-height);
     z-index: 1000;
 }
 
@@ -435,7 +429,7 @@ main {
     max-width: 400px;
     margin: 1rem auto;
     padding: 1.5rem;
-    background: var(--form-bg);
+    background: var(--card-bg);
     border-radius: 1rem;
     box-shadow: var(--card-shadow);
 }
@@ -547,7 +541,6 @@ main {
 
 .table th {
     background: var(--table-header-bg);
-    color: var(--navbar-text-color);
     font-weight: 700;
     text-transform: uppercase;
     font-size: 0.85rem;
@@ -691,25 +684,11 @@ main {
         padding: 1.5rem;
     }
 
-    h1 {
-        font-size: 2.5rem;
-    }
-
-    h2 {
-        font-size: 1.75rem;
-    }
-
-    .card {
-        padding: 1.5rem;
-    }
-
-    .form-control, .form-select {
-        font-size: 1rem;
-    }
-
-    .table th, .table td {
-        padding: 1.25rem;
-    }
+    h1 { font-size: 2.5rem; }
+    h2 { font-size: 1.75rem; }
+    .card { padding: 1.5rem; }
+    .form-control, .form-select { font-size: 1rem; }
+    .table th, .table td { padding: 1.25rem; }
 }
 
 @media (min-width: 992px) {
@@ -741,7 +720,7 @@ main {
 @media (max-width: 991.98px) {
     .navbar-collapse {
         position: absolute;
-        top: 100%;
+        top: var(--navbar-height);
         left: 0;
         width: 100%;
         background: var(--navbar-bg);
