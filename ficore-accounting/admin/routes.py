@@ -184,7 +184,7 @@ def credit_coins():
             user = db.users.find_one({'_id': user_id})
             if not user:
                 flash(trans_function('user_not_found', default='User not found'), 'danger')
-                return render_template('admin/coins/reset.html', form=form)
+                return render_template('admin/reset.html', form=form)
             amount = int(form.amount.data)
             db.users.update_one(
                 {'_id': user_id},
@@ -206,7 +206,7 @@ def credit_coins():
             logger.error(f"Error crediting coins by admin {current_user.id}: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
             return render_template('admin/coins/reset.html', form=form), 500
-    return render_template('admin/coins/reset.html', form=form)
+    return render_template('admin/reset.html', form=form)
 
 @admin_bp.route('/audit', methods=['GET'])
 @login_required
