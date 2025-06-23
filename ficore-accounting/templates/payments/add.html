@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container mt-5">
     <h1 class="mb-4">{{ trans('add_payment', default='Add Payment') }}</h1>
-    <form action="{{ url_for('payments.add') }}" method="POST" class="row g-3">
+    <form action="{{ url_for('payments_blueprint.add') }}" method="POST" class="row g-3">
         {{ form.hidden_tag() }}
         <div class="col-12">
             <label for="party_name" class="form-label">{{ trans('party_name', default='Party Name') }}</label>
