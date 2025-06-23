@@ -303,7 +303,7 @@ main {
 }
 
 /* --- Buttons --- */
-.btn {
+.btn, .btn-primary {
     padding: 0.75rem 1.5rem;
     border-radius: 0.5rem;
     font-weight: 600;
@@ -316,6 +316,8 @@ main {
     background: var(--button-primary-bg);
     color: #ffffff;
     border: none;
+    display: inline-block;
+    text-align: center;
 }
 
 .btn-primary:hover, .btn-primary:focus {
@@ -402,7 +404,7 @@ main {
 }
 
 .card-body {
-    padding: 0; /* Padding moved to .card for uniformity */
+    padding: 0;
 }
 
 .card-title {
@@ -413,6 +415,10 @@ main {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+h2.card-title {
+    font-size: 1.5rem; /* Match h3.card-title */
 }
 
 .card-text {
@@ -428,8 +434,7 @@ main {
 
 .toolcard {
     width: 100%;
-    max-width: 350px;
-    min-height: 200px;
+    min-height: 220px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -736,7 +741,7 @@ main {
     }
 
     .toolcard {
-        max-width: 300px;
+        min-height: 200px;
     }
 }
 
@@ -751,7 +756,7 @@ main {
     }
 
     .toolcard {
-        max-width: 350px;
+        min-height: 220px;
     }
 }
 
@@ -782,7 +787,7 @@ main {
     }
 
     .toolcard {
-        max-width: 100%;
+        min-height: 200px;
     }
 }
 
@@ -826,7 +831,7 @@ main {
         padding: 0.5rem;
     }
 
-    .btn {
+    .btn, .btn-primary {
         padding: 0.5rem 1rem;
         font-size: 0.85rem;
     }
@@ -839,7 +844,7 @@ main {
         height: 32px;
     }
 
-    .card-title {
+    .card-title, h2.card-title {
         font-size: 1.25rem;
     }
 
