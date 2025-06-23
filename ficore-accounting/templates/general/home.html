@@ -4,54 +4,72 @@
 <div class="container">
     <h1 class="text-center text-4xl font-bold mb-8">{{ trans('welcome') | default('Welcome to Ficore Records') }}</h1>
     {% if current_user.is_authenticated %}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="row g-4">
             {% if current_user.get('is_admin', False) %}
-                <div class="card">
-                    <h2 class="card-title">{{ trans('admin_dashboard') | default('Admin Dashboard') }}</h2>
-                    <p class="card-text">{{ trans('admin_dashboard_desc') | default('Manage users and view system stats') }}</p>
-                    <a href="{{ url_for('admin.dashboard') }}" class="btn-primary">{{ trans('go_to_admin_dashboard') | default('Go to Admin Dashboard') }}</a>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card">
+                        <h2 class="card-title">{{ trans('admin_dashboard') | default('Admin Dashboard') }}</h2>
+                        <p class="card-text">{{ trans('admin_dashboard_desc') | default('Manage users and view system stats') }}</p>
+                        <a href="{{ url_for('admin.dashboard') }}" class="btn-primary">{{ trans('go_to_admin_dashboard') | default('Go to Admin Dashboard') }}</a>
+                    </div>
                 </div>
             {% else %}
-                <div class="card">
-                    <h2 class="card-title">{{ trans('general_dashboard') | default('General Dashboard') }}</h2>
-                    <p class="card-text">{{ trans('general_dashboard_desc') | default('See overall financial summary and stats') }}</p>
-                    <a href="{{ url_for('general_dashboard') }}" class="btn-primary">{{ trans('go_to_dashboard') | default('Go to Dashboard') }}</a>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card">
+                        <h2 class="card-title">{{ trans('general_dashboard') | default('General Dashboard') }}</h2>
+                        <p class="card-text">{{ trans('general_dashboard_desc') | default('See overall financial summary and stats') }}</p>
+                        <a href="{{ url_for('general_dashboard') }}" class="btn-primary">{{ trans('go_to_dashboard') | default('Go to Dashboard') }}</a>
+                    </div>
                 </div>
             {% endif %}
-            <div class="card">
-                <h2 class="card-title">{{ trans('manage_debtors') | default('Manage Debtors') }}</h2>
-                <p class="card-text">{{ trans('debtors_desc') | default('Track and manage debtor records') }}</p>
-                <a href="{{ url_for('debtors.index') }}" class="btn-primary">{{ trans('go_to_debtors') | default('Go to Debtors') }}</a>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card">
+                    <h2 class="card-title">{{ trans('manage_debtors') | default('Manage Debtors') }}</h2>
+                    <p class="card-text">{{ trans('debtors_desc') | default('Track and manage debtor records') }}</p>
+                    <a href="{{ url_for('debtors.index') }}" class="btn-primary">{{ trans('go_to_debtors') | default('Go to Debtors') }}</a>
+                </div>
             </div>
-            <div class="card">
-                <h2 class="card-title">{{ trans('manage_creditors') | default('Manage Creditors') }}</h2>
-                <p class="card-text">{{ trans('creditors_desc') | default('Track and manage creditor records') }}</p>
-                <a href="{{ url_for('creditors.index') }}" class="btn-primary">{{ trans('go_to_creditors') | default('Go to Creditors') }}</a>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card">
+                    <h2 class="card-title">{{ trans('manage_creditors') | default('Manage Creditors') }}</h2>
+                    <p class="card-text">{{ trans('creditors_desc') | default('Track and manage creditor records') }}</p>
+                    <a href="{{ url_for('creditors.index') }}" class="btn-primary">{{ trans('go_to_creditors') | default('Go to Creditors') }}</a>
+                </div>
             </div>
-            <div class="card">
-                <h2 class="card-title">{{ trans('manage_receipts') | default('Manage Receipts') }}</h2>
-                <p class="card-text">{{ trans('receipts_desc') | default('Upload and view receipts') }}</p>
-                <a href="{{ url_for('receipts.index') }}" class="btn-primary">{{ trans('go_to_receipts') | default('Go to Receipts') }}</a>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card">
+                    <h2 class="card-title">{{ trans('manage_receipts') | default('Manage Receipts') }}</h2>
+                    <p class="card-text">{{ trans('receipts_desc') | default('Upload and view receipts') }}</p>
+                    <a href="{{ url_for('receipts.index') }}" class="btn-primary">{{ trans('go_to_receipts') | default('Go to Receipts') }}</a>
+                </div>
             </div>
-            <div class="card">
-                <h2 class="card-title">{{ trans('manage_payments') | default('Manage Payments') }}</h2>
-                <p class="card-text">{{ trans('payments_desc') | default('Record and view payments') }}</p>
-                <a href="{{ url_for('payments.index') }}" class="btn-primary">{{ trans('go_to_payments') | default('Go to Payments') }}</a>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card">
+                    <h2 class="card-title">{{ trans('manage_payments') | default('Manage Payments') }}</h2>
+                    <p class="card-text">{{ trans('payments_desc') | default('Record and view payments') }}</p>
+                    <a href="{{ url_for('payments.index') }}" class="btn-primary">{{ trans('go_to_payments') | default('Go to Payments') }}</a>
+                </div>
             </div>
-            <div class="card">
-                <h2 class="card-title">{{ trans('manage_inventory') | default('Manage Inventory') }}</h2>
-                <p class="card-text">{{ trans('inventory_desc') | default('Track inventory items and stock levels') }}</p>
-                <a href="{{ url_for('inventory.index') }}" class="btn-primary">{{ trans('go_to_inventory') | default('Go to Inventory') }}</a>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card">
+                    <h2 class="card-title">{{ trans('manage_inventory') | default('Manage Inventory') }}</h2>
+                    <p class="card-text">{{ trans('inventory_desc') | default('Track inventory items and stock levels') }}</p>
+                    <a href="{{ url_for('inventory.index') }}" class="btn-primary">{{ trans('go_to_inventory') | default('Go to Inventory') }}</a>
+                </div>
             </div>
-            <div class="card">
-                <h2 class="card-title">{{ trans('view_reports') | default('View Reports') }}</h2>
-                <p class="card-text">{{ trans('reports_desc') | default('Generate financial reports and insights') }}</p>
-                <a href="{{ url_for('reports.index') }}" class="btn-primary">{{ trans('go_to_reports') | default('Go to Reports') }}</a>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card">
+                    <h2 class="card-title">{{ trans('view_reports') | default('View Reports') }}</h2>
+                    <p class="card-text">{{ trans('reports_desc') | default('Generate financial reports and insights') }}</p>
+                    <a href="{{ url_for('reports.index') }}" class="btn-primary">{{ trans('go_to_reports') | default('Go to Reports') }}</a>
+                </div>
             </div>
-            <div class="card">
-                <h2 class="card-title">{{ trans('manage_coins') | default('Manage Coins') }}</h2>
-                <p class="card-text">{{ trans('coins_desc') | default('Check your coin balance and transactions') }}</p>
-                <a href="{{ url_for('coins.balance') }}" class="btn-primary">{{ trans('go_to_coins') | default('Go to Coins') }}</a>
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="card">
+                    <h2 class="card-title">{{ trans('manage_coins') | default('Manage Coins') }}</h2>
+                    <p class="card-text">{{ trans('coins_desc') | default('Check your coin balance and transactions') }}</p>
+                    <a href="{{ url_for('coins.balance') }}" class="btn-primary">{{ trans('go_to_coins') | default('Go to Coins') }}</a>
+                </div>
             </div>
         </div>
     {% else %}
