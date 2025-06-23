@@ -47,16 +47,29 @@ if not app.config['MONGO_URI']:
     raise ValueError("MONGO_URI must be set in environment variables")
 
 # MongoDB connection management
+def init_mongo_client():
+    """Initialize a single MongoDB client for both app and sessions."""
+    try:
+        client = MongoClient(
+            app.config['MONGO_URI'],
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=20000,
+            socketTimeoutMS=20000
+        )
+        # Test connection
+        client.admin.command('ping')
+        logger.info("MongoDB connection established successfully")
+        return client
+    except ConnectionFailure as e:
+        logger.error(f"Failed to connect to MongoDB: {str(e)}")
+        raise RuntimeError(f"Cannot connect to MongoDB: {str(e)}")
+
+# Initialize MongoDB client early
+app.mongo_client = init_mongo_client()
+app.config['SESSION_MONGODB'] = app.mongo_client  # Use same client for sessions
+
 def get_mongo_db():
-    """Get MongoDB database instance, ensuring fork-safe connection."""
-    if not hasattr(app, 'mongo_client'):
-        try:
-            app.mongo_client = MongoClient(app.config['MONGO_URI'], serverSelectionTimeoutMS=5000)
-            app.mongo_client.admin.command('ping')
-            logger.info("MongoDB connection established")
-        except ConnectionFailure as e:
-            logger.error(f"Failed to connect to MongoDB: {str(e)}")
-            raise RuntimeError(f"Cannot connect to MongoDB: {str(e)}")
+    """Get MongoDB database instance."""
     return app.mongo_client['ficore_accounting']
 
 def close_mongo_db(exception=None):
@@ -69,7 +82,7 @@ def close_mongo_db(exception=None):
 # Session configuration
 app.config['SESSION_TYPE'] = 'mongodb'
 app.config['SESSION_MONGODB_DB'] = 'ficore_accounting'
-app.config['SESSION_MONGODB_COLLECTION'] = 'sessions'
+app.config['SESSION_MONGODB_COLLECT'] = 'sessions'
 app.config['SESSION_PERMANENT'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV', 'development') == 'production'
@@ -77,21 +90,10 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
 app.config['SESSION_COOKIE_NAME'] = 'ficore_session'
 
-def init_session_mongo():
-    """Initialize MongoDB session client post-fork."""
-    if not hasattr(app, 'session_mongo_client'):
-        mongo_uri = os.getenv('MONGO_URI')
-        if not mongo_uri:
-            logger.error("MONGO_URI environment variable not set. Session won't work correctly.")
-            raise ValueError("MONGO_URI environment variable is required for MongoDB sessions.")
-        app.session_mongo_client = MongoClient(mongo_uri)
-        app.config['SESSION_MONGODB'] = app.session_mongo_client
-    return app.session_mongo_client
-
 # Initialize extensions
 mail = Mail(app)
 sess = Session()
-sess.init_app(app)
+sess.init_app(app)  # Initialize session after setting SESSION_MONGODB
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
@@ -450,7 +452,14 @@ def setup_database():
         if 'sessions' not in collections:
             db.create_collection('sessions')
         # Ensure TTL index for session cleanup
-        db.sessions.create_index([('expires', ASCENDING)], expireAfterSeconds=0, name='session_expiry_index')
+        existing_indexes = db.sessions.index_information()
+        if 'session_expiry_index' not in existing_indexes:
+            db.sessions.create_index(
+                [('expiration', ASCENDING)],
+                expireAfterSeconds=0,
+                name='session_expiry_index'
+            )
+            logger.info("TTL index created for sessions collection")
 
         # Admin user creation
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
@@ -682,12 +691,9 @@ def internal_server_error(e):
 def worker_exit(server, worker):
     """Close MongoDB connections on worker exit."""
     close_mongo_db()
-    if hasattr(app, 'session_mongo_client'):
-        app.session_mongo_client.close()
-        logger.info("MongoDB session client closed on worker exit")
+    logger.info("MongoDB client closed on worker exit")
 
 with app.app_context():
-    init_session_mongo()
     if os.getenv('FLASK_ENV', 'development') != 'production' or os.getenv('ALLOW_DB_SETUP', 'false').lower() == 'true':
         if not setup_database():
             logger.error("Application startup aborted due to database initialization failure")
