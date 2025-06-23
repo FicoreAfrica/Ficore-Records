@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-debtors_bp = Blueprint('debtors', __name__, url_prefix='/debtors')
+debtors_bp = Blueprint('dashboard', __name__, url_prefix='/')
 
 @debtors_bp.route('/')
 @login_required
@@ -19,7 +19,7 @@ def index():
         # TEMPORARY: Allow admin to view all debtor invoices during testing
         # TODO: Restore original user_id filter for production
         query = {} if is_admin() else {'user_id': str(current_user.id), 'type': 'debtor'}
-        debtors = db.invoices.find(query).sort('created_at', -1)
+        debtors = list(db.invoices.find(query).sort('created_at', -1))  # Convert cursor to list
         return render_template('debtors/index.html', debtors=debtors, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching debtors for user {current_user.id}: {str(e)}")
@@ -147,5 +147,5 @@ def delete(id):
             flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
     except Exception as e:
         logger.error(f"Error deleting debtor {id} for user {current_user.id}: {str(e)}")
-        flash(trans_function('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return redirect(url_for('debtors.index'))
