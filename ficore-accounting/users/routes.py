@@ -8,7 +8,7 @@ from flask_mailman import EmailMessage
 import logging
 import uuid
 from datetime import datetime, timedelta
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin
 import re
 import random
 from itsdangerous import URLSafeTimedSerializer
@@ -373,7 +373,10 @@ def profile():
     """Manage user profile."""
     try:
         db = get_mongo_db()
-        user = db.users.find_one({'_id': current_user.id})
+        # TEMPORARY: Allow admin to manage any user's profile during testing
+        # TODO: Restore original user_id filter {'_id': current_user.id} for production
+        user_id = request.args.get('user_id', current_user.id) if is_admin() and request.args.get('user_id') else current_user.id
+        user = db.users.find_one({'_id': user_id})
         if not user:
             flash(trans_function('user_not_found', default='User not found'), 'error')
             return redirect(url_for('index'))
@@ -384,41 +387,49 @@ def profile():
         })
         if form.validate_on_submit():
             try:
-                if not check_coin_balance(1):
-                    flash(trans('insufficient_coins', default='Insufficient coins to update profile'), 'danger')
-                    return redirect(url_for('coins.login'))
+                # TEMPORARY: Bypass coin check for admin during testing
+                # TODO: Restore original check_coin_balance(1) for production
+                if not is_admin() and not check_coin_balance(1):
+                    flash(trans_function('insufficient_coins', default='Insufficient coins to update profile'), 'danger')
+                    return redirect(url_for('coins.purchase'))
                 new_email = form.email.data.strip().lower()
                 new_display_name = form.display_name.data.strip()
                 new_language = form.language.data
                 if new_email != user['email'] and db.users.find_one({'email': new_email}):
                     flash(trans_function('email_exists', default='Email already exists'), 'danger')
                     return render_template('users/profile.html', form=form, user=user)
+                update_data = {
+                    'email': new_email,
+                    'display_name': new_display_name,
+                    'language': new_language,
+                    'updated_at': datetime.utcnow()
+                }
+                # TEMPORARY: Skip coin deduction for admin during testing
+                # TODO: Restore original coin deduction for production
+                if not is_admin():
+                    update_data['coin_balance'] = user.get('coin_balance', 0) - 1
                 db.users.update_one(
-                    {'_id': current_user.id},
-                    {
-                        '$set': {
-                            'email': new_email,
-                            'display_name': new_display_name,
-                            'language': new_language,
-                            'updated_at': datetime.utcnow()
-                        },
-                        '$inc': {'coin_balance': -1}
-                    }
+                    {'_id': user_id},
+                    {'$set': update_data}
                 )
-                db.coin_transactions.insert_one({
-                    'user_id': current_user.id,
-                    'amount': -1,
-                    'type': 'spend',
-                    'ref': f"PROFILE_UPDATE_{datetime.utcnow().isoformat()}",
-                    'date': datetime.utcnow()
-                })
-                log_audit_action('update_profile', {'user_id': current_user.id})
-                current_user.email = new_email
-                current_user.display_name = new_display_name
-                session['lang'] = new_language
+                # TEMPORARY: Skip coin transaction for admin during testing
+                # TODO: Restore original coin transaction for production
+                if not is_admin():
+                    db.coin_transactions.insert_one({
+                        'user_id': user_id,
+                        'amount': -1,
+                        'type': 'spend',
+                        'ref': f"PROFILE_UPDATE_{datetime.utcnow().isoformat()}",
+                        'date': datetime.utcnow()
+                    })
+                log_audit_action('update_profile', {'user_id': user_id, 'updated_by': current_user.id})
+                if user_id == current_user.id:
+                    current_user.email = new_email
+                    current_user.display_name = new_display_name
+                    session['lang'] = new_language
                 flash(trans_function('profile_updated', default='Profile updated successfully'), 'success')
-                logger.info(f"Profile updated for user: {current_user.id}")
-                return redirect(url_for('users.profile'))
+                logger.info(f"Profile updated for user: {user_id} by {current_user.id}")
+                return redirect(url_for('users.profile', user_id=user_id) if is_admin() else url_for('users.profile'))
             except errors.PyMongoError as e:
                 logger.error(f"MongoDB error updating profile: {str(e)}")
                 flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
@@ -437,17 +448,20 @@ def profile():
 def setup_wizard():
     """Handle business setup wizard."""
     db = get_mongo_db()
-    user = db.users.find_one({'_id': current_user.id})
+    # TEMPORARY: Allow admin to manage any user's setup wizard during testing
+    # TODO: Restore original user_id filter {'_id': current_user.id} for production
+    user_id = request.args.get('user_id', current_user.id) if is_admin() and request.args.get('user_id') else current_user.id
+    user = db.users.find_one({'_id': user_id})
     if user.get('setup_complete', False):
         return redirect(url_for('dashboard.index'))
     form = BusinessSetupForm()
     if form.validate_on_submit():
         try:
-            if form.back_submit.data:
-                flash(trans('setup_skipped', default='Business setup skipped'), 'info')
-                return redirect(url_for('users.profile'))
+            if form.back.data:
+                flash(trans_function('setup_skipped', default='Business setup skipped'), 'info')
+                return redirect(url_for('users.profile', user_id=user_id) if is_admin() else url_for('users.profile'))
             db.users.update_one(
-                {'_id': current_user.id},
+                {'_id': user_id},
                 {
                     '$set': {
                         'business_details': {
@@ -459,10 +473,10 @@ def setup_wizard():
                     }
                 }
             )
-            log_audit_action('complete_setup_wizard', {'user_id': current_user.id})
+            log_audit_action('complete_setup_wizard', {'user_id': user_id, 'updated_by': current_user.id})
             flash(trans_function('business_setup_completed', default='Business setup completed'), 'success')
-            logger.info(f"Business setup completed for user: {current_user.id}")
-            return redirect(url_for('users.profile'))
+            logger.info(f"Business setup completed for user: {user_id} by {current_user.id}")
+            return redirect(url_for('users.profile', user_id=user_id) if is_admin() else url_for('users.profile'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during business setup: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
