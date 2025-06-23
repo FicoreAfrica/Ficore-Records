@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
 from bson import ObjectId
 from datetime import datetime
 import logging
@@ -16,9 +16,10 @@ def index():
     """List all inventory items for the current user."""
     try:
         db = get_mongo_db()
-        items = db.inventory.find({
-            'user_id': str(current_user.id)
-        }).sort('created_at', -1)
+        # TEMPORARY: Allow admin to view all inventory items during testing
+        # TODO: Restore original user_id filter {'user_id': str(current_user.id)} for production
+        query = {} if is_admin() else {'user_id': str(current_user.id)}
+        items = db.inventory.find(query).sort('created_at', -1)
         return render_template('inventory/index.html', items=items, format_currency=format_currency)
     except Exception as e:
         logger.error(f"Error fetching inventory for user {current_user.id}: {str(e)}")
@@ -32,10 +33,10 @@ def low_stock():
     """List inventory items with low stock."""
     try:
         db = get_mongo_db()
-        low_stock_items = db.inventory.find({
-            'user_id': str(current_user.id),
-            'qty': {'$lte': db.inventory.threshold}
-        }).sort('qty', 1)
+        # TEMPORARY: Allow admin to view all low stock items during testing
+        # TODO: Restore original user_id filter {'user_id': str(current_user.id), 'qty': {'$lte': db.inventory.threshold}} for production
+        query = {'qty': {'$lte': db.inventory.threshold}} if is_admin() else {'user_id': str(current_user.id), 'qty': {'$lte': db.inventory.threshold}}
+        low_stock_items = db.inventory.find(query).sort('qty', 1)
         return render_template('inventory/low_stock.html', items=low_stock_items, format_currency=format_currency)
     except Exception as e:
         logger.error(f"Error fetching low stock items for user {current_user.id}: {str(e)}")
@@ -49,7 +50,9 @@ def add():
     """Add a new inventory item."""
     from app.forms import InventoryForm
     form = InventoryForm()
-    if not check_coin_balance(1):
+    # TEMPORARY: Bypass coin check for admin during testing
+    # TODO: Restore original check_coin_balance(1) for production
+    if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to add an item. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
@@ -66,17 +69,20 @@ def add():
                 'created_at': datetime.utcnow()
             }
             db.inventory.insert_one(item)
-            db.users.update_one(
-                {'_id': ObjectId(current_user.id)},
-                {'$inc': {'coin_balance': -1}}
-            )
-            db.coin_transactions.insert_one({
-                'user_id': str(current_user.id),
-                'amount': -1,
-                'type': 'spend',
-                'date': datetime.utcnow(),
-                'ref': f"Inventory item creation: {item['item_name']}"
-            })
+            # TEMPORARY: Skip coin deduction for admin during testing
+            # TODO: Restore original coin deduction for production
+            if not is_admin():
+                db.users.update_one(
+                    {'_id': ObjectId(current_user.id)},
+                    {'$inc': {'coin_balance': -1}}
+                )
+                db.coin_transactions.insert_one({
+                    'user_id': str(current_user.id),
+                    'amount': -1,
+                    'type': 'spend',
+                    'date': datetime.utcnow(),
+                    'ref': f"Inventory item creation: {item['item_name']}"
+                })
             flash(trans_function('add_item_success', default='Inventory item added successfully'), 'success')
             return redirect(url_for('inventory.index'))
         except Exception as e:
@@ -92,10 +98,10 @@ def edit(id):
     from app.forms import InventoryForm
     try:
         db = get_mongo_db()
-        item = db.inventory.find_one({
-            '_id': ObjectId(id),
-            'user_id': str(current_user.id)
-        })
+        # TEMPORARY: Allow admin to edit any inventory item during testing
+        # TODO: Restore original user_id filter {'_id': ObjectId(id), 'user_id': str(current_user.id)} for production
+        query = {'_id': ObjectId(id)} if is_admin() else {'_id': ObjectId(id), 'user_id': str(current_user.id)}
+        item = db.inventory.find_one(query)
         if not item:
             flash(trans_function('item_not_found', default='Item not found'), 'danger')
             return redirect(url_for('inventory.index'))
@@ -140,15 +146,15 @@ def delete(id):
     """Delete an inventory item."""
     try:
         db = get_mongo_db()
-        result = db.inventory.delete_one({
-            '_id': ObjectId(id),
-            'user_id': str(current_user.id)
-        })
+        # TEMPORARY: Allow admin to delete any inventory item during testing
+        # TODO: Restore original user_id filter {'_id': ObjectId(id), 'user_id': str(current_user.id)} for production
+        query = {'_id': ObjectId(id)} if is_admin() else {'_id': ObjectId(id), 'user_id': str(current_user.id)}
+        result = db.inventory.delete_one(query)
         if result.deleted_count:
             flash(trans_function('delete_item_success', default='Inventory item deleted successfully'), 'success')
         else:
             flash(trans_function('item_not_found', default='Item not found'), 'danger')
     except Exception as e:
         logger.error(f"Error deleting inventory item {id} for user {current_user.id}: {str(e)}")
-        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
+        flash(trans_function('something_went_wrong', default='error occurred'), 'danger')
     return redirect(url_for('inventory.index'))
