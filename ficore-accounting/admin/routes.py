@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 admin_bp = Blueprint('admin', __name__, template_folder='templates/admin')
 
 class CreditForm(FlaskForm):
-    username = StringField(trans_function('username', default='Username'), [
+    user_id = StringField(trans_function('user_id', default='User ID'), [
         validators.DataRequired(),
         validators.Length(min=3, max=50)
     ])
@@ -96,7 +96,7 @@ def suspend_user(user_id):
     try:
         db = get_mongo_db()
         result = db.users.update_one(
-            {'_id': ObjectId(user_id), 'role': {'$ne': 'admin'}},
+            {'_id': user_id, 'role': {'$ne': 'admin'}},
             {'$set': {'suspended': True, 'updated_at': datetime.utcnow()}}
         )
         if result.modified_count == 0:
@@ -124,7 +124,7 @@ def delete_user(user_id):
         db.inventory.delete_many({'user_id': user_id})
         db.coin_transactions.delete_many({'user_id': user_id})
         db.audit_logs.delete_many({'details.user_id': user_id})
-        result = db.users.delete_one({'_id': ObjectId(user_id), 'role': {'$ne': 'admin'}})
+        result = db.users.delete_one({'_id': user_id, 'role': {'$ne': 'admin'}})
         if result.deleted_count == 0:
             flash(trans_function('user_not_found', default='User not found'), 'danger')
         else:
@@ -172,27 +172,27 @@ def credit_coins():
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
-            username = form.username.data.strip().lower()
+            user_id = form.user_id.data.strip().lower()
             amount = int(form.amount.data)
-            user = db.users.find_one({'username': username})
+            user = db.users.find_one({'_id': user_id})
             if not user:
                 flash(trans_function('user_not_found', default='User not found'), 'danger')
                 return render_template('admin/coins_credit.html', form=form)
             db.users.update_one(
-                {'_id': user['_id']},
+                {'_id': user_id},
                 {'$inc': {'coin_balance': amount}}
             )
             ref = f"ADMIN_CREDIT_{datetime.utcnow().isoformat()}"
             db.coin_transactions.insert_one({
-                'user_id': str(user['_id']),
+                'user_id': user_id,
                 'amount': amount,
                 'type': 'admin_credit',
                 'ref': ref,
                 'date': datetime.utcnow()
             })
             flash(trans_function('credit_success', default='Coins credited successfully'), 'success')
-            logger.info(f"Admin {current_user.id} credited {amount} coins to user {username}")
-            log_audit_action('credit_coins', {'user_id': str(user['_id']), 'amount': amount, 'ref': ref})
+            logger.info(f"Admin {current_user.id} credited {amount} coins to user {user_id}")
+            log_audit_action('credit_coins', {'user_id': user_id, 'amount': amount, 'ref': ref})
             return redirect(url_for('admin.dashboard'))
         except Exception as e:
             logger.error(f"Error crediting coins by admin {current_user.id}: {str(e)}")
