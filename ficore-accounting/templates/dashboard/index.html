@@ -9,14 +9,14 @@
 
         <div class="mb-4">
             <h3>{{ trans('quick_actions', default='Quick Actions') }}</h3>
-            <a href="{{ url_for('creditors.add') }}" class="btn btn-primary">{{ trans('add_creditor', default='Add Creditor') }}</a>
-            <a href="{{ url_for('debtors.add') }}" class="btn btn-primary">{{ trans('add_debtor', default='Add Debtor') }}</a>
-            <a href="{{ url_for('payments.add') }}" class="btn btn-primary">{{ trans('add_payment', default='Add Payment') }}</a>
-            <a href="{{ url_for('receipts.add') }}" class="btn btn-primary">{{ trans('add_receipt', default='Add Receipt') }}</a>
-            <a href="{{ url_for('inventory.add') }}" class="btn btn-primary">{{ trans('add_inventory', default='Add Inventory Item') }}</a>
-            <a href="{{ url_for('coins.purchase') }}" class="btn btn-success">{{ trans('purchase_coins', default='Purchase Coins') }}</a>
+            <a href="{{ url_for('creditors_blueprint.add') }}" class="btn btn-primary">{{ trans('add_creditor', default='Add Creditor') }}</a>
+            <a href="{{ url_for('debtors_blueprint.add') }}" class="btn btn-primary">{{ trans('add_debtor', default='Add Debtor') }}</a>
+            <a href="{{ url_for('payments_blueprint.add') }}" class="btn btn-primary">{{ trans('add_payment', default='Add Payment') }}</a>
+            <a href="{{ url_for('receipts_blueprint.add') }}" class="btn btn-primary">{{ trans('add_receipt', default='Add Receipt') }}</a>
+            <a href="{{ url_for('inventory_blueprint.add') }}" class="btn btn-primary">{{ trans('add_inventory', default='Add Inventory Item') }}</a>
+            <a href="{{ url_for('coins_blueprint.purchase') }}" class="btn btn-success">{{ trans('purchase_coins', default='Purchase Coins') }}</a>
             {% if current_user.role == 'admin' %}
-                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-warning">{{ trans('admin_dashboard', default='Admin Dashboard') }}</a>
+                <a href="{{ url_for('admin_blueprint.dashboard') }}" class="btn btn-warning">{{ trans('admin_dashboard', default='Admin Dashboard') }}</a>
             {% endif %}
         </div>
 
@@ -41,8 +41,8 @@
                             <td>{{ creditor.status | capitalize }}</td>
                             <td>
                                 {% if current_user.role != 'admin' or creditor.user_id == current_user.id %}
-                                    <a href="{{ url_for('creditors.edit', id=creditor._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
-                                    <form action="{{ url_for('creditors.delete', id=creditor._id) }}" method="POST" style="display:inline;">
+                                    <a href="{{ url_for('creditors_blueprint.edit', id=creditor._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                    <form action="{{ url_for('creditors_blueprint.delete', id=creditor._id) }}" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
                                     </form>
                                 {% endif %}
@@ -76,8 +76,8 @@
                             <td>{{ debtor.status | capitalize }}</td>
                             <td>
                                 {% if current_user.role != 'admin' or debtor.user_id == current_user.id %}
-                                    <a href="{{ url_for('debtors.edit', id=debtor._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
-                                    <form action="{{ url_for('debtors.delete', id=debtor._id) }}" method="POST" style="display:inline;">
+                                    <a href="{{ url_for('debtors_blueprint.edit', id=debtor._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                    <form action="{{ url_for('debtors_blueprint.delete', id=debtor._id) }}" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
                                     </form>
                                 {% endif %}
@@ -111,8 +111,8 @@
                             <td>{{ payment.category | capitalize }}</td>
                             <td>
                                 {% if current_user.role != 'admin' or payment.user_id == current_user.id %}
-                                    <a href="{{ url_for('payments.edit', id=payment._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
-                                    <form action="{{ url_for('payments.delete', id=payment._id) }}" method="POST" style="display:inline;">
+                                    <a href="{{ url_for('payments_blueprint.edit', id=payment._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                    <form action="{{ url_for('payments_blueprint.delete', id=payment._id) }}" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
                                     </form>
                                 {% endif %}
@@ -146,8 +146,8 @@
                             <td>{{ receipt.category | capitalize }}</td>
                             <td>
                                 {% if current_user.role != 'admin' or receipt.user_id == current_user.id %}
-                                    <a href="{{ url_for('receipts.edit', id=receipt._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
-                                    <form action="{{ url_for('receipts.delete', id=receipt._id) }}" method="POST" style="display:inline;">
+                                    <a href="{{ url_for('receipts_blueprint.edit', id=receipt._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                    <form action="{{ url_for('receipts_blueprint.delete', id=receipt._id) }}" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
                                     </form>
                                 {% endif %}
@@ -181,8 +181,8 @@
                             <td>{{ item.selling_price | format_currency }}</td>
                             <td>
                                 {% if current_user.role != 'admin' or item.user_id == current_user.id %}
-                                    <a href="{{ url_for('inventory.edit', id=item._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
-                                    <form action="{{ url_for('inventory.delete', id=item._id) }}" method="POST" style="display:inline;">
+                                    <a href="{{ url_for('inventory_blueprint.edit', id=item._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                    <form action="{{ url_for('inventory_blueprint.delete', id=item._id) }}" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
                                     </form>
                                 {% endif %}
@@ -197,7 +197,7 @@
 
     {% else %}
         <p class="alert alert-warning">{{ trans('login_required', default='Please log in to view your dashboard.') }}</p>
-        <a href="{{ url_for('users.login') }}" class="btn btn-primary">{{ trans('login', default='Log In') }}</a>
+        <a href="{{ url_for('users_blueprint.login') }}" class="btn btn-primary">{{ trans('login', default='Log In') }}</a>
     {% endif %}
 </div>
 {% endblock %}
