@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container mt-5">
     <h1 class="mb-4">{{ trans('profit_loss_report', default='Profit/Loss Report') }}</h1>
-    <form action="{{ url_for('reports.profit_loss') }}" method="POST" class="row g-3 mb-4">
+    <form action="{{ url_for('reports_blueprint.profit_loss') }}" method="POST" class="row g-3 mb-4">
         {{ form.hidden_tag() }}
         <div class="col-12">
             <label for="start_date" class="form-label">{{ trans('start_date', default='Start Date') }}</label>
