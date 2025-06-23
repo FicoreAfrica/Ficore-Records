@@ -4,8 +4,8 @@
 <div class="container mt-5">
     <h1 class="mb-4">{{ trans('coin_history', default='Coin History') }}</h1>
     <div class="d-flex gap-2 mb-4">
-        <a href="{{ url_for('coins.purchase') }}" class="btn btn-primary">{{ trans('purchase_coins', default='Purchase Coins') }}</a>
-        <a href="{{ url_for('coins.receipt_upload') }}" class="btn btn-primary">{{ trans('upload_receipt', default='Upload Receipt') }}</a>
+        <a href="{{ url_for('coins_blueprint.purchase') }}" class="btn btn-primary">{{ trans('purchase_coins', default='Purchase Coins') }}</a>
+        <a href="{{ url_for('coins_blueprint.receipt_upload') }}" class="btn btn-primary">{{ trans('upload_receipt', default='Upload Receipt') }}</a>
     </div>
     <p class="mb-4">{{ trans('coin_balance', default='Coin Balance') }}: <span id="coin-balance">{{ coin_balance }}</span></p>
     {% if transactions %}
