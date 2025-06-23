@@ -133,6 +133,7 @@ from debtors.routes import debtors_bp
 from creditors.routes import creditors_bp
 from receipts.routes import receipts_bp
 from payments.routes import payments_bp
+from dashboard.routes import dashboard_bp
 
 app.register_blueprint(users_bp, url_prefix='/users')
 app.register_blueprint(coins_bp, url_prefix='/coins')
@@ -144,6 +145,7 @@ app.register_blueprint(debtors_bp, url_prefix='/debtors')
 app.register_blueprint(creditors_bp, url_prefix='/creditors')
 app.register_blueprint(receipts_bp, url_prefix='/receipts')
 app.register_blueprint(payments_bp, url_prefix='/payments')
+app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 
 # Jinja2 globals and filters
 with app.app_context():
@@ -586,72 +588,6 @@ def feedback():
             flash(trans('feedback_error', default='An error occurred while submitting feedback'), 'danger')
             return render_template('general/feedback.html', tool_options=tool_options), 500
     return render_template('general/feedback.html', tool_options=tool_options)
-
-@app.route('/dashboard/admin')
-@login_required
-@requires_role('admin')
-def admin_dashboard():
-    try:
-        db = get_mongo_db()
-        inventory = list(db.inventory.find().sort('created_at', DESCENDING).limit(50))
-        payments = list(db.payments.find().sort('created_at', DESCENDING).limit(50))
-        receipts = list(db.receipts.find().sort('upload_date', DESCENDING).limit(50))
-        coin_transactions = list(db.coin_transactions.find().sort('date', DESCENDING).limit(50))
-        for item in inventory:
-            item['_id'] = str(item['_id'])
-        for payment in payments:
-            payment['_id'] = str(payment['_id'])
-        for receipt in receipts:
-            receipt['_id'] = str(receipt['_id'])
-        for coin_tx in coin_transactions:
-            coin_tx['_id'] = str(coin_tx['_id'])
-        return render_template('dashboard/admin_dashboard.html',
-                              inventory=inventory,
-                              payments=payments,
-                              receipts=receipts,
-                              coin_transactions=coin_transactions)
-    except Exception as e:
-        logger.error(f"Error loading admin dashboard: {str(e)}")
-        flash(trans('core_something_went_wrong', default='An error occurred while loading the dashboard'), 'danger')
-        return redirect(url_for('index')), 500
-
-@app.route('/dashboard/general')
-@login_required
-def general_dashboard():
-    try:
-        db = get_mongo_db()
-        user = db.users.find_one({'_id': current_user.id})
-        query = {'user_id': current_user.id}
-        if user.get('role') == 'admin':
-            query = {}
-        recent_inventory = list(db.inventory.find(query).sort('created_at', DESCENDING).limit(50))
-        recent_payments = list(db.payments.find(query).sort('created_at', DESCENDING).limit(50))
-        recent_receipts = list(db.receipts.find(query).sort('upload_date', DESCENDING).limit(50))
-        recent_coin_txs = list(db.coin_transactions.find(query).sort('date', DESCENDING).limit(10))
-        for item in recent_inventory:
-            item['_id'] = str(item['_id'])
-        for payment in recent_payments:
-            payment['_id'] = str(payment['_id'])
-        for receipt in recent_receipts:
-            receipt['_id'] = str(receipt['_id'])
-        for coin_tx in recent_coin_txs:
-            coin_tx['_id'] = str(coin_tx['_id'])
-        coin_balance = user.get('coin_balance', 0)
-        return render_template('dashboard/general_dashboard.html',
-                              recent_inventory=recent_inventory,
-                              recent_payments=recent_payments,
-                              recent_receipts=recent_receipts,
-                              recent_coin_txs=recent_coin_txs,
-                              coin_balance=coin_balance)
-    except Exception as e:
-        logger.error(f"Error fetching dashboard data: {str(e)}")
-        flash(trans('core_something_went_wrong', default='An error occurred while loading the dashboard'), 'danger')
-        return render_template('dashboard/general_dashboard.html',
-                              recent_inventory=[],
-                              recent_payments=[],
-                              recent_receipts=[],
-                              recent_coin_txs=[],
-                              coin_balance=0), 500
 
 @app.route('/setup', methods=['GET'])
 @limiter.limit("10 per minute")
