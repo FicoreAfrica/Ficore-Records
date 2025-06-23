@@ -25,7 +25,7 @@ def index():
     except Exception as e:
         logger.error(f"Error loading reports index for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
-        return redirect(url_for('dashboard.index'))
+        return redirect(url_for('dashboard_blueprint.index'))
 
 @reports_bp.route('/profit_loss', methods=['GET', 'POST'])
 @login_required
@@ -38,7 +38,7 @@ def profit_loss():
     # TODO: Restore original check_coin_balance(1) for production
     if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to generate a report. Purchase more coins.'), 'danger')
-        return redirect(url_for('coins.purchase'))
+        return redirect(url_for('coins_blueprint.purchase'))
     transactions = []
     # TEMPORARY: Allow admin to view all transactions during testing
     # TODO: Restore original user_id filter {'user_id': str(current_user.id)} for production
@@ -91,7 +91,7 @@ def inventory():
     # TODO: Restore original check_coin_balance(1) for production
     if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to generate a report. Purchase more coins.'), 'danger')
-        return redirect(url_for('coins.purchase'))
+        return redirect(url_for('coins_blueprint.purchase'))
     items = []
     # TEMPORARY: Allow admin to view all inventory items during testing
     # TODO: Restore original user_id filter {'user_id': str(current_user.id)} for production
@@ -209,7 +209,7 @@ def generate_inventory_pdf(items):
     p.drawString(6.5 * inch, y, trans_function('threshold', default='Threshold'))
     y -= 0.3 * inch
     for item in items:
-        p.drawString(1 * inch, y, item_name)
+        p.drawString(1 * inch, y, item['item_name'])
         p.drawString(2.5 * inch, y, str(item['qty']))
         p.drawString(3.5 * inch, y, trans_function(item['unit'], default=item['unit']))
         p.drawString(4.5 * inch, y, format_currency(item['buying_price']))
