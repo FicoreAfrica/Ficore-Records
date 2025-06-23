@@ -4,8 +4,8 @@
 <div class="container mt-5">
     <h1 class="mb-4">{{ trans('reports', default='Reports') }}</h1>
     <div class="d-grid gap-2">
-        <a href="{{ url_for('reports.profit_loss') }}" class="btn btn-primary">{{ trans('profit_loss_report', default='Profit/Loss Report') }}</a>
-        <a href="{{ url_for('reports.inventory') }}" class="btn btn-primary">{{ trans('inventory_report', default='Inventory Report') }}</a>
+        <a href="{{ url_for('reports_blueprint.profit_loss') }}" class="btn btn-primary">{{ trans('profit_loss_report', default='Profit/Loss Report') }}</a>
+        <a href="{{ url_for('reports_blueprint.inventory') }}" class="btn btn-primary">{{ trans('inventory_report', default='Inventory Report') }}</a>
     </div>
 </div>
 {% endblock %}
