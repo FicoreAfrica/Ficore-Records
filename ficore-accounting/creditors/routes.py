@@ -24,7 +24,7 @@ def index():
     except Exception as e:
         logger.error(f"Error fetching creditors for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong'), 'danger')
-        return redirect(url_for('dashboard.index'))
+        return redirect(url_for('dashboard_blueprint.index'))
 
 @creditors_bp.route('/add', methods=['GET', 'POST'])
 @login_required
@@ -37,7 +37,7 @@ def add():
     # TODO: Restore original check_coin_balance(1) for production
     if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to create a creditor. Purchase more coins.'), 'danger')
-        return redirect(url_for('coins.purchase'))
+        return redirect(url_for('coins_blueprint.purchase'))
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
@@ -74,7 +74,7 @@ def add():
                     'ref': f"Creditor creation: {invoice['party_name']}"
                 })
             flash(trans_function('create_creditor_success', default='Creditor created successfully'), 'success')
-            return redirect(url_for('creditors.index'))
+            return redirect(url_for('creditors_blueprint.index'))
         except Exception as e:
             logger.error(f"Error creating creditor for user {current_user.id}: {str(e)}")
             flash(trans_function('something_went_wrong'), 'danger')
@@ -94,7 +94,7 @@ def edit(id):
         creditor = db.invoices.find_one(query)
         if not creditor:
             flash(trans_function('invoice_not_found'), 'danger')
-            return redirect(url_for('creditors.index'))
+            return redirect(url_for('creditors_blueprint.index'))
         form = InvoiceForm(data={
             'party_name': creditor['party_name'],
             'phone': creditor['phone'],
@@ -120,7 +120,7 @@ def edit(id):
                     {'$set': updated_invoice}
                 )
                 flash(trans_function('edit_creditor_success', default='Creditor updated successfully'), 'success')
-                return redirect(url_for('creditors.index'))
+                return redirect(url_for('creditors_blueprint.index'))
             except Exception as e:
                 logger.error(f"Error updating creditor {id} for user {current_user.id}: {str(e)}")
                 flash(trans_function('something_went_wrong'), 'danger')
@@ -128,7 +128,7 @@ def edit(id):
     except Exception as e:
         logger.error(f"Error fetching creditor {id} for user {current_user.id}: {str(e)}")
         flash(trans_function('invoice_not_found'), 'danger')
-        return redirect(url_for('creditors.index'))
+        return redirect(url_for('creditors_blueprint.index'))
 
 @creditors_bp.route('/delete/<id>', methods=['POST'])
 @login_required
@@ -148,4 +148,4 @@ def delete(id):
     except Exception as e:
         logger.error(f"Error deleting creditor {id} for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong'), 'danger')
-    return redirect(url_for('creditors.index'))
+    return redirect(url_for('creditors_blueprint.index'))
