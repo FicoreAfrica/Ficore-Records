@@ -15,7 +15,7 @@
                 <div class="form-group mb-3 position-relative">
                     <label for="password" class="form-label">{{ trans('password') | default('Password') }}</label>
                     <input type="password" name="password" id="password" class="form-control" required>
-                    <span class="password-toggle" onclick="togglePassword('password')">
+                    <span class="password-toggle" onclick="togglePassword('password', 'toggle-password-icon')">
                         <i class="bi bi-eye" id="toggle-password-icon"></i>
                     </span>
                     <div class="invalid-feedback">{{ trans('required_field') | default('This field is required') }}</div>
@@ -32,4 +32,19 @@
         </div>
     </div>
 </div>
+<script>
+function togglePassword(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+    }
+}
+</script>
 {% endblock %}
