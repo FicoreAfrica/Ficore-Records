@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, FloatField, validators, SubmitField
 from datetime import datetime
-from utils import trans_function, requires_role, get_mongo_db
+from utils import trans_function, requires_role, get_mongo_db, is_admin
 from bson import ObjectId
 from app import limiter
 import logging
@@ -44,13 +44,15 @@ def dashboard():
     """Admin dashboard with system stats."""
     try:
         db = get_mongo_db()
-        user_count = db.users.count_documents({'role': {'$ne': 'admin'}})
+        user_count = db.users.count_documents({'role': {'$ne': 'admin'}} if not is_admin() else {})
         invoice_count = db.invoices.count_documents({})
         transaction_count = db.transactions.count_documents({})
         inventory_count = db.inventory.count_documents({})
         coin_tx_count = db.coin_transactions.count_documents({})
         audit_log_count = db.audit_logs.count_documents({})
-        recent_users = list(db.users.find({'role': {'$ne': 'admin'}}).sort('created_at', -1).limit(10))
+        # TEMPORARY: Remove user_id filter for admin during testing
+        # TODO: Restore original filter {'role': {'$ne': 'admin'}} for production
+        recent_users = list(db.users.find({} if is_admin() else {'role': {'$ne': 'admin'}}).sort('created_at', -1).limit(10))
         for user in recent_users:
             user['_id'] = str(user['_id'])
         return render_template(
@@ -78,7 +80,9 @@ def manage_users():
     """View and manage users."""
     try:
         db = get_mongo_db()
-        users = list(db.users.find({'role': {'$ne': 'admin'}}).sort('created_at', -1))
+        # TEMPORARY: Remove user_id filter for admin during testing
+        # TODO: Restore original filter {'role': {'$ne': 'admin'}} for production
+        users = list(db.users.find({} if is_admin() else {'role': {'$ne': 'admin'}}).sort('created_at', -1))
         for user in users:
             user['_id'] = str(user['_id'])
         return render_template('admin/users.html', users=users)
@@ -95,12 +99,14 @@ def suspend_user(user_id):
     """Suspend a user account."""
     try:
         db = get_mongo_db()
-        user = db.users.find_one({'_id': user_id, 'role': {'$ne': 'admin'}})
+        # TEMPORARY: Allow admin to suspend any user during testing
+        # TODO: Restore original filter {'_id': user_id, 'role': {'$ne': 'admin'}} for production
+        user = db.users.find_one({'_id': user_id})
         if not user:
             flash(trans_function('user_not_found', default='User not found'), 'danger')
             return redirect(url_for('admin.users'))
         result = db.users.update_one(
-            {'_id': user_id, 'role': {'$ne': 'admin'}},
+            {'_id': user_id},
             {'$set': {'suspended': True, 'updated_at': datetime.utcnow()}}
         )
         if result.modified_count == 0:
@@ -123,7 +129,9 @@ def delete_user(user_id):
     """Delete a user and their data."""
     try:
         db = get_mongo_db()
-        user = db.users.find_one({'_id': user_id, 'role': {'$ne': 'admin'}})
+        # TEMPORARY: Allow admin to delete any user during testing
+        # TODO: Restore original filter {'_id': user_id, 'role': {'$ne': 'admin'}} for production
+        user = db.users.find_one({'_id': user_id})
         if not user:
             flash(trans_function('user_not_found', default='User not found'), 'danger')
             return redirect(url_for('admin.users'))
@@ -132,7 +140,7 @@ def delete_user(user_id):
         db.inventory.delete_many({'user_id': user_id})
         db.coin_transactions.delete_many({'user_id': user_id})
         db.audit_logs.delete_many({'details.user_id': user_id})
-        result = db.users.delete_one({'_id': user_id, 'role': {'$ne': 'admin'}})
+        result = db.users.delete_one({'_id': user_id})
         if result.deleted_count == 0:
             flash(trans_function('user_not_deleted', default='User could not be deleted'), 'danger')
         else:
