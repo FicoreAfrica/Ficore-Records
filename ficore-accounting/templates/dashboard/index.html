@@ -3,33 +3,46 @@
 <div class="container mt-5">
     <h2>{{ trans('dashboard_title', default='Dashboard') }}</h2>
     {% if current_user.is_authenticated %}
-        {% if current_user.is_admin %}
+        {% if current_user.role == 'admin' %}
             <p class="alert alert-info">{{ trans('admin_view_all_data', default='You are viewing all users\' data as an admin.') }}</p>
         {% endif %}
-        
-        <h3>{{ trans('recent_invoices', default='Recent Invoices') }}</h3>
-        {% if recent_invoices %}
+
+        <div class="mb-4">
+            <h3>{{ trans('quick_actions', default='Quick Actions') }}</h3>
+            <a href="{{ url_for('creditors.add') }}" class="btn btn-primary">{{ trans('add_creditor', default='Add Creditor') }}</a>
+            <a href="{{ url_for('debtors.add') }}" class="btn btn-primary">{{ trans('add_debtor', default='Add Debtor') }}</a>
+            <a href="{{ url_for('payments.add') }}" class="btn btn-primary">{{ trans('add_payment', default='Add Payment') }}</a>
+            <a href="{{ url_for('receipts.add') }}" class="btn btn-primary">{{ trans('add_receipt', default='Add Receipt') }}</a>
+            <a href="{{ url_for('inventory.add') }}" class="btn btn-primary">{{ trans('add_inventory', default='Add Inventory Item') }}</a>
+            <a href="{{ url_for('coins.purchase') }}" class="btn btn-success">{{ trans('purchase_coins', default='Purchase Coins') }}</a>
+            {% if current_user.role == 'admin' %}
+                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-warning">{{ trans('admin_dashboard', default='Admin Dashboard') }}</a>
+            {% endif %}
+        </div>
+
+        <h3>{{ trans('recent_creditors', default='Recent Creditors') }}</h3>
+        {% if recent_creditors %}
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>{{ trans('invoice_number', default='Invoice Number') }}</th>
-                        <th>{{ trans('customer_name', default='Customer') }}</th>
-                        <th>{{ trans('amount', default='Amount') }}</th>
+                        <th>{{ trans('party_name', default='Party Name') }}</th>
+                        <th>{{ trans('phone', default='Phone') }}</th>
+                        <th>{{ trans('total', default='Total') }}</th>
                         <th>{{ trans('status', default='Status') }}</th>
                         <th>{{ trans('actions', default='Actions') }}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for invoice in recent_invoices %}
+                    {% for creditor in recent_creditors %}
                         <tr>
-                            <td>{{ invoice.invoice_number }}</td>
-                            <td>{{ invoice.customer_name }}</td>
-                            <td>{{ invoice.amount | format_currency }}</td>
-                            <td>{{ invoice.status | capitalize }}</td>
+                            <td>{{ creditor.party_name }}</td>
+                            <td>{{ creditor.phone }}</td>
+                            <td>{{ creditor.total | format_currency }}</td>
+                            <td>{{ creditor.status | capitalize }}</td>
                             <td>
-                                {% if not current_user.is_admin or invoice.user_id == current_user.id %}
-                                    <a href="{{ url_for('invoices.update', invoice_id=invoice._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
-                                    <form action="{{ url_for('invoices.delete', invoice_id=invoice._id) }}" method="POST" style="display:inline;">
+                                {% if current_user.role != 'admin' or creditor.user_id == current_user.id %}
+                                    <a href="{{ url_for('creditors.edit', id=creditor._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                    <form action="{{ url_for('creditors.delete', id=creditor._id) }}" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
                                     </form>
                                 {% endif %}
@@ -39,32 +52,32 @@
                 </tbody>
             </table>
         {% else %}
-            <p>{{ trans('no_invoices', default='No invoices found.') }}</p>
+            <p>{{ trans('no_creditors', default='No creditors found.') }}</p>
         {% endif %}
 
-        <h3>{{ trans('recent_transactions', default='Recent Transactions') }}</h3>
-        {% if recent_transactions %}
+        <h3>{{ trans('recent_debtors', default='Recent Debtors') }}</h3>
+        {% if recent_debtors %}
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>{{ trans('type', default='Type') }}</th>
-                        <th>{{ trans('category', default='Category') }}</th>
-                        <th>{{ trans('amount', default='Amount') }}</th>
-                        <th>{{ trans('description', default='Description') }}</th>
+                        <th>{{ trans('party_name', default='Party Name') }}</th>
+                        <th>{{ trans('phone', default='Phone') }}</th>
+                        <th>{{ trans('total', default='Total') }}</th>
+                        <th>{{ trans('status', default='Status') }}</th>
                         <th>{{ trans('actions', default='Actions') }}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for transaction in recent_transactions %}
+                    {% for debtor in recent_debtors %}
                         <tr>
-                            <td>{{ transaction.type | capitalize }}</td>
-                            <td>{{ transaction.category | capitalize }}</td>
-                            <td>{{ transaction.amount | format_currency }}</td>
-                            <td>{{ transaction.description }}</td>
+                            <td>{{ debtor.party_name }}</td>
+                            <td>{{ debtor.phone }}</td>
+                            <td>{{ debtor.total | format_currency }}</td>
+                            <td>{{ debtor.status | capitalize }}</td>
                             <td>
-                                {% if not current_user.is_admin or transaction.user_id == current_user.id %}
-                                    <a href="{{ url_for('transactions.update', transaction_id=transaction._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
-                                    <form action="{{ url_for('transactions.delete', transaction_id=transaction._id) }}" method="POST" style="display:inline;">
+                                {% if current_user.role != 'admin' or debtor.user_id == current_user.id %}
+                                    <a href="{{ url_for('debtors.edit', id=debtor._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                    <form action="{{ url_for('debtors.delete', id=debtor._id) }}" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
                                     </form>
                                 {% endif %}
@@ -74,8 +87,114 @@
                 </tbody>
             </table>
         {% else %}
-            <p>{{ trans('no_transactions', default='No transactions found.') }}</p>
+            <p>{{ trans('no_debtors', default='No debtors found.') }}</p>
         {% endif %}
+
+        <h3>{{ trans('recent_payments', default='Recent Payments') }}</h3>
+        {% if recent_payments %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>{{ trans('party_name', default='Party Name') }}</th>
+                        <th>{{ trans('date', default='Date') }}</th>
+                        <th>{{ trans('amount', default='Amount') }}</th>
+                        <th>{{ trans('category', default='Category') }}</th>
+                        <th>{{ trans('actions', default='Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in recent_payments %}
+                        <tr>
+                            <td>{{ payment.party_name }}</td>
+                            <td>{{ payment.date | format_date }}</td>
+                            <td>{{ payment.amount | format_currency }}</td>
+                            <td>{{ payment.category | capitalize }}</td>
+                            <td>
+                                {% if current_user.role != 'admin' or payment.user_id == current_user.id %}
+                                    <a href="{{ url_for('payments.edit', id=payment._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                    <form action="{{ url_for('payments.delete', id=payment._id) }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>{{ trans('no_payments', default='No payments found.') }}</p>
+        {% endif %}
+
+        <h3>{{ trans('recent_receipts', default='Recent Receipts') }}</h3>
+        {% if recent_receipts %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>{{ trans('party_name', default='Party Name') }}</th>
+                        <th>{{ trans('date', default='Date') }}</th>
+                        <th>{{ trans('amount', default='Amount') }}</th>
+                        <th>{{ trans('category', default='Category') }}</th>
+                        <th>{{ trans('actions', default='Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for receipt in recent_receipts %}
+                        <tr>
+                            <td>{{ receipt.party_name }}</td>
+                            <td>{{ receipt.date | format_date }}</td>
+                            <td>{{ receipt.amount | format_currency }}</td>
+                            <td>{{ receipt.category | capitalize }}</td>
+                            <td>
+                                {% if current_user.role != 'admin' or receipt.user_id == current_user.id %}
+                                    <a href="{{ url_for('receipts.edit', id=receipt._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                    <form action="{{ url_for('receipts.delete', id=receipt._id) }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>{{ trans('no_receipts', default='No receipts found.') }}</p>
+        {% endif %}
+
+        <h3>{{ trans('low_stock_inventory', default='Low Stock Inventory') }}</h3>
+        {% if low_stock_items %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>{{ trans('item_name', default='Item Name') }}</th>
+                        <th>{{ trans('quantity', default='Quantity') }}</th>
+                        <th>{{ trans('unit', default='Unit') }}</th>
+                        <th>{{ trans('selling_price', default='Selling Price') }}</th>
+                        <th>{{ trans('actions', default='Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in low_stock_items %}
+                        <tr>
+                            <td>{{ item.item_name }}</td>
+                            <td>{{ item.qty }}</td>
+                            <td>{{ item.unit }}</td>
+                            <td>{{ item.selling_price | format_currency }}</td>
+                            <td>
+                                {% if current_user.role != 'admin' or item.user_id == current_user.id %}
+                                    <a href="{{ url_for('inventory.edit', id=item._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                    <form action="{{ url_for('inventory.delete', id=item._id) }}" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>{{ trans('no_low_stock', default='No low stock items found.') }}</p>
+        {% endif %}
+
     {% else %}
         <p class="alert alert-warning">{{ trans('login_required', default='Please log in to view your dashboard.') }}</p>
         <a href="{{ url_for('users.login') }}" class="btn btn-primary">{{ trans('login', default='Log In') }}</a>
