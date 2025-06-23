@@ -19,7 +19,7 @@ def index():
         # TEMPORARY: Allow admin to view all receipts during testing
         # TODO: Restore original user_id filter {'user_id': str(current_user.id), 'type': 'receipt'} for production
         query = {'type': 'receipt'} if is_admin() else {'user_id': str(current_user.id), 'type': 'receipt'}
-        receipts = db.transactions.find(query).sort('date', -1)
+        receipts = list(db.transactions.find(query).sort('date', -1))
         return render_template('receipts/index.html', receipts=receipts, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching receipts for user {current_user.id}: {str(e)}")
