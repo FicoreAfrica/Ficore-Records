@@ -2,13 +2,14 @@ import os
 import sys
 import logging
 from datetime import datetime, date, timedelta
-from flask import Flask, session, redirect, url_for, flash, render_template, request, Response, jsonify
+from flask import Flask, session, redirect, url_for, flash, render_template, request, Response, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, current_user, login_required
 from flask_mailman import Mail
 from werkzeug.security import generate_password_hash
 import jinja2
 from flask_wtf import CSRFProtect
+from flask_wtf.csrf import validate_csrf, CSRFError
 from utils import trans_function as trans, is_valid_email, get_mongo_db, close_mongo_db
 from flask_session import Session
 from pymongo import MongoClient, ASCENDING, DESCENDING
@@ -247,12 +248,28 @@ def terms():
 
 @app.route('/set_dark_mode', methods=['POST'])
 def set_dark_mode():
-    data = request.get_json()
-    dark_mode = str(data.get('dark_mode', False)).lower() == 'true'
-    session['dark_mode'] = dark_mode
-    if current_user.is_authenticated:
-        get_mongo_db().users.update_one({'_id': current_user.id}, {'$set': {'dark_mode': dark_mode}})
-    return Response(status=204)
+    try:
+        # Validate CSRF token
+        validate_csrf(request.headers.get('X-CSRF-Token'))
+        data = request.get_json()
+        if not data or 'dark_mode' not in data:
+            return jsonify({'status': 'error', 'message': 'Invalid request data'}), 400
+        dark_mode = bool(data.get('dark_mode', False))
+        session['dark_mode'] = dark_mode
+        if current_user.is_authenticated:
+            get_mongo_db().users.update_one({'_id': current_user.id}, {'$set': {'dark_mode': dark_mode}})
+        return Response(status=204)
+    except CSRFError:
+        logger.error("CSRF validation failed for /set_dark_mode")
+        return jsonify({'status': 'error', 'message': 'CSRF token invalid'}), 403
+    except Exception as e:
+        logger.error(f"Error in set_dark_mode: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon to prevent 404 errors."""
+    return send_from_directory(app.static_folder, 'favicon.ico')
 
 def setup_database():
     try:
