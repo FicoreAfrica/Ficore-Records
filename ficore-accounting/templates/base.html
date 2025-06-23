@@ -107,7 +107,7 @@
                                 {{ trans('coins', default='Coins') }}
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="coinsDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('coins.balance') }}">{{ trans('coin_balance', default='Coin Balance') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins.get_balance') }}">{{ trans('coin_balance', default='Coin Balance') }}</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('coins.purchase') }}">{{ trans('purchase_coins', default='Purchase Coins') }}</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('coins.history') }}">{{ trans('coin_history', default='Coin History') }}</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('coins.receipt_upload') }}">{{ trans('receipt_upload', default='Upload Receipt') }}</a></li>
