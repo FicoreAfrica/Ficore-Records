@@ -1,40 +1,60 @@
-from flask import Blueprint, request, render_template, redirect, url_for, flash, current_app, jsonify
-from flask_wtf import FlaskForm
-from wtforms import FloatField, StringField, SelectField, validators, SubmitField
-from flask_wtf.file import FileField, FileAllowed
-from flask_login import login_required, current_user
 from datetime import datetime
-from utils import trans_function, requires_role, check_coin_balance, get_mongo_db
+from logging import getLogger
+
 from bson import ObjectId
 from bson.errors import InvalidId
-from app import limiter
-import logging
+from flask import Blueprint, request, render_template, redirect, url_for, flash, current_app, jsonify
+from flask_login import login_required, current_user
+from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from gridfs import GridFS
+from wtforms import FloatField, StringField, SelectField, SubmitField, validators
 
-logger = logging.getLogger(__name__)
+from app import limiter
+from utils import trans_function, requires_role, check_coin_balance, get_mongo_db, is_admin
+
+logger = getLogger(__name__)
 
 coins_bp = Blueprint('coins', __name__, template_folder='templates/coins')
 
 class PurchaseForm(FlaskForm):
-    amount = SelectField(trans_function('coin_amount', default='Coin Amount'), choices=[
-        ('10', '10 Coins'),
-        ('50', '50 Coins'),
-        ('100', '100 Coins')
-    ], validators=[validators.DataRequired()])
-    payment_method = SelectField(trans_function('payment_method', default='Payment Method'), choices=[
-        ('card', trans_function('card', default='Credit/Debit Card')),
-        ('bank', trans_function('bank', default='Bank Transfer'))
-    ], validators=[validators.DataRequired()])
+    amount = SelectField(
+        trans_function('coin_amount', default='Coin Amount'),
+        choices=[
+            ('10', '10 Coins'),
+            ('50', '50 Coins'),
+            ('100', '100 Coins')
+        ],
+        validators=[validators.DataRequired()]
+    )
+    payment_method = SelectField(
+        trans_function('payment_method', default='Payment Method'),
+        choices=[
+            ('card', trans_function('card', default='Credit/Debit Card')),
+            ('bank', trans_function('bank', default='Bank Transfer'))
+        ],
+        validators=[validators.DataRequired()]
+    )
     submit = SubmitField(trans_function('purchase', default='Purchase'))
 
 class ReceiptUploadForm(FlaskForm):
-    receipt = FileField(trans_function('receipt', default='Receipt'), validators=[
-        FileAllowed(['jpg', 'png', 'pdf'], trans_function('invalid_file_type', default='Only JPG, PNG, or PDF files are allowed'))
-    ])
+    receipt = FileField(
+        trans_function('receipt', default='Receipt'),
+        validators=[
+            FileAllowed(['jpg', 'png', 'pdf'], trans_function('invalid_file_type', default='Only JPG, PNG, or PDF files are allowed'))
+        ]
+    )
     submit = SubmitField(trans_function('upload_receipt', default='Upload Receipt'))
 
-def credit_coins(user_id, amount, ref, type='purchase'):
-    """Credit coins to a user and log transaction."""
+def credit_coins(user_id: str, amount: int, ref: str, type: str = 'purchase') -> None:
+    """Credit coins to a user and log transaction.
+
+    Args:
+        user_id: The ID of the user (string).
+        amount: The number of coins to credit.
+        ref: Reference for the transaction.
+        type: Type of transaction (default: 'purchase').
+    """
     db = get_mongo_db()
     db.users.update_one(
         {'_id': user_id},
@@ -63,7 +83,7 @@ def credit_coins(user_id, amount, ref, type='purchase'):
 @requires_role(['trader', 'personal'])
 @limiter.limit("50 per hour")
 def purchase():
-    """Purchase coins."""
+    """Handle coin purchase requests."""
     form = PurchaseForm()
     if form.validate_on_submit():
         try:
@@ -87,14 +107,18 @@ def history():
     """View coin transaction history."""
     try:
         db = get_mongo_db()
-        user = db.users.find_one({'_id': current_user.id})
-        query = {'user_id': str(current_user.id)}
-        if user.get('role') == 'admin':
-            query.pop('user_id')
+        user = db.users.find_one({'_id': str(current_user.id)})
+        # TEMPORARY: Allow admin to view all transactions during testing
+        # TODO: Restore original query {'user_id': str(current_user.id)} for production
+        query = {} if is_admin() else {'user_id': str(current_user.id)}
         transactions = list(db.coin_transactions.find(query).sort('date', -1).limit(50))
         for tx in transactions:
             tx['_id'] = str(tx['_id'])
-        return render_template('coins/history.html', transactions=transactions, coin_balance=user.get('coin_balance', 0))
+        return render_template(
+            'coins/history.html',
+            transactions=transactions,
+            coin_balance=user.get('coin_balance', 0) if user else 0
+        )
     except Exception as e:
         logger.error(f"Error fetching coin history for user {current_user.id}: {str(e)}")
         flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
@@ -105,29 +129,42 @@ def history():
 @requires_role(['trader', 'personal'])
 @limiter.limit("10 per hour")
 def receipt_upload():
-    """Upload payment receipt."""
+    """Handle payment receipt uploads."""
     form = ReceiptUploadForm()
-    if not check_coin_balance(1):
-        flash(trans_function('insufficient_coins', default='Insufficient coins to upload receipt. Purchase more coins.'), 'danger')
+    # TEMPORARY: Bypass coin check for admin during testing
+    # TODO: Restore original check_coin_balance(1) for production
+    if not is_admin() and not check_coin_balance(1):
+        flash(
+            trans_function('insufficient_coins', default='Insufficient coins to upload receipt. Purchase more coins.'),
+            'danger'
+        )
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
-            fs = current_app.extensions['gridfs']
+            fs = GridFS(db)  # Initialize GridFS with the MongoDB database
             receipt_file = form.receipt.data
-            file_id = fs.put(receipt_file, filename=receipt_file.filename, user_id=str(current_user.id), upload_date=datetime.utcnow())
-            db.users.update_one(
-                {'_id': current_user.id},
-                {'$inc': {'coin_balance': -1}}
+            file_id = fs.put(
+                receipt_file,
+                filename=receipt_file.filename,
+                user_id=str(current_user.id),
+                upload_date=datetime.utcnow()
             )
+            # TEMPORARY: Skip coin deduction for admin during testing
+            # TODO: Restore original coin deduction for production
+            if not is_admin():
+                db.users.update_one(
+                    {'_id': str(current_user.id)},
+                    {'$inc': {'coin_balance': -1}}
+                )
+                db.coin_transactions.insert_one({
+                    'user_id': str(current_user.id),
+                    'amount': -1,
+                    'type': 'spend',
+                    'ref': f"RECEIPT_UPLOAD_{datetime.utcnow().isoformat()}",
+                    'date': datetime.utcnow()
+                })
             ref = f"RECEIPT_UPLOAD_{datetime.utcnow().isoformat()}"
-            db.coin_transactions.insert_one({
-                'user_id': str(current_user.id),
-                'amount': -1,
-                'type': 'spend',
-                'ref': ref,
-                'date': datetime.utcnow()
-            })
             db.audit_logs.insert_one({
                 'admin_id': 'system',
                 'action': 'receipt_upload',
@@ -154,7 +191,7 @@ def get_balance():
             logger.warning("Unauthorized access attempt to /coins/balance")
             return jsonify({'error': trans_function('unauthorized', default='Unauthorized access')}), 401
 
-        user_id = str(current_user.id)  # Ensure user_id is a string, as per database schema
+        user_id = str(current_user.id)  # Ensure user_id is a string
         db = get_mongo_db()
 
         # Query user by _id (string, not ObjectId)
