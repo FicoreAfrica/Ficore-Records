@@ -36,7 +36,7 @@ def log_audit_action(action, details=None):
     except Exception as e:
         logger.error(f"Error logging audit action: {str(e)}")
 
-@admin_bp.route('/dashboard', methods=['GET']
+@admin_bp.route('/dashboard', methods=['GET'])
 @login_required
 @requires_role('admin')
 @limiter.limit("100 per hour")
