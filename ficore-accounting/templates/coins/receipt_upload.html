@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container mt-5">
     <h1 class="mb-4">{{ trans('upload_receipt', default='Upload Receipt') }}</h1>
-    <form action="{{ url_for('coins.receipt_upload') }}" method="POST" enctype="multipart/form-data" class="row g-3">
+    <form action="{{ url_for('coins_blueprint.receipt_upload') }}" method="POST" enctype="multipart/form-data" class="row g-3">
         {{ form.hidden_tag() }}
         <div class="col-12">
             <label for="receipt" class="form-label">{{ trans('receipt', default='Receipt') }}</label>
