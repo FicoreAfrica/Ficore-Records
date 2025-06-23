@@ -15,7 +15,7 @@
                 </div>
             {% endif %}
         {% endwith %}
-        <form class="validate-form" method="POST" action="{{ url_for('users.login') }}">
+        <form class="validate-form" method="POST" action="{{ url_for('users_blueprint.login') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label for="username" class="form-label">{{ trans('username') | default('Username') }}</label>
@@ -34,9 +34,9 @@
                 <button type="submit" class="btn btn-primary">{{ trans('core_login') | default('Login') }}</button>
             </div>
             <div class="text-center mt-3">
-                <a href="{{ url_for('users.forgot_password') }}" class="btn-link text-color">{{ trans('forgot_password') | default('Forgot Password?') }}</a>
+                <a href="{{ url_for('users_blueprint.forgot_password') }}" class="btn-link text-color">{{ trans('forgot_password') | default('Forgot Password?') }}</a>
                 <br>
-                <a href="{{ url_for('users.signup') }}" class="btn-link text-color">{{ trans('create_account') | default('Create an Account') }}</a>
+                <a href="{{ url_for('users_blueprint.signup') }}" class="btn-link text-color">{{ trans('create_account') | default('Create an Account') }}</a>
             </div>
         </form>
     </div>
