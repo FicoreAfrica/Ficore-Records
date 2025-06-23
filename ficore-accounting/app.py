@@ -95,7 +95,7 @@ babel.locale_selector = get_locale
 # Login manager
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'users.login'
+login_manager.login_view = 'users_blueprint.login'
 
 # Role-based access control decorator
 from utils import requires_role, check_coin_balance
@@ -547,7 +547,7 @@ def feedback():
         try:
             if not check_coin_balance(1):
                 flash(trans('insufficient_coins', default='Insufficient coins to submit feedback'), 'danger')
-                return redirect(url_for('coins.purchase'))
+                return redirect(url_for('coins_blueprint.purchase'))
             tool_name = request.form.get('tool_name')
             rating = request.form.get('rating')
             comment = request.form.get('comment', '').strip()
@@ -602,7 +602,7 @@ def setup_database_route():
         flash(trans('database_setup_success', default='Database setup successful'), 'success')
         return redirect(url_for('index'))
     else:
-        flash(trans('database_setup_error', default='An error occurred during database setup'), 'danger')
+        flash(trans('database_setup_error', default='An error occurred caters'), 'danger')
         return render_template('errors/500.html', content=trans('internal_error', default='Internal server error')), 500
 
 @app.errorhandler(403)
