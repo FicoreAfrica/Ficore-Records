@@ -10,7 +10,7 @@ TRANSLATIONS = {
         'database_setup_success': 'Database setup completed successfully',
         'database_setup_error': 'Database setup failed',
         'complete_business_setup': 'Complete Business Setup',
-        'welcome_desc':'Ficore Records helps you manage your debtors, creditors, receipts, and payments with ease. Streamline your financial tracking and gain clearer insights into your business's health.',
+        'welcome_desc':'Ficore Records helps you manage your debtors, creditors, receipts, and payments with ease. Streamline your financial tracking and gain clearer insights into your business\'s health.',
         'provide_business_details': 'Please provide your business details to complete the setup.',
         'business_name': 'Business Name',
         'privacy_title': 'Privacy Policy',
