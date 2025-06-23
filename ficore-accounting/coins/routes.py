@@ -6,6 +6,7 @@ from flask_login import login_required, current_user
 from datetime import datetime
 from utils import trans_function, requires_role, check_coin_balance, get_mongo_db
 from bson import ObjectId
+from bson.errors import InvalidId
 from app import limiter
 import logging
 from gridfs import GridFS
@@ -36,7 +37,7 @@ def credit_coins(user_id, amount, ref, type='purchase'):
     """Credit coins to a user and log transaction."""
     db = get_mongo_db()
     db.users.update_one(
-        {'_id': ObjectId(user_id)},
+        {'_id': user_id},
         {'$inc': {'coin_balance': amount}}
     )
     db.coin_transactions.insert_one({
@@ -86,7 +87,7 @@ def history():
     """View coin transaction history."""
     try:
         db = get_mongo_db()
-        user = db.users.find_one({'_id': ObjectId(current_user.id)})
+        user = db.users.find_one({'_id': current_user.id})
         query = {'user_id': str(current_user.id)}
         if user.get('role') == 'admin':
             query.pop('user_id')
@@ -116,7 +117,7 @@ def receipt_upload():
             receipt_file = form.receipt.data
             file_id = fs.put(receipt_file, filename=receipt_file.filename, user_id=str(current_user.id), upload_date=datetime.utcnow())
             db.users.update_one(
-                {'_id': ObjectId(current_user.id)},
+                {'_id': current_user.id},
                 {'$inc': {'coin_balance': -1}}
             )
             ref = f"RECEIPT_UPLOAD_{datetime.utcnow().isoformat()}"
@@ -148,9 +149,28 @@ def receipt_upload():
 def get_balance():
     """API endpoint to fetch current coin balance."""
     try:
+        # Verify user ID from current_user
+        if not current_user.is_authenticated or not current_user.id:
+            logger.warning("Unauthorized access attempt to /coins/balance")
+            return jsonify({'error': trans_function('unauthorized', default='Unauthorized access')}), 401
+
+        user_id = str(current_user.id)  # Ensure user_id is a string, as per database schema
         db = get_mongo_db()
-        user = db.users.find_one({'_id': ObjectId(current_user.id)})
-        return jsonify({'coin_balance': user.get('coin_balance', 0)})
+
+        # Query user by _id (string, not ObjectId)
+        user = db.users.find_one({'_id': user_id})
+        if not user:
+            logger.error(f"User not found: {user_id}")
+            return jsonify({'error': trans_function('user_not_found', default='User not found')}), 404
+
+        # Return coin balance
+        coin_balance = user.get('coin_balance', 0)
+        logger.info(f"Fetched coin balance for user {user_id}: {coin_balance}")
+        return jsonify({'coin_balance': coin_balance}), 200
+
+    except InvalidId:
+        logger.error(f"Invalid user ID format: {user_id}")
+        return jsonify({'error': trans_function('invalid_user_id', default='Invalid user ID format')}), 400
     except Exception as e:
-        logger.error(f"Error fetching coin balance for user {current_user.id}: {str(e)}")
+        logger.error(f"Error fetching coin balance for user {user_id}: {str(e)}")
         return jsonify({'error': trans_function('core_something_went_wrong', default='An error occurred')}), 500
