@@ -56,7 +56,6 @@ def init_mongo_client():
             connectTimeoutMS=20000,
             socketTimeoutMS=20000
         )
-        # Test connection
         client.admin.command('ping')
         logger.info("MongoDB connection established successfully")
         return client
@@ -66,7 +65,7 @@ def init_mongo_client():
 
 # Initialize MongoDB client early
 app.mongo_client = init_mongo_client()
-app.config['SESSION_MONGODB'] = app.mongo_client  # Use same client for sessions
+app.config['SESSION_MONGODB'] = app.mongo_client
 
 def get_mongo_db():
     """Get MongoDB database instance."""
@@ -93,14 +92,25 @@ app.config['SESSION_COOKIE_NAME'] = 'ficore_session'
 # Initialize extensions
 mail = Mail(app)
 sess = Session()
-sess.init_app(app)  # Initialize session after setting SESSION_MONGODB
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["1000 per day", "100 per hour"],
-    storage_uri=app.config['MONGO_URI'],
-    storage_options={}
-)
+sess.init_app(app)
+try:
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=["1000 per day", "100 per hour"],
+        storage_uri=app.config['MONGO_URI'],
+        storage_options={}
+    )
+    logger.info("Flask-Limiter initialized with MongoDB storage")
+except Exception as e:
+    logger.error(f"Failed to initialize Flask-Limiter with MongoDB: {str(e)}")
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=["1000 per day", "100 per hour"],
+        storage_uri="memory://"
+    )
+    logger.warning("Flask-Limiter using in-memory storage as fallback")
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 babel = Babel(app)
 
@@ -451,7 +461,6 @@ def setup_database():
         # Sessions collection with TTL index
         if 'sessions' not in collections:
             db.create_collection('sessions')
-        # Ensure TTL index for session cleanup
         existing_indexes = db.sessions.index_information()
         if 'session_expiry_index' not in existing_indexes:
             db.sessions.create_index(
