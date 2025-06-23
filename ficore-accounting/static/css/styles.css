@@ -1,6 +1,6 @@
 /* --- Root Variables (Light Mode) --- */
 :root {
-    --navbar-height: 60px; /* Navbar height for consistent spacing */
+    --navbar-height: 60px;
     --background-main: #F2EFEA;
     --card-bg: #ffffff;
     --button-primary-bg: #b88a44;
@@ -25,8 +25,8 @@
     --alert-warning-border: #ffe58f;
     --alert-warning-text: #ad8b00;
     --alert-info-bg: #e6f7ff;
-    --alert-info-text: #0050b3;
     --alert-info-border: #91d5ff;
+    --alert-info-text: #0050b3;
     --text-color: #1e293b;
     --text-muted: #6b7280;
     --text-secondary: #4a5568;
@@ -35,21 +35,20 @@
     --footer-bg: #0F3D57;
     --card-border: #e2e8f0;
     --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
-    --card-shadow-hover: 0 16px 32px rgba(0, 15, 40, 0.1);
+    --card-shadow-hover: 0 8px 24px rgba(0, 15, 40, 0.15);
     --table-border: #e2e8f0;
     --table-header-bg: #0F3D57;
-    --table-text: #ffffff;
+    --table-text: #1e293b;
     --table-light-bg: #f8fafc;
     --table-striped-bg: #f1f5f9;
     --amount-highlight: #3A86FF;
     --error-highlight: #a8071a;
     --accent-blue: #3A86FF;
     --success-color: #10b981;
-    --table-row-even-bg-bg-color: #f8f8f8;
-    --table-row-bg-color: #fefefe;
-    --table-row-bg-overdue-bg-color: #fefeee;
-    --table-row-bg-pending-bg-color: #fff9e0;
-    --table-row-bg-settled-bg-color: #e0f7e0;
+    --table-row-even-bg: #FDFEFC;
+    --table-row-bg-overdue: #fefcbf;
+    --table-row-bg-pending: #fef9c3;
+    --table-row-bg-settled: #d1fae5;
 }
 
 /* --- Dark Mode Variables --- */
@@ -79,17 +78,17 @@
     --alert-warning-border: #ffeb3b;
     --alert-warning-text: #ffe082;
     --alert-info-bg: #0c2040;
-    --alert-info-text: #d4e8ff;
     --alert-info-border: #4d8ce8;
+    --alert-info-text: #d4e8ff;
     --text-color: #f1f5f9;
     --text-muted: #9ca3af;
     --text-secondary: #94a3b8;
     --navbar-bg: #0f172a;
     --navbar-text-color: #f1f5f9;
     --footer-bg: #1e293b;
-    --card-border: #475569;
-    --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-    --card-shadow-hover: 0 16px 32px rgba(0, 0, 0, 0.4);
+    --card-border: #4b5563;
+    --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    --card-shadow-hover: 0 12px 32px rgba(0, 0, 0, 0.4);
     --table-border: #475569;
     --table-header-bg: #1e3a8a;
     --table-text: #f1f5f9;
@@ -138,12 +137,12 @@ h1, h2, h3 {
 }
 
 h1 { font-size: 2rem; }
-h2 { font-size: 1.5rem; }
+h2 { font-size: 1.75rem; }
 h3 { font-size: 1.25rem; }
 
 main {
     flex: 1;
-    padding-top: calc(var(--navbar-height) + 1rem); /* Ensure content starts below navbar */
+    padding-top: calc(var(--navbar-height) + 1rem);
 }
 
 /* --- Container --- */
@@ -245,6 +244,11 @@ main {
 .bi-sun, .bi-moon-stars {
     font-size: 1.2rem;
     color: var(--navbar-text-color);
+    transition: color 0.3s ease;
+}
+
+.btn-link:hover .bi-sun, .btn-link:hover .bi-moon-stars {
+    color: var(--accent-blue);
 }
 
 /* --- Alerts --- */
@@ -387,8 +391,9 @@ main {
     border: 1px solid var(--card-border);
     border-radius: 1rem;
     box-shadow: var(--card-shadow);
-    padding: 1rem;
-    margin-bottom: 1rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .card:hover {
@@ -397,19 +402,43 @@ main {
 }
 
 .card-body {
-    padding: 1rem;
+    padding: 0; /* Padding moved to .card for uniformity */
 }
 
 .card-title {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-color);
     margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .card-text {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.card-icon {
+    font-size: 1.5rem;
+    color: var(--text-color);
+}
+
+.toolcard {
+    width: 100%;
+    max-width: 350px;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.card .btn-primary {
+    margin-top: auto;
+    width: 100%;
+    text-align: center;
 }
 
 .card-narrow {
@@ -541,6 +570,7 @@ main {
 
 .table th {
     background: var(--table-header-bg);
+    color: var(--navbar-text-color);
     font-weight: 700;
     text-transform: uppercase;
     font-size: 0.85rem;
@@ -704,6 +734,10 @@ main {
     .dropdown-menu {
         position: absolute;
     }
+
+    .toolcard {
+        max-width: 300px;
+    }
 }
 
 @media (min-width: 1200px) {
@@ -714,6 +748,10 @@ main {
 
     .navbar .container-fluid {
         max-width: 1400px;
+    }
+
+    .toolcard {
+        max-width: 350px;
     }
 }
 
@@ -741,6 +779,10 @@ main {
         width: 100%;
         border: none;
         box-shadow: none;
+    }
+
+    .toolcard {
+        max-width: 100%;
     }
 }
 
@@ -795,5 +837,13 @@ main {
 
     .logo {
         height: 32px;
+    }
+
+    .card-title {
+        font-size: 1.25rem;
+    }
+
+    .card-icon {
+        font-size: 1.25rem;
     }
 }
