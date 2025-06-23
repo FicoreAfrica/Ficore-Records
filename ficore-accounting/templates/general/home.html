@@ -93,8 +93,8 @@
     {% else %}
         <div class="text-center">
             <p class="mb-4">{{ trans('welcome_desc') | default('Join Ficore Records to manage your finances with ease.') }}</p>
-            <a href="{{ url_for('users.signup') }}" class="btn btn-primary mx-2">{{ trans('signup') | default('Sign Up') }}</a>
-            <a href="{{ url_for('users.login') }}" class="btn btn-secondary mx-2">{{ trans('login') | default('Log In') }}</a>
+            <a href="{{ url_for('users_blueprint.signup') }}" class="btn btn-primary mx-2">{{ trans('signup') | default('Sign Up') }}</a>
+            <a href="{{ url_for('users_blueprint.login') }}" class="btn btn-secondary mx-2">{{ trans('login') | default('Log In') }}</a>
         </div>
     {% endif %}
 </div>
