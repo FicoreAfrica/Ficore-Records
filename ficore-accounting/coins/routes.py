@@ -92,7 +92,7 @@ def purchase():
             credit_coins(str(current_user.id), amount, payment_ref, 'purchase')
             flash(trans_function('purchase_success', default='Coins purchased successfully'), 'success')
             logger.info(f"User {current_user.id} purchased {amount} coins via {payment_method}")
-            return redirect(url_for('coins.history'))
+            return redirect(url_for('coins_blueprint.history'))
         except Exception as e:
             logger.error(f"Error purchasing coins for user {current_user.id}: {str(e)}")
             flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
@@ -137,7 +137,7 @@ def receipt_upload():
             trans_function('insufficient_coins', default='Insufficient coins to upload receipt. Purchase more coins.'),
             'danger'
         )
-        return redirect(url_for('coins.purchase'))
+        return redirect(url_for('coins_blueprint.purchase'))
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
@@ -172,7 +172,7 @@ def receipt_upload():
             })
             flash(trans_function('receipt_uploaded', default='Receipt uploaded successfully'), 'success')
             logger.info(f"User {current_user.id} uploaded receipt {file_id}")
-            return redirect(url_for('coins.history'))
+            return redirect(url_for('coins_blueprint.history'))
         except Exception as e:
             logger.error(f"Error uploading receipt for user {current_user.id}: {str(e)}")
             flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
