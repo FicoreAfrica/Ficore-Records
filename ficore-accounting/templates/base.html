@@ -46,9 +46,9 @@
                                 {{ trans('dashboard', default='Dashboard') }}
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="dashboardDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('general_dashboard') }}">{{ trans('general_dashboard', default='General Dashboard') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('dashboard_blueprint.index') }}">{{ trans('general_dashboard', default='General Dashboard') }}</a></li>
                                 {% if current_user.get('is_admin', False) %}
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">{{ trans('admin_dashboard', default='Admin Dashboard') }}</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin_blueprint.dashboard') }}">{{ trans('admin_dashboard', default='Admin Dashboard') }}</a></li>
                                 {% endif %}
                             </ul>
                         </li>
@@ -57,8 +57,8 @@
                                 {{ trans('debtors', default='Debtors') }}
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="debtorsDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('debtors.index') }}">{{ trans('view_debtors', default='View Debtors') }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('debtors.add') }}">{{ trans('add_debtor', default='Add Debtor') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('debtors_blueprint.index') }}">{{ trans('view_debtors', default='View Debtors') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('debtors_blueprint.add') }}">{{ trans('add_debtor', default='Add Debtor') }}</a></li>
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
@@ -66,8 +66,8 @@
                                 {{ trans('creditors', default='Creditors') }}
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="creditorsDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('creditors.index') }}">{{ trans('view_creditors', default='View Creditors') }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('creditors.add') }}">{{ trans('add_creditor', default='Add Creditor') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('creditors_blueprint.index') }}">{{ trans('view_creditors', default='View Creditors') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('creditors_blueprint.add') }}">{{ trans('add_creditor', default='Add Creditor') }}</a></li>
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
@@ -75,8 +75,8 @@
                                 {{ trans('receipts', default='Receipts') }}
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="receiptsDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('receipts.index') }}">{{ trans('view_receipts', default='View Receipts') }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('receipts.add') }}">{{ trans('add_receipt', default='Add Receipt') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('receipts_blueprint.index') }}">{{ trans('view_receipts', default='View Receipts') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('receipts_blueprint.add') }}">{{ trans('add_receipt', default='Add Receipt') }}</a></li>
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
@@ -84,8 +84,8 @@
                                 {{ trans('payments', default='Payments') }}
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="paymentsDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('payments.index') }}">{{ trans('view_payments', default='View Payments') }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('payments.add') }}">{{ trans('add_payment', default='Add Payment') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('payments_blueprint.index') }}">{{ trans('view_payments', default='View Payments') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('payments_blueprint.add') }}">{{ trans('add_payment', default='Add Payment') }}</a></li>
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
@@ -93,8 +93,8 @@
                                 {{ trans('inventory', default='Inventory') }}
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="inventoryDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('inventory.index') }}">{{ trans('view_inventory', default='View Inventory') }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('inventory.add') }}">{{ trans('add_inventory', default='Add Inventory Item') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('inventory_blueprint.index') }}">{{ trans('view_inventory', default='View Inventory') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('inventory_blueprint.add') }}">{{ trans('add_inventory', default='Add Inventory Item') }}</a></li>
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
@@ -102,9 +102,9 @@
                                 {{ trans('reports', default='Reports') }}
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="reportsDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('reports.index') }}">{{ trans('view_reports', default='View Reports') }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('reports.profit_loss') }}">{{ trans('profit_loss', default='Profit & Loss') }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('reports.inventory') }}">{{ trans('inventory_report', default='Inventory Report') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('reports_blueprint.index') }}">{{ trans('view_reports', default='View Reports') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('reports_blueprint.profit_loss') }}">{{ trans('profit_loss', default='Profit & Loss') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('reports_blueprint.inventory') }}">{{ trans('inventory_report', default='Inventory Report') }}</a></li>
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
@@ -112,10 +112,10 @@
                                 {{ trans('coins', default='Coins') }}
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="coinsDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('coins.get_balance') }}">{{ trans('coin_balance', default='Coin Balance') }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('coins.purchase') }}">{{ trans('purchase_coins', default='Purchase Coins') }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('coins.history') }}">{{ trans('coin_history', default='Coin History') }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('coins.receipt_upload') }}">{{ trans('receipt_upload', default='Upload Receipt') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.get_balance') }}">{{ trans('coin_balance', default='Coin Balance') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.purchase') }}">{{ trans('purchase_coins', default='Purchase Coins') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.history') }}">{{ trans('coin_history', default='Coin History') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.receipt_upload') }}">{{ trans('receipt_upload', default='Upload Receipt') }}</a></li>
                             </ul>
                         </li>
                     {% endif %}
@@ -130,7 +130,7 @@
                                 <li><a class="dropdown-item" href="{{ url_for('users_blueprint.profile') }}">{{ trans('profile', default='Profile') }}</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('feedback') }}">{{ trans('feedback', default='Send Feedback') }}</a></li>
                                 {% if current_user.get('is_admin', False) %}
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">{{ trans('admin_panel', default='Admin Panel') }}</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin_blueprint.dashboard') }}">{{ trans('admin_panel', default='Admin Panel') }}</a></li>
                                 {% endif %}
                                 <li><a class="dropdown-item" href="{{ url_for('users_blueprint.logout') }}">{{ trans('logout', default='Logout') }}</a></li>
                             </ul>
