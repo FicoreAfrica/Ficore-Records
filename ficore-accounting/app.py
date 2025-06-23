@@ -122,7 +122,7 @@ def load_user(user_id):
         logger.error(f"Error loading user {user_id}: {str(e)}")
         return None
 
-# Register blueprints
+# Register blueprints with unique names to avoid conflicts
 from users.routes import users_bp
 from coins.routes import coins_bp
 from admin.routes import admin_bp
@@ -135,17 +135,17 @@ from receipts.routes import receipts_bp
 from payments.routes import payments_bp
 from dashboard.routes import dashboard_bp
 
-app.register_blueprint(users_bp, url_prefix='/users')
-app.register_blueprint(coins_bp, url_prefix='/coins')
-app.register_blueprint(admin_bp, url_prefix='/admin')
-app.register_blueprint(settings_bp, url_prefix='/settings')
-app.register_blueprint(inventory_bp, url_prefix='/inventory')
-app.register_blueprint(reports_bp, url_prefix='/reports')
-app.register_blueprint(debtors_bp, url_prefix='/debtors')
-app.register_blueprint(creditors_bp, url_prefix='/creditors')
-app.register_blueprint(receipts_bp, url_prefix='/receipts')
-app.register_blueprint(payments_bp, url_prefix='/payments')
-app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+app.register_blueprint(users_bp, url_prefix='/users', name='users_blueprint')
+app.register_blueprint(coins_bp, url_prefix='/coins', name='coins_blueprint')
+app.register_blueprint(admin_bp, url_prefix='/admin', name='admin_blueprint')
+app.register_blueprint(settings_bp, url_prefix='/settings', name='settings_blueprint')
+app.register_blueprint(inventory_bp, url_prefix='/inventory', name='inventory_blueprint')
+app.register_blueprint(reports_bp, url_prefix='/reports', name='reports_blueprint')
+app.register_blueprint(debtors_bp, url_prefix='/debtors', name='debtors_blueprint')
+app.register_blueprint(creditors_bp, url_prefix='/creditors', name='creditors_blueprint')
+app.register_blueprint(receipts_bp, url_prefix='/receipts', name='receipts_blueprint')
+app.register_blueprint(payments_bp, url_prefix='/payments', name='payments_blueprint')
+app.register_blueprint(dashboard_bp, url_prefix='/dashboard', name='dashboard_blueprint')
 
 # Jinja2 globals and filters
 with app.app_context():
@@ -600,7 +600,7 @@ def setup_database_route():
         return render_template('errors/403.html', content=trans('forbidden_access', default='Access denied')), 403
     if setup_database():
         flash(trans('database_setup_success', default='Database setup successful'), 'success')
-        return redirect(url_for('index'))
+        return redirect(url_for 'index')
     else:
         flash(trans('database_setup_error', default='An error occurred during database setup'), 'danger')
         return render_template('errors/500.html', content=trans('internal_error', default='Internal server error')), 500
