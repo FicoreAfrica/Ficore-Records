@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container mt-5">
     <h1 class="mb-4">{{ trans('add_item', default='Add Item') }}</h1>
-    <form action="{{ url_for('inventory.add') }}" method="POST" class="row g-3">
+    <form action="{{ url_for('inventory_blueprint.add') }}" method="POST" class="row g-3">
         {{ form.hidden_tag() }}
         <div class="col-12">
             <label for="item_name" class="form-label">{{ trans('item_name', default='Item Name') }}</label>
