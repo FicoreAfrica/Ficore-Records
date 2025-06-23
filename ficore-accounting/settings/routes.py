@@ -18,7 +18,7 @@ def index():
     except Exception as e:
         logger.error(f"Error loading settings for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
-        return redirect(url_for('dashboard.index'))
+        return redirect(url_for('dashboard_blueprint.index'))
 
 @settings_bp.route('/profile', methods=['GET', 'POST'])
 @login_required
@@ -50,7 +50,7 @@ def profile():
                 {'$set': update_data}
             )
             flash(trans_function('profile_updated', default='Profile updated successfully'), 'success')
-            return redirect(url_for('settings.index'))
+            return redirect(url_for('settings_blueprint.index'))
         except Exception as e:
             logger.error(f"Error updating profile for user {current_user.id}: {str(e)}")
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
@@ -81,7 +81,7 @@ def notifications():
                 {'$set': update_data}
             )
             flash(trans_function('notifications_updated', default='Notification preferences updated successfully'), 'success')
-            return redirect(url_for('settings.index'))
+            return redirect(url_for('settings_blueprint.index'))
         except Exception as e:
             logger.error(f"Error updating notifications for user {current_user.id}: {str(e)}")
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
@@ -105,7 +105,7 @@ def language():
                 {'$set': {'language': form.language.data, 'updated_at': datetime.utcnow()}}
             )
             flash(trans_function('language_updated', default='Language updated successfully'), 'success')
-            return redirect(url_for('settings.index'))
+            return redirect(url_for('settings_blueprint.index'))
         except Exception as e:
             logger.error(f"Error updating language for user {current_user.id}: {str(e)}")
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
