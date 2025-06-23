@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
 from bson import ObjectId
 from datetime import datetime
 import logging
@@ -16,10 +16,10 @@ def index():
     """List all receipts for the current user."""
     try:
         db = get_mongo_db()
-        receipts = db.transactions.find({
-            'user_id': str(current_user.id),
-            'type': 'receipt'
-        }).sort('date', -1)
+        # TEMPORARY: Allow admin to view all receipts during testing
+        # TODO: Restore original user_id filter {'user_id': str(current_user.id), 'type': 'receipt'} for production
+        query = {'type': 'receipt'} if is_admin() else {'user_id': str(current_user.id), 'type': 'receipt'}
+        receipts = db.transactions.find(query).sort('date', -1)
         return render_template('receipts/index.html', receipts=receipts, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching receipts for user {current_user.id}: {str(e)}")
@@ -33,7 +33,9 @@ def add():
     """Add a new receipt."""
     from app.forms import TransactionForm
     form = TransactionForm()
-    if not check_coin_balance(1):
+    # TEMPORARY: Bypass coin check for admin during testing
+    # TODO: Restore original check_coin_balance(1) for production
+    if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to add a receipt. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
@@ -50,17 +52,20 @@ def add():
                 'created_at': datetime.utcnow()
             }
             db.transactions.insert_one(transaction)
-            db.users.update_one(
-                {'_id': ObjectId(current_user.id)},
-                {'$inc': {'coin_balance': -1}}
-            )
-            db.coin_transactions.insert_one({
-                'user_id': str(current_user.id),
-                'amount': -1,
-                'type': 'spend',
-                'date': datetime.utcnow(),
-                'ref': f"Receipt creation: {transaction['party_name']}"
-            })
+            # TEMPORARY: Skip coin deduction for admin during testing
+            # TODO: Restore original coin deduction for production
+            if not is_admin():
+                db.users.update_one(
+                    {'_id': ObjectId(current_user.id)},
+                    {'$inc': {'coin_balance': -1}}
+                )
+                db.coin_transactions.insert_one({
+                    'user_id': str(current_user.id),
+                    'amount': -1,
+                    'type': 'spend',
+                    'date': datetime.utcnow(),
+                    'ref': f"Receipt creation: {transaction['party_name']}"
+                })
             flash(trans_function('add_receipt_success', default='Receipt added successfully'), 'success')
             return redirect(url_for('receipts.index'))
         except Exception as e:
@@ -76,11 +81,10 @@ def edit(id):
     from app.forms import TransactionForm
     try:
         db = get_mongo_db()
-        receipt = db.transactions.find_one({
-            '_id': ObjectId(id),
-            'user_id': str(current_user.id),
-            'type': 'receipt'
-        })
+        # TEMPORARY: Allow admin to edit any receipt during testing
+        # TODO: Restore original user_id filter {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'receipt'} for production
+        query = {'_id': ObjectId(id), 'type': 'receipt'} if is_admin() else {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'receipt'}
+        receipt = db.transactions.find_one(query)
         if not receipt:
             flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
             return redirect(url_for('receipts.index'))
@@ -123,11 +127,10 @@ def delete(id):
     """Delete a receipt."""
     try:
         db = get_mongo_db()
-        result = db.transactions.delete_one({
-            '_id': ObjectId(id),
-            'user_id': str(current_user.id),
-            'type': 'receipt'
-        })
+        # TEMPORARY: Allow admin to delete any receipt during testing
+        # TODO: Restore original user_id filter {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'receipt'} for production
+        query = {'_id': ObjectId(id), 'type': 'receipt'} if is_admin() else {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'receipt'}
+        result = db.transactions.delete_one(query)
         if result.deleted_count:
             flash(trans_function('delete_receipt_success', default='Receipt deleted successfully'), 'success')
         else:
