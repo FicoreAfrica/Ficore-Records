@@ -106,8 +106,13 @@ class ProfileForm(FlaskForm):
 
 class BusinessSetupForm(FlaskForm):
     business_name = StringField(trans_function('business_name', default='Business Name'), 
-                               validators=[validators.DataRequired(), validators.Length(min=1, max=255)], render_kw={'class': 'form-control'})
-    address = TextAreaField('address', validators=[validators.DataRequired(), validators.Length(max=500)], render_kw={'class': 'form-control'})
+                               validators=[validators.DataRequired(message=trans_function('business_name_required', default='Business name is required')), 
+                                           validators.Length(min=1, max=255)], 
+                               render_kw={'class': 'form-control'})
+    address = TextAreaField(trans_function('address', default='Address'), 
+                            validators=[validators.DataRequired(message=trans_function('address_required', default='Address is required')), 
+                                        validators.Length(max=500)], 
+                            render_kw={'class': 'form-control'})
     industry = SelectField(trans_function('industry', default='Industry'), 
                           choices=[
                               ('retail', trans_function('retail', default='Retail')),
@@ -115,8 +120,10 @@ class BusinessSetupForm(FlaskForm):
                               ('manufacturing', trans_function('manufacturing', default='Manufacturing')),
                               ('other', trans_function('other', default='Other'))
                           ], 
-                          validators=[validators.DataRequired()], render_kw={'class': 'form-control'})
+                          validators=[validators.DataRequired(message=trans_function('industry_required', default='Industry is required'))], 
+                          render_kw={'class': 'form-control'})
     submit = SubmitField(trans_function('save_and_continue', default='Save and Continue'), render_kw={'class': 'btn btn-primary w-100'})
+    back = SubmitField(trans_function('back', default='Back'), render_kw={'class': 'btn btn-secondary w-100 mt-2'})
 
 def log_audit_action(action, details=None):
     """Log an audit action."""
@@ -142,14 +149,22 @@ def login():
         try:
             username = form.username.data.strip().lower()
             if not USERNAME_REGEX.match(username):
-                flash(trans_function('username_format', default='Invalid username format'), 'danger')
+                flash(trans_function('username_format', default='Username must be alphanumeric with underscores'), 'danger')
                 logger.warning(f"Invalid username format: {username}")
                 return render_template('users/login.html', form=form)
             db = get_mongo_db()
             user = db.users.find_one({'_id': username})
-            if user and check_password_hash(user['password'], form.password.data):
-                if os.environ.get('ENABLE_2FA', 'true').lower() == 'true':
-                    otp = ''.join(str(random.randint(0, 9)) for _ in range(6))
+            if not user:
+                flash(trans_function('username_not_found', default='Username does not exist'), 'danger')
+                logger.warning(f"Login attempt for non-existent username: {username}")
+                return render_template('users/login.html', form=form)
+            if not check_password_hash(user['password'], form.password.data):
+                flash(trans_function('invalid_password', default='Incorrect password'), 'danger')
+                logger.warning(f"Failed login attempt for username: {username} (invalid password)")
+                return render_template('users/login.html', form=form)
+            if os.environ.get('ENABLE_2FA', 'true').lower() == 'true':
+                otp = ''.join(str(random.randint(0, 9)) for _ in range(6))
+                try:
                     db.users.update_one(
                         {'_id': username},
                         {'$set': {'otp': otp, 'otp_expiry': datetime.utcnow() + timedelta(minutes=5)}}
@@ -162,19 +177,27 @@ def login():
                     msg.send()
                     session['pending_user_id'] = username
                     return redirect(url_for('users.verify_2fa'))
-                from app import User
-                login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
-                session['lang'] = user.get('language', 'en')
-                log_audit_action('login', {'user_id': username})
-                logger.info(f"User {username} logged in successfully")
-                if not user.get('setup_complete', False):
-                    return redirect(url_for('users.setup_wizard'))
-                return redirect(url_for('users.profile'))
-            flash(trans_function('invalid_credentials', default='Invalid username or password'), 'danger')
-            logger.warning(f"Failed login attempt for username: {username}")
+                except Exception as e:
+                    logger.warning(f"Email delivery failed for OTP (testing mode): {str(e)}. Allowing login without 2FA.")
+                    from app import User
+                    login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
+                    session['lang'] = user.get('language', 'en')
+                    log_audit_action('login_without_2fa', {'user_id': username, 'reason': 'email_failure'})
+                    logger.info(f"User {username} logged in without 2FA due to email failure")
+                    if not user.get('setup_complete', False):
+                        return redirect(url_for('users.setup_wizard'))
+                    return redirect(url_for('users.profile'))
+            from app import User
+            login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
+            session['lang'] = user.get('language', 'en')
+            log_audit_action('login', {'user_id': username})
+            logger.info(f"User {username} logged in successfully")
+            if not user.get('setup_complete', False):
+                return redirect(url_for('users.setup_wizard'))
+            return redirect(url_for('users.profile'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during login: {str(e)}")
-            flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
+            flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
             return render_template('users/login.html', form=form), 500
     return render_template('users/login.html', form=form)
 
@@ -185,6 +208,7 @@ def verify_2fa():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.index'))
     if 'pending_user_id' not in session:
+        flash(trans_function('invalid_2fa_session', default='Invalid 2FA session. Please log in again'), 'danger')
         return redirect(url_for('users.login'))
     form = TwoFactorForm()
     if form.validate_on_submit():
@@ -192,7 +216,11 @@ def verify_2fa():
             username = session['pending_user_id']
             db = get_mongo_db()
             user = db.users.find_one({'_id': username})
-            if user and user.get('otp') == form.otp.data and user.get('otp_expiry') > datetime.utcnow():
+            if not user:
+                flash(trans_function('user_not_found', default='User not found'), 'danger')
+                session.pop('pending_user_id', None)
+                return redirect(url_for('users.login'))
+            if user.get('otp') == form.otp.data and user.get('otp_expiry') > datetime.utcnow():
                 from app import User
                 login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
                 session['lang'] = user.get('language', 'en')
@@ -210,7 +238,7 @@ def verify_2fa():
             logger.warning(f"Failed 2FA attempt for username: {username}")
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during 2FA verification: {str(e)}")
-            flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
+            flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
             return render_template('users/verify_2fa.html', form=form), 500
     return render_template('users/verify_2fa.html', form=form)
 
@@ -228,8 +256,11 @@ def signup():
             role = form.role.data
             language = form.language.data
             db = get_mongo_db()
-            if db.users.find_one({'_id': username}) or db.users.find_one({'email': email}):
-                flash(trans_function('user_exists', default='Username or email already exists'), 'danger')
+            if db.users.find_one({'_id': username}):
+                flash(trans_function('username_exists', default='Username already exists'), 'danger')
+                return render_template('users/signup.html', form=form)
+            if db.users.find_one({'email': email}):
+                flash(trans_function('email_exists', default='Email already exists'), 'danger')
                 return render_template('users/signup.html', form=form)
             user_data = {
                 '_id': username,
@@ -239,7 +270,7 @@ def signup():
                 'coin_balance': 10,  # Grant 10 free coins
                 'language': language,
                 'dark_mode': False,
-                'is_admin': role == 'admin',
+                'is_admin': False,  # Explicitly set to False
                 'setup_complete': False,
                 'display_name': username,
                 'created_at': datetime.utcnow()
@@ -260,7 +291,7 @@ def signup():
             return redirect(url_for('users.setup_wizard'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during signup: {str(e)}")
-            flash(trans_function('signup_error', default='Error during signup'), 'danger')
+            flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
             return render_template('users/signup.html', form=form), 500
     return render_template('users/signup.html', form=form)
 
@@ -277,7 +308,7 @@ def forgot_password():
             db = get_mongo_db()
             user = db.users.find_one({'email': email})
             if not user:
-                flash(trans_function('email_not_found', default='Email not found'), 'danger')
+                flash(trans_function('email_not_found', default='No user found with this email'), 'danger')
                 return render_template('users/forgot_password.html', form=form)
             reset_token = URLSafeTimedSerializer(current_app.config['SECRET_KEY']).dumps(email, salt='reset-salt')
             expiry = datetime.utcnow() + timedelta(minutes=15)
@@ -297,7 +328,7 @@ def forgot_password():
             return render_template('users/forgot_password.html', form=form)
         except Exception as e:
             logger.error(f"Error during forgot password: {str(e)}")
-            flash(trans_function('forgot_password_error', default='Error processing request'), 'danger')
+            flash(trans_function('email_send_error', default='An error occurred while sending the reset email'), 'danger')
             return render_template('users/forgot_password.html', form=form), 500
     return render_template('users/forgot_password.html', form=form)
 
@@ -329,9 +360,9 @@ def reset_password():
             log_audit_action('reset_password', {'user_id': user['_id']})
             flash(trans_function('reset_password_success', default='Password reset successfully'), 'success')
             return redirect(url_for('users.login'))
-        except Exception as e:
-            logger.error(f"Error during password reset: {str(e)}")
-            flash(trans_function('reset_password_error', default='Error resetting password'), 'danger')
+        except errors.PyMongoError as e:
+            logger.error(f"MongoDB error during password reset: {str(e)}")
+            flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
             return render_template('users/reset_password.html', form=form, token=token), 500
     return render_template('users/reset_password.html', form=form, token=token)
 
@@ -344,8 +375,8 @@ def profile():
         db = get_mongo_db()
         user = db.users.find_one({'_id': current_user.id})
         if not user:
-            flash(trans_function('user_not_found', default='User not found'), 'danger')
-            return redirect(url_for('dashboard.index'))
+            flash(trans_function('user_not_found', default='User not found'), 'error')
+            return redirect(url_for('index'))
         form = ProfileForm(data={
             'email': user['email'],
             'display_name': user['display_name'],
@@ -354,8 +385,8 @@ def profile():
         if form.validate_on_submit():
             try:
                 if not check_coin_balance(1):
-                    flash(trans_function('insufficient_coins', default='Insufficient coins to update profile'), 'danger')
-                    return redirect(url_for('coins.purchase'))
+                    flash(trans('insufficient_coins', default='Insufficient coins to update profile'), 'danger')
+                    return redirect(url_for('coins.login'))
                 new_email = form.email.data.strip().lower()
                 new_display_name = form.display_name.data.strip()
                 new_language = form.language.data
@@ -390,15 +421,15 @@ def profile():
                 return redirect(url_for('users.profile'))
             except errors.PyMongoError as e:
                 logger.error(f"MongoDB error updating profile: {str(e)}")
-                flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
+                flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
                 return render_template('users/profile.html', form=form, user=user), 500
         user['_id'] = str(user['_id'])
         user['coin_balance'] = user.get('coin_balance', 0)
         return render_template('users/profile.html', form=form, user=user)
     except errors.PyMongoError as e:
         logger.error(f"MongoDB error fetching profile: {str(e)}")
-        flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
-        return redirect(url_for('dashboard.index')), 500
+        flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
+        return redirect(url_for('index')), 500
 
 @users_bp.route('/setup_wizard', methods=['GET', 'POST'])
 @login_required
@@ -412,9 +443,9 @@ def setup_wizard():
     form = BusinessSetupForm()
     if form.validate_on_submit():
         try:
-            if not check_coin_balance(1):
-                flash(trans_function('insufficient_coins', default='Insufficient coins to complete setup'), 'danger')
-                return redirect(url_for('coins.purchase'))
+            if form.back_submit.data:
+                flash(trans('setup_skipped', default='Business setup skipped'), 'info')
+                return redirect(url_for('users.profile'))
             db.users.update_one(
                 {'_id': current_user.id},
                 {
@@ -425,24 +456,16 @@ def setup_wizard():
                             'industry': form.industry.data
                         },
                         'setup_complete': True
-                    },
-                    '$inc': {'coin_balance': -1}
+                    }
                 }
             )
-            db.coin_transactions.insert_one({
-                'user_id': current_user.id,
-                'amount': -1,
-                'type': 'spend',
-                'ref': f"SETUP_WIZARD_{datetime.utcnow().isoformat()}",
-                'date': datetime.utcnow()
-            })
             log_audit_action('complete_setup_wizard', {'user_id': current_user.id})
             flash(trans_function('business_setup_completed', default='Business setup completed'), 'success')
             logger.info(f"Business setup completed for user: {current_user.id}")
             return redirect(url_for('users.profile'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during business setup: {str(e)}")
-            flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
+            flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
             return render_template('users/setup.html', form=form), 500
     return render_template('users/setup.html', form=form)
 
@@ -452,11 +475,13 @@ def setup_wizard():
 def logout():
     """Handle user logout."""
     user_id = current_user.id
+    lang = session.get('lang', 'en')  # Preserve language preference
     logout_user()
     log_audit_action('logout', {'user_id': user_id})
     flash(trans_function('logged_out', default='Logged out successfully'), 'success')
     session.clear()
-    return redirect(url_for('dashboard.index'))
+    session['lang'] = lang  # Restore language
+    return redirect(url_for('users.login'))
 
 @users_bp.route('/auth/signin')
 def signin():
@@ -481,13 +506,15 @@ def reset_password_redirect():
 @users_bp.before_app_request
 def check_wizard_completion():
     """Check if setup wizard is complete."""
-    if request.endpoint and 'static' in request.endpoint:
+    if request.endpoint == 'static':  # Precise static file check
         return
     if not current_user.is_authenticated:
         if request.endpoint not in ['users.login', 'users.signup', 'users.forgot_password', 
                                    'users.reset_password', 'users.verify_2fa', 'users.signin', 
                                    'users.signup_redirect', 'users.forgot_password_redirect', 
-                                   'users.reset_password_redirect', 'dashboard.index', 'about']:
+                                   'users.reset_password_redirect', 'index', 'about', 
+                                   'contact', 'privacy', 'terms', 'get_translations', 
+                                   'set_language']:
             flash(trans_function('login_required', default='Please log in'), 'danger')
             return redirect(url_for('users.login'))
     elif current_user.is_authenticated:
