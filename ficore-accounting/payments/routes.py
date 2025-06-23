@@ -24,7 +24,7 @@ def index():
     except Exception as e:
         logger.error(f"Error fetching payments for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
-        return redirect(url_for('dashboard.index'))
+        return redirect(url_for('dashboard_blueprint.index'))
 
 @payments_bp.route('/add', methods=['GET', 'POST'])
 @login_required
@@ -37,7 +37,7 @@ def add():
     # TODO: Restore original check_coin_balance(1) for production
     if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to add a payment. Purchase more coins.'), 'danger')
-        return redirect(url_for('coins.purchase'))
+        return redirect(url_for('coins_blueprint.purchase'))
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
@@ -67,7 +67,7 @@ def add():
                     'ref': f"Payment creation: {transaction['party_name']}"
                 })
             flash(trans_function('add_payment_success', default='Payment added successfully'), 'success')
-            return redirect(url_for('payments.index'))
+            return redirect(url_for('payments_blueprint.index'))
         except Exception as e:
             logger.error(f"Error adding payment for user {current_user.id}: {str(e)}")
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
@@ -87,7 +87,7 @@ def edit(id):
         payment = db.transactions.find_one(query)
         if not payment:
             flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
-            return redirect(url_for('payments.index'))
+            return redirect(url_for('payments_blueprint.index'))
         form = TransactionForm(data={
             'party_name': payment['party_name'],
             'date': payment['date'],
@@ -110,7 +110,7 @@ def edit(id):
                     {'$set': updated_transaction}
                 )
                 flash(trans_function('edit_payment_success', default='Payment updated successfully'), 'success')
-                return redirect(url_for('payments.index'))
+                return redirect(url_for('payments_blueprint.index'))
             except Exception as e:
                 logger.error(f"Error updating payment {id} for user {current_user.id}: {str(e)}")
                 flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
@@ -118,7 +118,7 @@ def edit(id):
     except Exception as e:
         logger.error(f"Error fetching payment {id} for user {current_user.id}: {str(e)}")
         flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
-        return redirect(url_for('payments.index'))
+        return redirect(url_for('payments_blueprint.index'))
 
 @payments_bp.route('/delete/<id>', methods=['POST'])
 @login_required
@@ -138,4 +138,4 @@ def delete(id):
     except Exception as e:
         logger.error(f"Error deleting payment {id} for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
-    return redirect(url_for('payments.index'))
+    return redirect(url_for('payments_blueprint.index'))
