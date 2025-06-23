@@ -10,7 +10,7 @@ from werkzeug.security import generate_password_hash
 import jinja2
 from flask_wtf import CSRFProtect
 from flask_wtf.csrf import validate_csrf, CSRFError
-from utils import trans_function as trans, is_valid_email, get_mongo_db, close_mongo_db
+from utils import trans_function, trans_function as trans, is_valid_email, get_mongo_db, close_mongo_db
 from flask_session import Session
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from flask_limiter import Limiter
@@ -154,6 +154,7 @@ with app.app_context():
         TWITTER_URL=app.config.get('TWITTER_URL', 'https://www.twitter.com'),
         LINKEDIN_URL=app.config.get('LINKEDIN_URL', 'https://www.linkedin.com'),
         trans=trans
+        trans_function =trans_function
     )
 
     @app.template_filter('trans')
