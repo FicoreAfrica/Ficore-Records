@@ -1,6 +1,5 @@
 from datetime import datetime
 from logging import getLogger
-
 from bson import ObjectId
 from bson.errors import InvalidId
 from flask import Blueprint, request, render_template, redirect, url_for, flash, current_app, jsonify
