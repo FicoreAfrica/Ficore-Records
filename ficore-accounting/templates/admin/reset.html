@@ -16,7 +16,7 @@
         {% endif %}
     {% endwith %}
 
-    <form action="{{ url_for('admin.credit_coins') }}" method="POST" class="row g-3">
+    <form action="{{ url_for('admin_blueprint.credit_coins') }}" method="POST" class="row g-3">
         {{ form.hidden_tag() }}
         <div class="col-12">
             <label for="{{ form.user_id.id }}" class="form-label">{{ trans_function('user_id', default='User ID') }}</label>
