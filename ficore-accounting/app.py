@@ -9,10 +9,9 @@ from flask_mailman import Mail
 from werkzeug.security import generate_password_hash
 import jinja2
 from flask_wtf import CSRFProtect
-from utils import trans_function as trans, is_valid_email
+from utils import trans_function as trans, is_valid_email, get_mongo_db, close_mongo_db
 from flask_session import Session
 from pymongo import MongoClient, ASCENDING, DESCENDING
-from pymongo.errors import ConnectionFailure
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from itsdangerous import URLSafeTimedSerializer
@@ -46,40 +45,9 @@ if not app.config['MONGO_URI']:
     logger.error("MONGO_URI environment variable is not set")
     raise ValueError("MONGO_URI must be set in environment variables")
 
-# MongoDB connection management
-def init_mongo_client():
-    """Initialize a single MongoDB client for both app and sessions."""
-    try:
-        client = MongoClient(
-            app.config['MONGO_URI'],
-            serverSelectionTimeoutMS=5000,
-            connectTimeoutMS=20000,
-            socketTimeoutMS=20000
-        )
-        client.admin.command('ping')
-        logger.info("MongoDB connection established successfully")
-        return client
-    except ConnectionFailure as e:
-        logger.error(f"Failed to connect to MongoDB: {str(e)}")
-        raise RuntimeError(f"Cannot connect to MongoDB: {str(e)}")
-
-# Initialize MongoDB client early
-app.mongo_client = init_mongo_client()
-app.config['SESSION_MONGODB'] = app.mongo_client
-
-def get_mongo_db():
-    """Get MongoDB database instance."""
-    return app.mongo_client['ficore_accounting']
-
-def close_mongo_db(exception=None):
-    """Close MongoDB client connection."""
-    if hasattr(app, 'mongo_client') and app.mongo_client:
-        app.mongo_client.close()
-        del app.mongo_client
-        logger.info("MongoDB connection closed")
-
 # Session configuration
 app.config['SESSION_TYPE'] = 'mongodb'
+app.config['SESSION_MONGODB'] = MongoClient(app.config['MONGO_URI'])
 app.config['SESSION_MONGODB_DB'] = 'ficore_accounting'
 app.config['SESSION_MONGODB_COLLECT'] = 'sessions'
 app.config['SESSION_PERMANENT'] = False
@@ -696,7 +664,13 @@ def page_not_found(e):
 def internal_server_error(e):
     return render_template('errors/500.html', message=trans('internal_server_error', default='Internal server error')), 500
 
-# Gunicorn worker exit hook
+# Gunicorn hooks
+def worker_init(worker):
+    """Initialize MongoDB client for each Gunicorn worker."""
+    with app.app_context():
+        get_mongo_db()
+        logger.info("MongoDB client initialized for Gunicorn worker")
+
 def worker_exit(server, worker):
     """Close MongoDB connections on worker exit."""
     close_mongo_db()
