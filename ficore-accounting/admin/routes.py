@@ -104,7 +104,7 @@ def suspend_user(user_id):
         user = db.users.find_one({'_id': user_id})
         if not user:
             flash(trans_function('user_not_found', default='User not found'), 'danger')
-            return redirect(url_for('admin.users'))
+            return redirect(url_for('admin_blueprint.manage_users'))
         result = db.users.update_one(
             {'_id': user_id},
             {'$set': {'suspended': True, 'updated_at': datetime.utcnow()}}
@@ -115,11 +115,11 @@ def suspend_user(user_id):
             flash(trans_function('user_suspended', default='User suspended successfully'), 'success')
             logger.info(f"Admin {current_user.id} suspended user {user_id}")
             log_audit_action('suspend_user', {'user_id': user_id})
-        return redirect(url_for('admin.users'))
+        return redirect(url_for('admin_blueprint.manage_users'))
     except Exception as e:
         logger.error(f"Error suspending user {user_id}: {str(e)}")
         flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
-        return redirect(url_for('admin.users')), 500
+        return redirect(url_for('admin_blueprint.manage_users')), 500
 
 @admin_bp.route('/users/delete/<user_id>', methods=['POST'])
 @login_required
@@ -134,7 +134,7 @@ def delete_user(user_id):
         user = db.users.find_one({'_id': user_id})
         if not user:
             flash(trans_function('user_not_found', default='User not found'), 'danger')
-            return redirect(url_for('admin.users'))
+            return redirect(url_for('admin_blueprint.manage_users'))
         db.invoices.delete_many({'user_id': user_id})
         db.transactions.delete_many({'user_id': user_id})
         db.inventory.delete_many({'user_id': user_id})
@@ -147,11 +147,11 @@ def delete_user(user_id):
             flash(trans_function('user_deleted', default='User deleted successfully'), 'success')
             logger.info(f"Admin {current_user.id} deleted user {user_id}")
             log_audit_action('delete_user', {'user_id': user_id})
-        return redirect(url_for('admin.users'))
+        return redirect(url_for('admin_blueprint.manage_users'))
     except Exception as e:
         logger.error(f"Error deleting user {user_id}: {str(e)}")
         flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
-        return redirect(url_for('admin.users')), 500
+        return redirect(url_for('admin_blueprint.manage_users')), 500
 
 @admin_bp.route('/data/delete/<collection>/<item_id>', methods=['POST'])
 @login_required
@@ -162,7 +162,7 @@ def delete_item(collection, item_id):
     valid_collections = ['invoices', 'transactions', 'inventory']
     if collection not in valid_collections:
         flash(trans_function('invalid_collection', default='Invalid collection selected'), 'danger')
-        return redirect(url_for('admin.dashboard'))
+        return redirect(url_for('admin_blueprint.dashboard'))
     try:
         db = get_mongo_db()
         result = db[collection].delete_one({'_id': ObjectId(item_id)})
@@ -172,11 +172,11 @@ def delete_item(collection, item_id):
             flash(trans_function('item_deleted', default='Item deleted successfully'), 'success')
             logger.info(f"Admin {current_user.id} deleted {collection} item {item_id}")
             log_audit_action(f'db_{collection}_item', {'item_id': item_id, 'collection': collection})
-        return redirect(url_for('admin.dashboard'))
+        return redirect(url_for('admin_blueprint.dashboard'))
     except Exception as e:
         logger.error(f"Error deleting {collection} item {item_id}: {str(e)}")
         flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
-        return redirect(url_for('admin.dashboard')), 500
+        return redirect(url_for('admin_blueprint.dashboard')), 500
 
 @admin_bp.route('/coins/credit', methods=['GET', 'POST'])
 @login_required
@@ -209,7 +209,7 @@ def credit_coins():
             flash(trans_function('credit_success', default='Coins credited successfully'), 'success')
             logger.info(f"Admin {current_user.id} credited {amount} coins to user {user_id}")
             log_audit_action('credit_coins', {'user_id': user_id, 'amount': amount, 'ref': ref})
-            return redirect(url_for('admin.dashboard'))
+            return redirect(url_for('admin_blueprint.dashboard'))
         except errors.PyMongoError as e:
             logger.error(f"Error crediting coins by admin {current_user.id}: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
