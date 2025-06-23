@@ -19,7 +19,7 @@ def index():
         # TEMPORARY: Allow admin to view all creditor invoices during testing
         # TODO: Restore original user_id filter for production
         query = {} if is_admin() else {'user_id': str(current_user.id), 'type': 'creditor'}
-        creditors = db.invoices.find(query).sort('created_at', -1)
+        creditors = list(db.invoices.find(query).sort('created_at', -1))
         return render_template('creditors/index.html', creditors=creditors, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching creditors for user {current_user.id}: {str(e)}")
@@ -138,14 +138,17 @@ def delete(id):
     try:
         db = get_mongo_db()
         # TEMPORARY: Allow admin to delete any creditor invoice during testing
-        # TODO: Restore original user_id filter for production
-        query = {'_id': ObjectId(id), 'type': 'creditor'} if is_admin() else {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'creditor'}
+        # TODO: Restore original user_id filter for
+        query = {'_id': ObjectId(id)}, 'type': 'creditor'} if is_admin() else {'_id': ObjectId(id)}, 'user_id': str(current_user.id)}, 'type': 'creditor'}
         result = db.invoices.delete_one(query)
         if result.deleted_count:
-            flash(trans_function('delete_creditor_success', default='Creditor deleted successfully'), 'success')
+            flash(trans_function('delete_creditor_success', default='Creditor deleted successfully')), 'success'
+        )
         else:
-            flash(trans_function('invoice_not_found'), 'danger')
+            flash(trans_function('invoice_not_found'), 'danger'
+            )
     except Exception as e:
         logger.error(f"Error deleting creditor {id} for user {current_user.id}: {str(e)}")
-        flash(trans_function('something_went_wrong'), 'danger')
+        flash(trans_function('something_went_wrong'), 'danger'
+        )
     return redirect(url_for('creditors.index'))
