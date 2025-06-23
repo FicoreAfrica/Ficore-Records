@@ -18,7 +18,7 @@
                 <p class="text-warning">{{ trans('no_business_details') | default('No business details provided yet. Complete setup to add them.') }}</p>
             {% endif %}
             <h2 class="card-title mt-4">{{ trans('update_profile') | default('Update Profile') }}</h2>
-            <form class="validate-form" method="POST" action="{{ url_for('users.update_profile') }}">
+            <form class="validate-form" method="POST" action="{{ url_for('users_blueprint.update_profile') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group mb-3">
                     <label for="email" class="form-label">{{ trans('email') | default('Email') }}</label>
