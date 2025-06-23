@@ -85,16 +85,25 @@ def get_mongo_db():
     """Get MongoDB database connection for the current request."""
     if 'db' not in g:
         try:
-            mongo_uri = current_app.config['MONGO_URI']
+            # Initialize MongoClient once per app
+            if 'mongo_client' not in current_app.extensions:
+                mongo_uri = current_app.config['MONGO_URI']
+                client = MongoClient(
+                    mongo_uri,
+                    serverSelectionTimeoutMS=5000,
+                    connectTimeoutMS=20000,
+                    socketTimeoutMS=20000
+                )
+                client.admin.command('ping')  # Test connection
+                current_app.extensions['mongo_client'] = client
+                logger.info("MongoDB client initialized for application")
+            g.mongo_client = current_app.extensions['mongo_client']
             db_name = current_app.config.get('SESSION_MONGODB_DB', 'ficore_accounting')
-            g.mongo_client = MongoClient(mongo_uri, serverSelectionTimeoutMS=20000)
             g.db = g.mongo_client[db_name]
             g.gridfs = GridFS(g.db)
             current_app.extensions['pymongo'] = g.db
             current_app.extensions['gridfs'] = g.gridfs
-            # Test connection
-            g.mongo_client.admin.command('ping')
-            logger.info("MongoDB connection established successfully")
+            logger.debug(f"Using MongoClient: {g.mongo_client}")
         except ConnectionFailure as e:
             logger.error(f"Failed to connect to MongoDB: {str(e)}")
             raise RuntimeError(f"Cannot connect to MongoDB: {str(e)}")
@@ -106,6 +115,7 @@ def get_mongo_db():
 def close_mongo_db(error=None):
     """Close MongoDB connection after request."""
     client = g.pop('mongo_client', None)
+    db = g.pop('db', None)
+    gridfs = g.pop('gridfs', None)
     if client is not None:
-        client.close()
-        logger.debug("MongoDB connection closed")
+        logger.debug("MongoDB connection context cleaned up")
