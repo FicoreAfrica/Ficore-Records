@@ -19,7 +19,7 @@ def index():
         # TEMPORARY: Allow admin to view all payments during testing
         # TODO: Restore original user_id filter {'user_id': str(current_user.id), 'type': 'payment'} for production
         query = {'type': 'payment'} if is_admin() else {'user_id': str(current_user.id), 'type': 'payment'}
-        payments = db.transactions.find(query).sort('date', -1)
+        payments = list(db.transactions.find(query).sort('date', -1))
         return render_template('payments/index.html', payments=payments, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching payments for user {current_user.id}: {str(e)}")
