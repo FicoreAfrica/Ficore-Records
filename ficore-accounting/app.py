@@ -153,8 +153,8 @@ with app.app_context():
         FACEBOOK_URL=app.config.get('FACEBOOK_URL', 'https://www.facebook.com'),
         TWITTER_URL=app.config.get('TWITTER_URL', 'https://www.twitter.com'),
         LINKEDIN_URL=app.config.get('LINKEDIN_URL', 'https://www.linkedin.com'),
-        trans=trans
-        trans_function =trans_function
+        trans=trans,
+        trans_function=trans_function
     )
 
     @app.template_filter('trans')
