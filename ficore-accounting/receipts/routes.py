@@ -24,7 +24,7 @@ def index():
     except Exception as e:
         logger.error(f"Error fetching receipts for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
-        return redirect(url_for('dashboard.index'))
+        return redirect(url_for('dashboard_blueprint.index'))
 
 @receipts_bp.route('/add', methods=['GET', 'POST'])
 @login_required
@@ -37,7 +37,7 @@ def add():
     # TODO: Restore original check_coin_balance(1) for production
     if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to add a receipt. Purchase more coins.'), 'danger')
-        return redirect(url_for('coins.purchase'))
+        return redirect(url_for('coins_blueprint.purchase'))
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
@@ -67,7 +67,7 @@ def add():
                     'ref': f"Receipt creation: {transaction['party_name']}"
                 })
             flash(trans_function('add_receipt_success', default='Receipt added successfully'), 'success')
-            return redirect(url_for('receipts.index'))
+            return redirect(url_for('receipts_blueprint.index'))
         except Exception as e:
             logger.error(f"Error adding receipt for user {current_user.id}: {str(e)}")
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
@@ -87,7 +87,7 @@ def edit(id):
         receipt = db.transactions.find_one(query)
         if not receipt:
             flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
-            return redirect(url_for('receipts.index'))
+            return redirect(url_for('receipts_blueprint.index'))
         form = TransactionForm(data={
             'party_name': receipt['party_name'],
             'date': receipt['date'],
@@ -110,7 +110,7 @@ def edit(id):
                     {'$set': updated_transaction}
                 )
                 flash(trans_function('edit_receipt_success', default='Receipt updated successfully'), 'success')
-                return redirect(url_for('receipts.index'))
+                return redirect(url_for('receipts_blueprint.index'))
             except Exception as e:
                 logger.error(f"Error updating receipt {id} for user {current_user.id}: {str(e)}")
                 flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
@@ -118,7 +118,7 @@ def edit(id):
     except Exception as e:
         logger.error(f"Error fetching receipt {id} for user {current_user.id}: {str(e)}")
         flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
-        return redirect(url_for('receipts.index'))
+        return redirect(url_for('receipts_blueprint.index'))
 
 @receipts_bp.route('/delete/<id>', methods=['POST'])
 @login_required
@@ -138,4 +138,4 @@ def delete(id):
     except Exception as e:
         logger.error(f"Error deleting receipt {id} for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
-    return redirect(url_for('receipts.index'))
+    return redirect(url_for('receipts_blueprint.index'))
