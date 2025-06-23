@@ -12,6 +12,11 @@ from gridfs import GridFS
 
 logger = logging.getLogger(__name__)
 
+def is_admin():
+    """Check if current user is an admin - TEMPORARY for testing."""
+    # TODO: Remove or revert this admin override for production
+    return current_user.is_authenticated and current_user.role == 'admin'
+
 def is_valid_email(email):
     """Validate email format."""
     email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -42,6 +47,11 @@ def requires_role(role):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            # TEMPORARY: Bypass role check for admin users during testing
+            # TODO: Remove this bypass for production
+            if is_admin():
+                return f(*args, **kwargs)
+                
             if not current_user.is_authenticated:
                 flash(trans_function('login_required', default='Please log in to access this page'), 'danger')
                 return redirect(url_for('users.login'))
@@ -54,6 +64,11 @@ def requires_role(role):
 
 def check_coin_balance(required_coins):
     """Check if user has sufficient coin balance."""
+    # TEMPORARY: Bypass coin check for admin users during testing
+    # TODO: Remove this bypass for production
+    if is_admin():
+        return True
+        
     try:
         db = get_mongo_db()
         user = db.users.find_one({'_id': current_user.id})
