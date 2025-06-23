@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
 from bson import ObjectId
 from datetime import datetime
 import logging
@@ -16,10 +16,10 @@ def index():
     """List all debtor invoices for the current user."""
     try:
         db = get_mongo_db()
-        debtors = db.invoices.find({
-            'user_id': str(current_user.id),
-            'type': 'debtor'
-        }).sort('created_at', -1)
+        # TEMPORARY: Allow admin to view all debtor invoices during testing
+        # TODO: Restore original user_id filter for production
+        query = {} if is_admin() else {'user_id': str(current_user.id), 'type': 'debtor'}
+        debtors = db.invoices.find(query).sort('created_at', -1)
         return render_template('debtors/index.html', debtors=debtors, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching debtors for user {current_user.id}: {str(e)}")
@@ -33,7 +33,9 @@ def add():
     """Add a new debtor invoice."""
     from app.forms import InvoiceForm
     form = InvoiceForm()
-    if not check_coin_balance(1):
+    # TEMPORARY: Bypass coin check for admin during testing
+    # TODO: Restore original check_coin_balance(1) for production
+    if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to create a debtor. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     if form.validate_on_submit():
@@ -57,17 +59,20 @@ def add():
                 'created_at': datetime.utcnow()
             }
             db.invoices.insert_one(invoice)
-            db.users.update_one(
-                {'_id': ObjectId(current_user.id)},
-                {'$inc': {'coin_balance': -1}}
-            )
-            db.coin_transactions.insert_one({
-                'user_id': str(current_user.id),
-                'amount': -1,
-                'type': 'spend',
-                'date': datetime.utcnow(),
-                'ref': f"Debtor creation: {invoice['party_name']}"
-            })
+            # TEMPORARY: Skip coin deduction for admin during testing
+            # TODO: Restore original coin deduction for production
+            if not is_admin():
+                db.users.update_one(
+                    {'_id': ObjectId(current_user.id)},
+                    {'$inc': {'coin_balance': -1}}
+                )
+                db.coin_transactions.insert_one({
+                    'user_id': str(current_user.id),
+                    'amount': -1,
+                    'type': 'spend',
+                    'date': datetime.utcnow(),
+                    'ref': f"Debtor creation: {invoice['party_name']}"
+                })
             flash(trans_function('create_debtor_success', default='Debtor created successfully'), 'success')
             return redirect(url_for('debtors.index'))
         except Exception as e:
@@ -83,11 +88,10 @@ def edit(id):
     from app.forms import InvoiceForm
     try:
         db = get_mongo_db()
-        debtor = db.invoices.find_one({
-            '_id': ObjectId(id),
-            'user_id': str(current_user.id),
-            'type': 'debtor'
-        })
+        # TEMPORARY: Allow admin to edit any debtor invoice during testing
+        # TODO: Restore original user_id filter for production
+        query = {'_id': ObjectId(id), 'type': 'debtor'} if is_admin() else {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'debtor'}
+        debtor = db.invoices.find_one(query)
         if not debtor:
             flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
             return redirect(url_for('debtors.index'))
@@ -133,16 +137,15 @@ def delete(id):
     """Delete a debtor invoice."""
     try:
         db = get_mongo_db()
-        result = db.invoices.delete_one({
-            '_id': ObjectId(id),
-            'user_id': str(current_user.id),
-            'type': 'debtor'
-        })
+        # TEMPORARY: Allow admin to delete any debtor invoice during testing
+        # TODO: Restore original user_id filter for production
+        query = {'_id': ObjectId(id), 'type': 'debtor'} if is_admin() else {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'debtor'}
+        result = db.invoices.delete_one(query)
         if result.deleted_count:
             flash(trans_function('delete_debtor_success', default='Debtor deleted successfully'), 'success')
         else:
             flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
     except Exception as e:
         logger.error(f"Error deleting debtor {id} for user {current_user.id}: {str(e)}")
-        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
+        flash(trans_function('something_went_wrong'), 'danger')
     return redirect(url_for('debtors.index'))
