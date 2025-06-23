@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, Response, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
 from bson import ObjectId
 from datetime import datetime
 from reportlab.lib.pagesizes import A4
@@ -34,11 +34,15 @@ def profit_loss():
     """Generate profit/loss report with filters."""
     from app.forms import ReportForm
     form = ReportForm()
-    if not check_coin_balance(1):
+    # TEMPORARY: Bypass coin check for admin during testing
+    # TODO: Restore original check_coin_balance(1) for production
+    if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to generate a report. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     transactions = []
-    query = {'user_id': str(current_user.id)}
+    # TEMPORARY: Allow admin to view all transactions during testing
+    # TODO: Restore original user_id filter {'user_id': str(current_user.id)} for production
+    query = {} if is_admin() else {'user_id': str(current_user.id)}
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
@@ -54,17 +58,20 @@ def profit_loss():
                 return generate_profit_loss_pdf(transactions)
             elif output_format == 'csv':
                 return generate_profit_loss_csv(transactions)
-            db.users.update_one(
-                {'_id': ObjectId(current_user.id)},
-                {'$inc': {'coin_balance': -1}}
-            )
-            db.coin_transactions.insert_one({
-                'user_id': str(current_user.id),
-                'amount': -1,
-                'type': 'spend',
-                'date': datetime.utcnow(),
-                'ref': 'Profit/Loss report generation'
-            })
+            # TEMPORARY: Skip coin deduction for admin during testing
+            # TODO: Restore original coin deduction for production
+            if not is_admin():
+                db.users.update_one(
+                    {'_id': ObjectId(current_user.id)},
+                    {'$inc': {'coin_balance': -1}}
+                )
+                db.coin_transactions.insert_one({
+                    'user_id': str(current_user.id),
+                    'amount': -1,
+                    'type': 'spend',
+                    'date': datetime.utcnow(),
+                    'ref': 'Profit/Loss report generation'
+                })
         except Exception as e:
             logger.error(f"Error generating profit/loss report for user {current_user.id}: {str(e)}")
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
@@ -80,11 +87,15 @@ def inventory():
     """Generate inventory report with filters."""
     from app.forms import InventoryReportForm
     form = InventoryReportForm()
-    if not check_coin_balance(1):
+    # TEMPORARY: Bypass coin check for admin during testing
+    # TODO: Restore original check_coin_balance(1) for production
+    if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to generate a report. Purchase more coins.'), 'danger')
         return redirect(url_for('coins.purchase'))
     items = []
-    query = {'user_id': str(current_user.id)}
+    # TEMPORARY: Allow admin to view all inventory items during testing
+    # TODO: Restore original user_id filter {'user_id': str(current_user.id)} for production
+    query = {} if is_admin() else {'user_id': str(current_user.id)}
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
@@ -96,17 +107,20 @@ def inventory():
                 return generate_inventory_pdf(items)
             elif output_format == 'csv':
                 return generate_inventory_csv(items)
-            db.users.update_one(
-                {'_id': ObjectId(current_user.id)},
-                {'$inc': {'coin_balance': -1}}
-            )
-            db.coin_transactions.insert_one({
-                'user_id': str(current_user.id),
-                'amount': -1,
-                'type': 'spend',
-                'date': datetime.utcnow(),
-                'ref': 'Inventory report generation'
-            })
+            # TEMPORARY: Skip coin deduction for admin during testing
+            # TODO: Restore original coin deduction for production
+            if not is_admin():
+                db.users.update_one(
+                    {'_id': ObjectId(current_user.id)},
+                    {'$inc': {'coin_balance': -1}}
+                )
+                db.coin_transactions.insert_one({
+                    'user_id': str(current_user.id),
+                    'amount': -1,
+                    'type': 'spend',
+                    'date': datetime.utcnow(),
+                    'ref': 'Inventory report generation'
+                })
         except Exception as e:
             logger.error(f"Error generating inventory report for user {current_user.id}: {str(e)}")
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
@@ -195,7 +209,7 @@ def generate_inventory_pdf(items):
     p.drawString(6.5 * inch, y, trans_function('threshold', default='Threshold'))
     y -= 0.3 * inch
     for item in items:
-        p.drawString(1 * inch, y, item['item_name'])
+        p.drawString(1 * inch, y, item_name)
         p.drawString(2.5 * inch, y, str(item['qty']))
         p.drawString(3.5 * inch, y, trans_function(item['unit'], default=item['unit']))
         p.drawString(4.5 * inch, y, format_currency(item['buying_price']))
@@ -216,8 +230,5 @@ def generate_inventory_csv(items):
     output.append([trans_function('item_name', default='Item Name'), trans_function('quantity', default='Quantity'), trans_function('unit', default='Unit'), trans_function('buying_price', default='Buying Price'), trans_function('selling_price', default='Selling Price'), trans_function('threshold', default='Threshold')])
     for item in items:
         output.append([item['item_name'], item['qty'], trans_function(item['unit'], default=item['unit']), format_currency(item['buying_price']), format_currency(item['selling_price']), item['threshold']])
-    buffer = BytesIO()
-    writer = csv.writer(buffer, lineterminator='\n')
-    writer.writerows(output)
     buffer.seek(0)
     return Response(buffer, mimetype='text/csv', headers={'Content-Disposition': 'attachment;filename=inventory.csv'})
