@@ -4,7 +4,7 @@
 <div class="container mt-5">
     <h1 class="mb-4">{{ trans('creditors', default='Creditors') }}</h1>
     <a href="{{ url_for('creditors.add') }}" class="btn btn-primary mb-4">{{ trans('create_creditor', default='Create Creditor') }}</a>
-    {% if creditors.count() %}
+    {% if creditors|length > 0 %}
         <div class="table-responsive">
             <table class="table table-striped table-bordered">
                 <thead class="table-light">
