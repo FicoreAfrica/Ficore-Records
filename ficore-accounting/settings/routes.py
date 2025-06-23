@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, is_valid_email, format_currency, get_mongo_db
+from utils import trans_function, requires_role, is_valid_email, format_currency, get_mongo_db, is_admin
 from bson import ObjectId
 from datetime import datetime
 import logging
@@ -33,6 +33,9 @@ def profile():
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
+            # TEMPORARY: Allow admin to update any profile during testing
+            # TODO: Restore original user_id filter {'_id': ObjectId(current_user.id)} for production
+            user_id = ObjectId(request.args.get('user_id', current_user.id)) if is_admin() and request.args.get('user_id') else ObjectId(current_user.id)
             if form.email.data != current_user.email and db.users.find_one({'email': form.email.data}):
                 flash(trans_function('email_exists', default='Email already in use'), 'danger')
                 return render_template('settings/profile.html', form=form)
@@ -43,7 +46,7 @@ def profile():
                 'updated_at': datetime.utcnow()
             }
             db.users.update_one(
-                {'_id': ObjectId(current_user.id)},
+                {'_id': user_id},
                 {'$set': update_data}
             )
             flash(trans_function('profile_updated', default='Profile updated successfully'), 'success')
@@ -65,13 +68,16 @@ def notifications():
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
+            # TEMPORARY: Allow admin to update any user's notifications during testing
+            # TODO: Restore original user_id filter {'_id': ObjectId(current_user.id)} for production
+            user_id = ObjectId(request.args.get('user_id', current_user.id)) if is_admin() and request.args.get('user_id') else ObjectId(current_user.id)
             update_data = {
                 'email_notifications': form.email_notifications.data,
                 'sms_notifications': form.sms_notifications.data,
                 'updated_at': datetime.utcnow()
             }
             db.users.update_one(
-                {'_id': ObjectId(current_user.id)},
+                {'_id': user_id},
                 {'$set': update_data}
             )
             flash(trans_function('notifications_updated', default='Notification preferences updated successfully'), 'success')
@@ -90,9 +96,12 @@ def language():
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
+            # TEMPORARY: Allow admin to update any user's language during testing
+            # TODO: Restore original user_id filter {'_id': ObjectId(current_user.id)} for production
+            user_id = ObjectId(request.args.get('user_id', current_user.id)) if is_admin() and request.args.get('user_id') else ObjectId(current_user.id)
             session['language'] = form.language.data
             db.users.update_one(
-                {'_id': ObjectId(current_user.id)},
+                {'_id': user_id},
                 {'$set': {'language': form.language.data, 'updated_at': datetime.utcnow()}}
             )
             flash(trans_function('language_updated', default='Language updated successfully'), 'success')
