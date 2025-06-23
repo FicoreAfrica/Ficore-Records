@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-debtors_bp = Blueprint('dashboard', __name__, url_prefix='/')
+debtors_bp = Blueprint('debtors', __name__, url_prefix='/debtors')
 
 @debtors_bp.route('/')
 @login_required
@@ -24,7 +24,7 @@ def index():
     except Exception as e:
         logger.error(f"Error fetching debtors for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
-        return redirect(url_for('dashboard.index'))
+        return redirect(url_for('dashboard_blueprint.index'))
 
 @debtors_bp.route('/add', methods=['GET', 'POST'])
 @login_required
@@ -37,7 +37,7 @@ def add():
     # TODO: Restore original check_coin_balance(1) for production
     if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to create a debtor. Purchase more coins.'), 'danger')
-        return redirect(url_for('coins.purchase'))
+        return redirect(url_for('coins_blueprint.purchase'))
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
@@ -74,7 +74,7 @@ def add():
                     'ref': f"Debtor creation: {invoice['party_name']}"
                 })
             flash(trans_function('create_debtor_success', default='Debtor created successfully'), 'success')
-            return redirect(url_for('debtors.index'))
+            return redirect(url_for('debtors_blueprint.index'))
         except Exception as e:
             logger.error(f"Error creating debtor for user {current_user.id}: {str(e)}")
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
@@ -94,7 +94,7 @@ def edit(id):
         debtor = db.invoices.find_one(query)
         if not debtor:
             flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
-            return redirect(url_for('debtors.index'))
+            return redirect(url_for('debtors_blueprint.index'))
         form = InvoiceForm(data={
             'party_name': debtor['party_name'],
             'phone': debtor['phone'],
@@ -120,7 +120,7 @@ def edit(id):
                     {'$set': updated_invoice}
                 )
                 flash(trans_function('edit_debtor_success', default='Debtor updated successfully'), 'success')
-                return redirect(url_for('debtors.index'))
+                return redirect(url_for('debtors_blueprint.index'))
             except Exception as e:
                 logger.error(f"Error updating debtor {id} for user {current_user.id}: {str(e)}")
                 flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
@@ -128,7 +128,7 @@ def edit(id):
     except Exception as e:
         logger.error(f"Error fetching debtor {id} for user {current_user.id}: {str(e)}")
         flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
-        return redirect(url_for('debtors.index'))
+        return redirect(url_for('debtors_blueprint.index'))
 
 @debtors_bp.route('/delete/<id>', methods=['POST'])
 @login_required
@@ -148,4 +148,4 @@ def delete(id):
     except Exception as e:
         logger.error(f"Error deleting debtor {id} for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
-    return redirect(url_for('debtors.index'))
+    return redirect(url_for('debtors_blueprint.index'))
