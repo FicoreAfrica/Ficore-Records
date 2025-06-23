@@ -5,7 +5,7 @@
     <h1 class="text-center mb-4">{{ trans('core_login') | default('Sign In') }}</h1>
     <div class="card mx-auto" style="max-width: 400px;">
         <div class="card-body">
-            <form class="validate-form" method="POST" action="{{ url_for('users.login') }}">
+            <form class="validate-form" method="POST" action="{{ url_for('users_blueprint.login') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group mb-3">
                     <label for="username" class="form-label">{{ trans('username') | default('Username') }}</label>
@@ -24,9 +24,9 @@
                     <button type="submit" class="btn btn-primary">{{ trans('core_login') | default('Sign In') }}</button>
                 </div>
                 <div class="text-center mt-3">
-                    <a href="{{ url_for('users.forgot_password') }}">{{ trans('forgot_password') | default('Forgot Password?') }}</a>
+                    <a href="{{ url_for('users_blueprint.forgot_password') }}">{{ trans('forgot_password') | default('Forgot Password?') }}</a>
                     <br>
-                    <a href="{{ url_for('users.signup') }}">{{ trans('create_account') | default('Create an Account') }}</a>
+                    <a href="{{ url_for('users_blueprint.signup') }}">{{ trans('create_account') | default('Create an Account') }}</a>
                 </div>
             </form>
         </div>
