@@ -68,7 +68,7 @@ def dashboard():
     except Exception as e:
         logger.error(f"Error loading admin dashboard: {str(e)}")
         flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
-        return render_template('admin/dashboard.html', stats={}, recent_users=[]), 500
+        return render_template('500.html', error=str(e)), 500
 
 @admin_bp.route('/users', methods=['GET'])
 @login_required
@@ -163,7 +163,7 @@ def delete_item(collection, item_id):
         else:
             flash(trans_function('item_deleted', default='Item deleted successfully'), 'success')
             logger.info(f"Admin {current_user.id} deleted {collection} item {item_id}")
-            log_audit_action(f'delete_{collection}_item', {'item_id': item_id, 'collection': collection})
+            log_audit_action(f'db_{collection}_item', {'item_id': item_id, 'collection': collection})
         return redirect(url_for('admin.dashboard'))
     except Exception as e:
         logger.error(f"Error deleting {collection} item {item_id}: {str(e)}")
