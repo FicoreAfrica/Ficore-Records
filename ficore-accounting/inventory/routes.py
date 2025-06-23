@@ -19,7 +19,7 @@ def index():
         # TEMPORARY: Allow admin to view all inventory items during testing
         # TODO: Restore original user_id filter {'user_id': str(current_user.id)} for production
         query = {} if is_admin() else {'user_id': str(current_user.id)}
-        items = db.inventory.find(query).sort('created_at', -1)
+        items = list(db.inventory.find(query).sort('created_at', -1))
         return render_template('inventory/index.html', items=items, format_currency=format_currency)
     except Exception as e:
         logger.error(f"Error fetching inventory for user {current_user.id}: {str(e)}")
@@ -36,7 +36,7 @@ def low_stock():
         # TEMPORARY: Allow admin to view all low stock items during testing
         # TODO: Restore original user_id filter {'user_id': str(current_user.id), 'qty': {'$lte': db.inventory.threshold}} for production
         query = {'qty': {'$lte': db.inventory.threshold}} if is_admin() else {'user_id': str(current_user.id), 'qty': {'$lte': db.inventory.threshold}}
-        low_stock_items = db.inventory.find(query).sort('qty', 1)
+        low_stock_items = list(db.inventory.find(query).sort('qty', 1))
         return render_template('inventory/low_stock.html', items=low_stock_items, format_currency=format_currency)
     except Exception as e:
         logger.error(f"Error fetching low stock items for user {current_user.id}: {str(e)}")
