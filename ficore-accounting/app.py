@@ -600,7 +600,7 @@ def setup_database_route():
         return render_template('errors/403.html', content=trans('forbidden_access', default='Access denied')), 403
     if setup_database():
         flash(trans('database_setup_success', default='Database setup successful'), 'success')
-        return redirect(url_for 'index')
+        return redirect(url_for('index'))
     else:
         flash(trans('database_setup_error', default='An error occurred during database setup'), 'danger')
         return render_template('errors/500.html', content=trans('internal_error', default='Internal server error')), 500
