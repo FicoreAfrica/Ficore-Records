@@ -446,10 +446,11 @@ def setup_database():
             db.feedback.create_index([('user_id', ASCENDING)], sparse=True)
             db.feedback.create_index([('timestamp', DESCENDING)])
 
-        # Sessions collection
+        # Sessions collection with TTL index
         if 'sessions' not in collections:
             db.create_collection('sessions')
-            db.sessions.create_index([('expires', ASCENDING)], expireAfterSeconds=0)
+        # Ensure TTL index for session cleanup
+        db.sessions.create_index([('expires', ASCENDING)], expireAfterSeconds=0, name='session_expiry_index')
 
         # Admin user creation
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
@@ -547,10 +548,10 @@ def feedback():
             comment = request.form.get('comment', '').strip()
             valid_tools = [option[0] for option in tool_options]
             if not tool_name or tool_name not in valid_tools:
-                flash(trans('invalid_tool', default='Invalid tool selected'), 'danger')
+                flash(trans('invalid_tool', default='Please select a valid tool'), 'danger')
                 return render_template('general/feedback.html', tool_options=tool_options)
             if not rating or not rating.isdigit() or int(rating) < 1 or int(rating) > 5:
-                flash(trans('invalid_rating', default='Invalid rating'), 'danger')
+                flash(trans('invalid_rating', default='Rating must be between 1 and 5'), 'danger')
                 return render_template('general/feedback.html', tool_options=tool_options)
             db = get_mongo_db()
             db.users.update_one({'_id': current_user.id}, {'$inc': {'coin_balance': -1}})
@@ -579,7 +580,7 @@ def feedback():
             return redirect(url_for('index'))
         except Exception as e:
             logger.error(f"Error processing feedback: {str(e)}")
-            flash(trans('feedback_error', default='Error submitting feedback'), 'danger')
+            flash(trans('feedback_error', default='An error occurred while submitting feedback'), 'danger')
             return render_template('general/feedback.html', tool_options=tool_options), 500
     return render_template('general/feedback.html', tool_options=tool_options)
 
@@ -608,7 +609,7 @@ def admin_dashboard():
                               coin_transactions=coin_transactions)
     except Exception as e:
         logger.error(f"Error loading admin dashboard: {str(e)}")
-        flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+        flash(trans('core_something_went_wrong', default='An error occurred while loading the dashboard'), 'danger')
         return redirect(url_for('index')), 500
 
 @app.route('/dashboard/general')
@@ -641,7 +642,7 @@ def general_dashboard():
                               coin_balance=coin_balance)
     except Exception as e:
         logger.error(f"Error fetching dashboard data: {str(e)}")
-        flash(trans('core_something_went_wrong', default='An error occurred'), 'danger')
+        flash(trans('core_something_went_wrong', default='An error occurred while loading the dashboard'), 'danger')
         return render_template('dashboard/general_dashboard.html',
                               recent_inventory=[],
                               recent_payments=[],
@@ -662,7 +663,7 @@ def setup_database_route():
         flash(trans('database_setup_success', default='Database setup successful'), 'success')
         return redirect(url_for('index'))
     else:
-        flash(trans('database_setup_error', default='Database setup failed'), 'danger')
+        flash(trans('database_setup_error', default='An error occurred during database setup'), 'danger')
         return render_template('errors/500.html', content=trans('internal_error', default='Internal server error')), 500
 
 @app.errorhandler(403)
