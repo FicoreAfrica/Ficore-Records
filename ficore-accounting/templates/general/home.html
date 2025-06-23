@@ -68,7 +68,7 @@
                 <div class="card">
                     <h2 class="card-title">{{ trans('manage_coins') | default('Manage Coins') }}</h2>
                     <p class="card-text">{{ trans('coins_desc') | default('Check your coin balance and transactions') }}</p>
-                    <a href="{{ url_for('coins.balance') }}" class="btn-primary">{{ trans('go_to_coins') | default('Go to Coins') }}</a>
+                    <a href="{{ url_for('coins.get_balance') }}" class="btn-primary">{{ trans('go_to_coins') | default('Go to Coins') }}</a>
                 </div>
             </div>
         </div>
