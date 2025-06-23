@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container mt-5">
     <h1 class="mb-4">{{ trans('debtors', default='Debtors') }}</h1>
-    <a href="{{ url_for('debtors.add') }}" class="btn btn-primary mb-4">{{ trans('create_debtor', default='Create Debtor') }}</a>
+    <a href="{{ url_for('debtors_blueprint.add') }}" class="btn btn-primary mb-4">{{ trans('create_debtor', default='Create Debtor') }}</a>
     {% if debtors|length > 0 %}
         <div class="table-responsive">
             <table class="table table-striped table-bordered">
@@ -24,8 +24,8 @@
                             <td>{{ trans(debtor.status, default=debtor.status) }}</td>
                             <td>{{ format_date(debtor.due_date) }}</td>
                             <td>
-                                <a href="{{ url_for('debtors.edit', id=debtor._id) }}" class="btn btn-primary btn-sm">{{ trans('edit', default='Edit') }}</a>
-                                <form action="{{ url_for('debtors.delete', id=debtor._id) }}" method="POST" class="d-inline">
+                                <a href="{{ url_for('debtors_blueprint.edit', id=debtor._id) }}" class="btn btn-primary btn-sm">{{ trans('edit', default='Edit') }}</a>
+                                <form action="{{ url_for('debtors_blueprint.delete', id=debtor._id) }}" method="POST" class="d-inline">
                                     <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
                                 </form>
                             </td>
