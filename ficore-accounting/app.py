@@ -83,14 +83,13 @@ except Exception as e:
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 babel = Babel(app)
 
-# Register teardown handler
-app.teardown_appcontext(close_mongo_db)
-
-# Localization configuration
+# Flask-Babel 4.0.0 compatibility fix
 def get_locale():
     return session.get('lang', request.accept_languages.best_match(['en', 'ha'], default='en'))
-
 babel.locale_selector = get_locale
+
+# Register teardown handler
+app.teardown_appcontext(close_mongo_db)
 
 # Login manager
 login_manager = LoginManager()
@@ -281,182 +280,161 @@ def setup_database():
         db.command('ping')
         logger.info("MongoDB connection successful during setup")
 
-        # Clean up guest data
-        db.feedback.delete_many({'user_id': {'$in': ['guest', None]}})
+        # Drop all existing collections to clear test data
+        for collection in collections:
+            db.drop_collection(collection)
+            logger.info(f"Dropped collection: {collection}")
 
         # Users collection
-        if 'users' not in collections:
-            db.create_collection('users', validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ['_id', 'email', 'password', 'role', 'coin_balance', 'created_at'],
-                    'properties': {
-                        '_id': {'bsonType': 'string'},
-                        'email': {'bsonType': 'string'},
-                        'password': {'bsonType': 'string'},
-                        'role': {'enum': ['personal', 'trader', 'agent', 'admin']},
-                        'coin_balance': {'bsonType': 'int'},
-                        'language': {'enum': ['en', 'ha']},
-                        'created_at': {'bsonType': 'date'}
-                    }
+        db.create_collection('users', validator={
+            '$jsonSchema': {
+                'bsonType': 'object',
+                'required': ['_id', 'email', 'password', 'role', 'coin_balance', 'created_at'],
+                'properties': {
+                    '_id': {'bsonType': 'string'},
+                    'email': {'bsonType': 'string', 'pattern': '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'},
+                    'password': {'bsonType': 'string'},
+                    'role': {'enum': ['personal', 'trader', 'agent', 'admin']},
+                    'coin_balance': {'bsonType': 'int', 'minimum': 0},
+                    'language': {'enum': ['en', 'ha']},
+                    'created_at': {'bsonType': 'date'},
+                    'display_name': {'bsonType': ['string', 'null']},
+                    'dark_mode': {'bsonType': 'bool'},
+                    'is_admin': {'bsonType': 'bool'},
+                    'setup_complete': {'bsonType': 'bool'},
+                    'reset_token': {'bsonType': ['string', 'null']}
                 }
-            })
-        users_indexes = db.users.index_information()
-        if 'email_1' not in users_indexes:
-            db.users.create_index([('email', ASCENDING)], unique=True)
-        if 'reset_token_1' not in users_indexes:
-            db.users.create_index([('reset_token', ASCENDING)], sparse=True)
-        if 'role_1' not in users_indexes:
-            db.users.create_index([('role', ASCENDING)])
+            }
+        })
+        db.users.create_index([('email', ASCENDING)], unique=True)
+        db.users.create_index([('reset_token', ASCENDING)], sparse=True)
+        db.users.create_index([('role', ASCENDING)])
+        logger.info("Created users collection with indexes")
 
-        db.users.update_many(
-            {'role': {'$exists': False}},
-            {'$set': {'role': 'personal', 'coin_balance': 0, 'language': 'en'}}
-        )
-
-        # Coin transactions collection
-        if 'coin_transactions' not in collections:
-            db.create_collection('coin_transactions', validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ['user_id', 'amount', 'type', 'date'],
-                    'properties': {
-                        'user_id': {'bsonType': 'string'},
-                        'amount': {'bsonType': 'int'},
-                        'type': {'enum': ['purchase', 'spend', 'credit', 'admin_credit']},
-                        'date': {'bsonType': 'date'},
-                        'ref': {'bsonType': 'string'}
-                    }
+        # Records collection (replaces debtors and creditors)
+        db.create_collection('records', validator={
+            '$jsonSchema': {
+                'bsonType': 'object',
+                'required': ['user_id', 'name', 'amount_owed', 'type', 'created_at'],
+                'properties': {
+                    'user_id': {'bsonType': 'string'},
+                    'name': {'bsonType': 'string'},
+                    'amount_owed': {'bsonType': 'double', 'minimum': 0},
+                    'type': {'enum': ['debtor', 'creditor']},
+                    'created_at': {'bsonType': 'date'},
+                    'contact': {'bsonType': ['string', 'null']},
+                    'description': {'bsonType': ['string', 'null']}
                 }
-            })
-        db.coin_transactions.create_index([('user_id', ASCENDING)])
-        db.coin_transactions.create_index([('date', DESCENDING)])
+            }
+        })
+        db.records.create_index([('user_id', ASCENDING), ('type', ASCENDING)])
+        db.records.create_index([('created_at', DESCENDING)])
+        logger.info("Created records collection with indexes")
 
-        # Audit logs collection
-        if 'audit_logs' not in collections:
-            db.create_collection('audit_logs', validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ['admin_id', 'action', 'details', 'timestamp'],
-                    'properties': {
-                        'admin_id': {'bsonType': 'string'},
-                        'action': {'bsonType': 'string'},
-                        'details': {'bsonType': 'object'},
-                        'timestamp': {'bsonType': 'date'}
-                    }
+        # Cashflows collection (replaces payments and receipts)
+        db.create_collection('cashflows', validator={
+            '$jsonSchema': {
+                'bsonType': 'object',
+                'required': ['user_id', 'amount', 'party_name', 'type', 'created_at'],
+                'properties': {
+                    'user_id': {'bsonType': 'string'},
+                    'amount': {'bsonType': 'double', 'minimum': 0},
+                    'party_name': {'bsonType': 'string'},
+                    'type': {'enum': ['payment', 'receipt']},
+                    'created_at': {'bsonType': 'date'},
+                    'method': {'enum': ['card', 'bank', 'cash', None]},
+                    'category': {'bsonType': ['string', 'null']},
+                    'file_id': {'bsonType': ['objectId', 'null']},
+                    'filename': {'bsonType': ['string', 'null']}
                 }
-            })
-        db.audit_logs.create_index([('timestamp', DESCENDING)])
-
-        # Debtors collection
-        if 'debtors' not in collections:
-            db.create_collection('debtors', validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ['user_id', 'name', 'amount_owed', 'created_at'],
-                    'properties': {
-                        'user_id': {'bsonType': 'string'},
-                        'name': {'bsonType': 'string'},
-                        'amount_owed': {'bsonType': 'double'},
-                        'created_at': {'bsonType': 'date'},
-                        'contact': {'bsonType': 'string'}
-                    }
-                }
-            })
-        db.debtors.create_index([('user_id', ASCENDING)])
-        db.debtors.create_index([('created_at', DESCENDING)])
-
-        # Creditors collection
-        if 'creditors' not in collections:
-            db.create_collection('creditors', validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ['user_id', 'name', 'amount_owed', 'created_at'],
-                    'properties': {
-                        'user_id': {'bsonType': 'string'},
-                        'name': {'bsonType': 'string'},
-                        'amount_owed': {'bsonType': 'double'},
-                        'created_at': {'bsonType': 'date'},
-                        'contact': {'bsonType': 'string'}
-                    }
-                }
-            })
-        db.creditors.create_index([('user_id', ASCENDING)])
-        db.creditors.create_index([('created_at', DESCENDING)])
-
-        # Receipts collection
-        if 'receipts' not in collections:
-            db.create_collection('receipts', validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ['user_id', 'file_id', 'upload_date'],
-                    'properties': {
-                        'user_id': {'bsonType': 'string'},
-                        'file_id': {'bsonType': 'objectId'},
-                        'upload_date': {'bsonType': 'date'},
-                        'filename': {'bsonType': 'string'}
-                    }
-                }
-            })
-        db.receipts.create_index([('user_id', ASCENDING)])
-        db.receipts.create_index([('upload_date', DESCENDING)])
-
-        # Payments collection
-        if 'payments' not in collections:
-            db.create_collection('payments', validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ['user_id', 'amount', 'recipient', 'created_at'],
-                    'properties': {
-                        'user_id': {'bsonType': 'string'},
-                        'amount': {'bsonType': 'double'},
-                        'recipient': {'bsonType': 'string'},
-                        'created_at': {'bsonType': 'date'},
-                        'method': {'enum': ['card', 'bank', 'cash']}
-                    }
-                }
-            })
-        db.payments.create_index([('user_id', ASCENDING)])
-        db.payments.create_index([('created_at', DESCENDING)])
+            }
+        })
+        db.cashflows.create_index([('user_id', ASCENDING), ('type', ASCENDING)])
+        db.cashflows.create_index([('created_at', DESCENDING)])
+        logger.info("Created cashflows collection with indexes")
 
         # Inventory collection
-        if 'inventory' not in collections:
-            db.create_collection('inventory', validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ['user_id', 'item_name', 'qty', 'created_at'],
-                    'properties': {
-                        'user_id': {'bsonType': 'string'},
-                        'item_name': {'bsonType': 'string'},
-                        'qty': {'bsonType': 'int'},
-                        'created_at': {'bsonType': 'date'},
-                        'unit': {'bsonType': 'string'},
-                        'buying_price': {'bsonType': 'double'},
-                        'selling_price': {'bsonType': 'double'},
-                        'threshold': {'bsonType': 'int'}
-                    }
+        db.create_collection('inventory', validator={
+            '$jsonSchema': {
+                'bsonType': 'object',
+                'required': ['user_id', 'item_name', 'qty', 'created_at'],
+                'properties': {
+                    'user_id': {'bsonType': 'string'},
+                    'item_name': {'bsonType': 'string'},
+                    'qty': {'bsonType': 'int', 'minimum': 0},
+                    'created_at': {'bsonType': 'date'},
+                    'unit': {'bsonType': ['string', 'null']},
+                    'buying_price': {'bsonType': ['double', 'null'], 'minimum': 0},
+                    'selling_price': {'bsonType': ['double', 'null'], 'minimum': 0},
+                    'threshold': {'bsonType': ['int', 'null'], 'minimum': 0},
+                    'updated_at': {'bsonType': ['date', 'null']}
                 }
-            })
+            }
+        })
         db.inventory.create_index([('user_id', ASCENDING)])
         db.inventory.create_index([('created_at', DESCENDING)])
+        logger.info("Created inventory collection with indexes")
+
+        # Coin transactions collection
+        db.create_collection('coin_transactions', validator={
+            '$jsonSchema': {
+                'bsonType': 'object',
+                'required': ['user_id', 'amount', 'type', 'date'],
+                'properties': {
+                    'user_id': {'bsonType': 'string'},
+                    'amount': {'bsonType': 'int'},
+                    'type': {'enum': ['purchase', 'spend', 'credit', 'admin_credit']},
+                    'date': {'bsonType': 'date'},
+                    'ref': {'bsonType': ['string', 'null']}
+                }
+            }
+        })
+        db.coin_transactions.create_index([('user_id', ASCENDING)])
+        db.coin_transactions.create_index([('date', DESCENDING)])
+        logger.info("Created coin_transactions collection with indexes")
+
+        # Audit logs collection
+        db.create_collection('audit_logs', validator={
+            '$jsonSchema': {
+                'bsonType': 'object',
+                'required': ['admin_id', 'action', 'details', 'timestamp'],
+                'properties': {
+                    'admin_id': {'bsonType': 'string'},
+                    'action': {'bsonType': 'string'},
+                    'details': {'bsonType': 'object'},
+                    'timestamp': {'bsonType': 'date'}
+                }
+            }
+        })
+        db.audit_logs.create_index([('timestamp', DESCENDING)])
+        logger.info("Created audit_logs collection with indexes")
 
         # Feedback collection
-        if 'feedback' not in collections:
-            db.create_collection('feedback')
-            db.feedback.create_index([('user_id', ASCENDING)], sparse=True)
-            db.feedback.create_index([('timestamp', DESCENDING)])
+        db.create_collection('feedback', validator={
+            '$jsonSchema': {
+                'bsonType': 'object',
+                'required': ['user_id', 'tool_name', 'rating', 'timestamp'],
+                'properties': {
+                    'user_id': {'bsonType': 'string'},
+                    'tool_name': {'bsonType': 'string'},
+                    'rating': {'bsonType': 'int', 'minimum': 1, 'maximum': 5},
+                    'comment': {'bsonType': ['string', 'null']},
+                    'timestamp': {'bsonType': 'date'}
+                }
+            }
+        })
+        db.feedback.create_index([('user_id', ASCENDING)], sparse=True)
+        db.feedback.create_index([('timestamp', DESCENDING)])
+        logger.info("Created feedback collection with indexes")
 
         # Sessions collection with TTL index
-        if 'sessions' not in collections:
-            db.create_collection('sessions')
-        existing_indexes = db.sessions.index_information()
-        if 'session_expiry_index' not in existing_indexes:
-            db.sessions.create_index(
-                [('expiration', ASCENDING)],
-                expireAfterSeconds=0,
-                name='session_expiry_index'
-            )
-            logger.info("TTL index created for sessions collection")
+        db.create_collection('sessions')
+        db.sessions.create_index(
+            [('expiration', ASCENDING)],
+            expireAfterSeconds=0,
+            name='session_expiry_index'
+        )
+        logger.info("Created sessions collection with TTL index")
 
         # Admin user creation
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
@@ -560,16 +538,20 @@ def feedback():
                 flash(trans('invalid_rating', default='Rating must be between 1 and 5'), 'danger')
                 return render_template('general/feedback.html', tool_options=tool_options)
             db = get_mongo_db()
-            db.users.update_one({'_id': current_user.id}, {'$inc': {'coin_balance': -1}})
+            from coins.routes import get_user_query
+            query = get_user_query(str(current_user.id))
+            result = db.users.update_one(query, {'$inc': {'coin_balance': -1}})
+            if result.matched_count == 0:
+                raise ValueError(f"No user found for ID {current_user.id}")
             db.coin_transactions.insert_one({
-                'user_id': current_user.id,
+                'user_id': str(current_user.id),
                 'amount': -1,
                 'type': 'spend',
                 'ref': f"FEEDBACK_{datetime.utcnow().isoformat()}",
                 'date': datetime.utcnow()
             })
             feedback_entry = {
-                'user_id': current_user.id,
+                'user_id': str(current_user.id),
                 'tool_name': tool_name,
                 'rating': int(rating),
                 'comment': comment or None,
@@ -579,11 +561,14 @@ def feedback():
             db.audit_logs.insert_one({
                 'admin_id': 'system',
                 'action': 'submit_feedback',
-                'details': {'user_id': current_user.id, 'tool_name': tool_name},
+                'details': {'user_id': str(current_user.id), 'tool_name': tool_name},
                 'timestamp': datetime.utcnow()
             })
             flash(trans('feedback_success', default='Feedback submitted successfully'), 'success')
             return redirect(url_for('index'))
+        except ValueError as e:
+            logger.error(f"User not found: {str(e)}")
+            flash(trans('user_not_found', default='User not found'), 'danger')
         except Exception as e:
             logger.error(f"Error processing feedback: {str(e)}")
             flash(trans('feedback_error', default='An error occurred while submitting feedback'), 'danger')
@@ -603,7 +588,7 @@ def setup_database_route():
         flash(trans('database_setup_success', default='Database setup successful'), 'success')
         return redirect(url_for('index'))
     else:
-        flash(trans('database_setup_error', default='An error occurred caters'), 'danger')
+        flash(trans('database_setup_error', default='An error occurred during database setup'), 'danger')
         return render_template('errors/500.html', content=trans('internal_error', default='Internal server error')), 500
 
 @app.errorhandler(403)
