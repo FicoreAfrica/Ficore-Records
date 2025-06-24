@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="{{ session.get('lang', 'en') }}" {% if session.get('dark_mode', False) %}class="dark-mode"{% endif %}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ trans('app_description', default='FiCore Accounting: Manage your finances with ease') }}">
+    <meta name="keywords" content="accounting, finance, business, bookkeeping">
+    <meta name="author" content="FiCore">
+    <title>{% block title %}{{ trans('app_title', default='FiCore Accounting') }}{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="manifest" href="{{ url_for('manifest') }}">
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="img/x-icon">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16x16.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='img/android-chrome-192x192.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='img/android-chrome-512x512.png') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}" aria-label="{{ trans('home', default='Home') }}">
+                <img src="{{ url_for('static', filename='img/ficore_records_logo.png') }}" alt="{{ trans('logo_alt', default='FiCore Logo') }}" class="logo" onerror="this.src='{{ url_for('static', filename='img/fallback-logo.png') }}';">
+                {{ trans('app_name', default='FiCore Accounting') }}
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="{{ trans('toggle_navigation', default='Toggle navigation') }}">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('home_tooltip', default='Go to homepage') }}">{{ trans('home', default='Home') }}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('about') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('about_tooltip', default='Learn more about FiCore') }}">{{ trans('about', default='About') }}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('contact') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('contact_tooltip', default='Get in touch') }}">{{ trans('contact', default='Contact') }}</a>
+                    </li>
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="dashboardDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('dashboard_tooltip', default='View dashboards') }}" aria-label="{{ trans('dashboard', default='Dashboard') }}">
+                                {{ trans('dashboard', default='Dashboard') }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="dashboardDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('dashboard_blueprint.index') }}">{{ trans('general_dashboard', default='General Dashboard') }}</a></li>
+                                {% if current_user.get('is_admin', False) %}
+                                    <li><a class="dropdown-item" href="{{ url_for('admin_blueprint.dashboard') }}">{{ trans('admin_dashboard', default='Admin Dashboard') }}</a></li>
+                                {% endif %}
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="debtorsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('what_they_owe_you_tooltip', default='Manage what they owe you') }}" aria-label="{{ trans('what_they_owe_you', default='What They Owe You') }}">
+                                {{ trans('what_they_owe_you', default='What They Owe You') }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="debtorsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('debtors_blueprint.index') }}">{{ trans('view_what_they_owe_you', default='View What They Owe You') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('debtors_blueprint.add') }}">{{ trans('create_what_they_owe_you', default='Create What They Owe You') }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="creditorsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('what_you_owe_tooltip', default='Manage what you owe') }}" aria-label="{{ trans('what_you_owe', default='What You Owe') }}">
+                                {{ trans('what_you_owe', default='What You Owe') }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="creditorsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('creditors_blueprint.index') }}">{{ trans('view_what_you_owe', default='View What You Owe') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('creditors_blueprint.add') }}">{{ trans('create_what_you_owe', default='Create What You Owe') }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="receiptsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('money_in_tooltip', default='Manage money in') }}" aria-label="{{ trans('money_in', default='Money In') }}">
+                                {{ trans('money_in', default='Money In') }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="receiptsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('receipts_blueprint.index') }}">{{ trans('view_money_in', default='View Money In') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('receipts_blueprint.add') }}">{{ trans('add_money_in', default='Add Money In') }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="paymentsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('money_out_tooltip', default='Manage money out') }}" aria-label="{{ trans('money_out', default='Money Out') }}">
+                                {{ trans('money_out', default='Money Out') }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="paymentsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('payments_blueprint.index') }}">{{ trans('view_money_out', default='View Money Out') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('payments_blueprint.add') }}">{{ trans('add_money_out', default='Add Money Out') }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="inventoryDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('goods_stock_tooltip', default='Manage your goods & stock') }}" aria-label="{{ trans('your_goods_stock', default='Your Goods & Stock') }}">
+                                {{ trans('your_goods_stock', default='Your Goods & Stock') }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="inventoryDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('inventory_blueprint.index') }}">{{ trans('view_your_goods_stock', default='View Your Goods & Stock') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('inventory_blueprint.add') }}">{{ trans('add_goods_stock', default='Add Goods & Stock') }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('reports_tooltip', default='View reports') }}" aria-label="{{ trans('reports', default='Reports') }}">
+                                {{ trans('reports', default='Reports') }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="reportsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('reports_blueprint.index') }}">{{ trans('view_reports', default='View Reports') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('reports_blueprint.profit_loss') }}">{{ trans('profit_loss', default='Profit & Loss') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('reports_blueprint.inventory') }}">{{ trans('inventory_report', default='Inventory Report') }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="coinsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('wallet_tooltip', default='Manage your wallet') }}" aria-label="{{ trans('your_wallet', default='Your Wallet') }}">
+                                {{ trans('your_wallet', default='Your Wallet') }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="coinsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.get_balance') }}">{{ trans('coin_balance', default='Coin Balance') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.purchase') }}">{{ trans('purchase_coins', default='Purchase Coins') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.history') }}">{{ trans('coin_history', default='Coin History') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.receipt_upload') }}">{{ trans('receipt_upload', default='Upload Receipt') }}</a></li>
+                            </ul>
+                        </li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav ms-auto align-items-center">
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('profile_tooltip', default='Manage your account') }}" aria-label="{{ trans('profile', default='Profile') }}">
+                                {{ current_user.display_name | default(trans('profile', default='Profile')) }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('users_blueprint.profile') }}">{{ trans('profile', default='Profile') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('feedback') }}">{{ trans('feedback', default='Send Feedback') }}</a></li>
+                                {% if current_user.get('is_admin', False) %}
+                                    <li><a class="dropdown-item" href="{{ url_for('admin_blueprint.dashboard') }}">{{ trans('admin_panel', default='Admin Panel') }}</a></li>
+                                {% endif %}
+                                <li><a class="dropdown-item" href="{{ url_for('users_blueprint.logout') }}">{{ trans('logout', default='Logout') }}</a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('users_blueprint.login') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('login_tooltip', default='Log in to your account') }}">{{ trans('login', default='Login') }}</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('users_blueprint.signup') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('signup_tooltip', default='Create a new account') }}">{{ trans('signup', default='Sign Up') }}</a></li>
+                    {% endif %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="languageDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('language_tooltip', default='Change language') }}" aria-label="{{ trans('language', default='Language') }}">
+                            {{ session.get('lang', 'en').upper() }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('set_language', lang='en') }}">{{ trans('english', default='English') }}</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('set_language', lang='ha') }}">{{ trans('hausa', default='Hausa') }}</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link btn btn-link" onclick="toggleDarkMode()" data-bs-toggle="tooltip" data-bs-title="{{ trans('mode_toggle_tooltip', default='Switch to ' + ('dark mode' if not session.get('dark_mode', False) else 'light mode')) }}" aria-label="{{ trans('mode_toggle', default='Toggle dark mode') }}">
+                            {% if session.get('dark_mode', False) %}
+                                <i class="bi bi-sun"></i>
+                            {% else %}
+                                <i class="bi bi-moon-stars"></i>
+                            {% endif %}
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ trans('close', default='Close') }}"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <main>
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="footer mt-auto py-3 bg-dark">
+        <div class="container text-center">
+            <a href="{{ url_for('about') }}" class="text-white mx-2">{{ trans('about', default='About') }}</a>
+            <a href="{{ url_for('contact') }}" class="text-white mx-2">{{ trans('contact', default='Contact') }}</a>
+            <a href="{{ url_for('privacy') }}" class="text-white mx-2">{{ trans('privacy', default='Privacy') }}</a>
+            <a href="{{ url_for('terms') }}" class="text-white mx-2">{{ trans('terms', default='Terms') }}</a>
+            <a href="{{ url_for('feedback') }}" class="text-white mx-2">{{ trans('feedback', default='Feedback') }}</a>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Initialize tooltips
+        document.addEventListener('DOMContentLoaded', function () {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+                new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+
+        // Dark mode toggle
+        function toggleDarkMode() {
+            fetch('{{ url_for("set_dark_mode") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dark_mode: !{{ session.get('dark_mode', False) | tojson }} })
+            }).then(response => {
+                if (response.ok) {
+                    document.documentElement.classList.toggle('dark-mode');
+                    window.location.reload();
+                }
+            }).catch(error => console.error('Error:', error));
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
