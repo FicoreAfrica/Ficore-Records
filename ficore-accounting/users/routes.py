@@ -8,7 +8,7 @@ from flask_mailman import EmailMessage
 import logging
 import uuid
 from datetime import datetime, timedelta
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin, get_mail, limiter
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin, get_mail, Limiter
 import re
 import random
 from itsdangerous import URLSafeTimedSerializer
