@@ -12,7 +12,7 @@ from flask_wtf.csrf import validate_csrf, CSRFError
 from utils import trans_function, trans_function as trans, is_valid_email, get_mongo_db, close_mongo_db, get_limiter, get_mail
 from flask_session import Session
 from pymongo import MongoClient, ASCENDING, DESCENDING
-from pymongo.errors import ConnectionFailure
+from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from itsdangerous import URLSafeTimedSerializer
 from flask_babel import Babel
 from functools import wraps
@@ -46,6 +46,7 @@ if not app.config['MONGO_URI']:
 
 # Session configuration
 app.config['SESSION_TYPE'] = 'mongodb'
+app.config['SESSION_MONGODB'] = app.config['MONGO_URI']  # Use MONGO_URI for session storage
 app.config['SESSION_MONGODB_DB'] = 'ficore_accounting'
 app.config['SESSION_MONGODB_COLLECT'] = 'sessions'
 app.config['SESSION_PERMANENT'] = False
@@ -67,7 +68,7 @@ try:
     mongo_client.admin.command('ping')  # Test connection
     app.extensions['mongo_client'] = mongo_client
     logger.info("MongoDB client initialized at application startup")
-except ConnectionFailure as e:
+except (ConnectionFailure, ServerSelectionTimeoutError) as e:
     logger.error(f"Failed to initialize MongoDB client: {str(e)}")
     raise RuntimeError(f"MongoDB initialization failed: {str(e)}")
 
@@ -605,8 +606,13 @@ def internal_server_error(e):
 def worker_init(worker):
     """Initialize MongoDB client for each Gunicorn worker."""
     with app.app_context():
-        get_mongo_db()
-        logger.info("MongoDB client accessed for Gunicorn worker")
+        try:
+            db = get_mongo_db()
+            db.command('ping')
+            logger.info("MongoDB client accessed for Gunicorn worker")
+        except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+            logger.error(f"Failed to access MongoDB in worker_init: {str(e)}")
+            raise RuntimeError(f"MongoDB access failed in worker_init: {str(e)}")
 
 def worker_exit(server, worker):
     """Clean up request-specific MongoDB resources on worker exit."""
