@@ -137,7 +137,7 @@ def log_audit_action(action, details=None):
         logger.error(f"Error logging audit action: {str(e)}")
 
 @users_bp.route('/login', methods=['GET', 'POST'])
-@limiter.limit("50 per hour")
+@Limiter.limit("50 per hour")
 def login():
     """Handle user login."""
     if current_user.is_authenticated:
@@ -204,7 +204,7 @@ def login():
     return render_template('users/login.html', form=form)
 
 @users_bp.route('/verify_2fa', methods=['GET', 'POST'])
-@limiter.limit("50 per hour")
+@Limiter.limit("50 per hour")
 def verify_2fa():
     """Verify 2FA OTP."""
     if current_user.is_authenticated:
@@ -247,7 +247,7 @@ def verify_2fa():
     return render_template('users/verify_2fa.html', form=form)
 
 @users_bp.route('/signup', methods=['GET', 'POST'])
-@limiter.limit("50 per hour")
+@Limiter.limit("50 per hour")
 def signup():
     """Handle user signup with MongoDB transaction for user creation and coin bonus."""
     if current_user.is_authenticated:
@@ -337,7 +337,7 @@ def signup():
     return render_template('users/signup.html', form=form)
 
 @users_bp.route('/forgot_password', methods=['GET', 'POST'])
-@limiter.limit("50 per hour")
+@Limiter.limit("50 per hour")
 def forgot_password():
     """Handle forgot password request."""
     if current_user.is_authenticated:
@@ -378,7 +378,7 @@ def forgot_password():
     return render_template('users/forgot_password.html', form=form)
 
 @users_bp.route('/reset_password', methods=['GET', 'POST'])
-@limiter.limit("50 per hour")
+@Limiter.limit("50 per hour")
 def reset_password():
     """Handle password reset."""
     if current_user.is_authenticated:
@@ -417,7 +417,7 @@ def reset_password():
 
 @users_bp.route('/profile', methods=['GET', 'POST'])
 @login_required
-@limiter.limit("50 per hour")
+@Limiter.limit("50 per hour")
 def profile():
     """Manage user profile."""
     try:
@@ -488,7 +488,7 @@ def profile():
 
 @users_bp.route('/setup_wizard', methods=['GET', 'POST'])
 @login_required
-@limiter.limit("50 per hour")
+@Limiter.limit("50 per hour")
 def setup_wizard():
     """Handle business setup wizard."""
     db = get_mongo_db()
@@ -528,7 +528,7 @@ def setup_wizard():
 
 @users_bp.route('/logout')
 @login_required
-@limiter.limit("100 per hour")
+@Limiter.limit("100 per hour")
 def logout():
     """Handle user logout."""
     user_id = current_user.id
