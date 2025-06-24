@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin, get_user_query
 from bson import ObjectId
 from datetime import datetime
 from flask_wtf import FlaskForm
@@ -10,7 +10,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Define form
 class InventoryForm(FlaskForm):
     item_name = StringField('Item Name', validators=[DataRequired()])
     qty = IntegerField('Quantity', validators=[DataRequired()])
@@ -47,8 +46,10 @@ def low_stock():
     try:
         db = get_mongo_db()
         # TEMPORARY: Allow admin to view all low stock items during testing
-        # TODO: Restore original user_id filter {'user_id': str(current_user.id), 'qty': {'$lte': db.inventory.threshold}} for production
-        query = {'qty': {'$lte': db.inventory.threshold}} if is_admin() else {'user_id': str(current_user.id), 'qty': {'$lte': db.inventory.threshold}}
+        # TODO: Restore original user_id filter for production
+        base_query = {} if is_admin() else {'user_id': str(current_user.id)}
+        # Use $expr to compare qty with threshold field
+        query = {**base_query, '$expr': {'$lte': ['$qty', '$threshold']}}
         low_stock_items = list(db.inventory.find(query).sort('qty', 1))
         return render_template('inventory/low_stock.html', items=low_stock_items, format_currency=format_currency)
     except Exception as e:
@@ -77,15 +78,16 @@ def add():
                 'unit': form.unit.data,
                 'buying_price': form.buying_price.data,
                 'selling_price': form.selling_price.data,
-                'threshold': form.threshold.data,
+                'threshold': form.threshold.data or 5,  # Default threshold
                 'created_at': datetime.utcnow()
             }
             db.inventory.insert_one(item)
             # TEMPORARY: Skip coin deduction for admin during testing
             # TODO: Restore original coin deduction for production
             if not is_admin():
+                user_query = get_user_query(str(current_user.id))
                 db.users.update_one(
-                    {'_id': ObjectId(current_user.id)},
+                    user_query,
                     {'$inc': {'coin_balance': -1}}
                 )
                 db.coin_transactions.insert_one({
@@ -122,7 +124,7 @@ def edit(id):
             'unit': item['unit'],
             'buying_price': item['buying_price'],
             'selling_price': item['selling_price'],
-            'threshold': item['threshold']
+            'threshold': item.get('threshold', 5)
         })
         if form.validate_on_submit():
             try:
@@ -132,7 +134,7 @@ def edit(id):
                     'unit': form.unit.data,
                     'buying_price': form.buying_price.data,
                     'selling_price': form.selling_price.data,
-                    'threshold': form.threshold.data,
+                    'threshold': form.threshold.data or 5,
                     'updated_at': datetime.utcnow()
                 }
                 db.inventory.update_one(
@@ -167,5 +169,5 @@ def delete(id):
             flash(trans_function('item_not_found', default='Item not found'), 'danger')
     except Exception as e:
         logger.error(f"Error deleting inventory item {id} for user {current_user.id}: {str(e)}")
-        flash(trans_function('something_went_wrong', default='error occurred'), 'danger')
+        flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     return redirect(url_for('inventory_blueprint.index'))
