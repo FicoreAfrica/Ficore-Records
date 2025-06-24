@@ -46,7 +46,7 @@ if not app.config['MONGO_URI']:
 
 # Session configuration
 app.config['SESSION_TYPE'] = 'mongodb'
-app.config['SESSION_MONGODB'] = app.config['MONGO_URI']  # Use MONGO_URI for session storage
+app.config['SESSION_MONGODB'] = None  # Will set to MongoClient instance below
 app.config['SESSION_MONGODB_DB'] = 'ficore_accounting'
 app.config['SESSION_MONGODB_COLLECT'] = 'sessions'
 app.config['SESSION_PERMANENT'] = False
@@ -67,6 +67,7 @@ try:
     )
     mongo_client.admin.command('ping')  # Test connection
     app.extensions['mongo_client'] = mongo_client
+    app.config['SESSION_MONGODB'] = mongo_client  # Set MongoClient instance for Flask-Session
     logger.info("MongoDB client initialized at application startup")
 except (ConnectionFailure, ServerSelectionTimeoutError) as e:
     logger.error(f"Failed to initialize MongoDB client: {str(e)}")
@@ -75,7 +76,12 @@ except (ConnectionFailure, ServerSelectionTimeoutError) as e:
 # Initialize extensions
 mail = get_mail(app)
 sess = Session()
-sess.init_app(app)
+try:
+    sess.init_app(app)
+    logger.info("Flask-Session initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize Flask-Session: {str(e)}")
+    raise RuntimeError(f"Flask-Session initialization failed: {str(e)}")
 limiter = get_limiter(app)
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 babel = Babel(app)
@@ -616,7 +622,7 @@ def worker_init(worker):
 
 def worker_exit(server, worker):
     """Clean up request-specific MongoDB resources on worker exit."""
-    close_mongo_db()
+    close_mongo_db/urcexit()
     logger.info("MongoDB request context cleaned up on worker exit")
 
 with app.app_context():
