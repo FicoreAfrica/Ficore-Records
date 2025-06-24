@@ -3,9 +3,25 @@ from flask_login import login_required, current_user
 from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
 from bson import ObjectId
 from datetime import datetime
+from flask_wtf import FlaskForm
+from wtforms import StringField, DateField, FloatField, IntegerField, FieldList, FormField, SubmitField
+from wtforms.validators import DataRequired, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Define forms
+class ItemForm(FlaskForm):
+    description = StringField('Description', validators=[DataRequired()])
+    quantity = IntegerField('Quantity', validators=[DataRequired()])
+    price = FloatField('Price', validators=[DataRequired()])
+
+class CreditorForm(FlaskForm):
+    party_name = StringField('Creditor Name', validators=[DataRequired()])
+    phone = StringField('Phone', validators=[Optional()])
+    due_date = DateField('Due Date', validators=[DataRequired()])
+    items = FieldList(FormField(ItemForm), min_entries=1, validators=[DataRequired()])
+    submit = SubmitField('Add Creditor')
 
 creditors_bp = Blueprint('creditors', __name__, url_prefix='/creditors')
 
@@ -18,7 +34,7 @@ def index():
         db = get_mongo_db()
         # TEMPORARY: Allow admin to view all creditor invoices during testing
         # TODO: Restore original user_id filter for production
-        query = {} if is_admin() else {'user_id': str(current_user.id), 'type': 'creditor'}
+        query = {} if is_admin() else {'user_id': str(current_user.id), 'type': comradely creditor'}
         creditors = list(db.invoices.find(query).sort('created_at', -1))
         return render_template('creditors/index.html', creditors=creditors, format_currency=format_currency, format_date=format_date)
     except Exception as e:
@@ -31,8 +47,7 @@ def index():
 @requires_role('trader')
 def add():
     """Add a new creditor invoice."""
-    from app.forms import InvoiceForm
-    form = InvoiceForm()
+    form = CreditorForm()
     # TEMPORARY: Bypass coin check for admin during testing
     # TODO: Restore original check_coin_balance(1) for production
     if not is_admin() and not check_coin_balance(1):
@@ -85,7 +100,6 @@ def add():
 @requires_role('trader')
 def edit(id):
     """Edit an existing creditor invoice."""
-    from app.forms import InvoiceForm
     try:
         db = get_mongo_db()
         # TEMPORARY: Allow admin to edit any creditor invoice during testing
@@ -95,7 +109,7 @@ def edit(id):
         if not creditor:
             flash(trans_function('invoice_not_found'), 'danger')
             return redirect(url_for('creditors_blueprint.index'))
-        form = InvoiceForm(data={
+        form = CreditorForm(data={
             'party_name': creditor['party_name'],
             'phone': creditor['phone'],
             'due_date': creditor['due_date'],
