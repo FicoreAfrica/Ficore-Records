@@ -27,7 +27,7 @@ def get_limiter(app):
                 app=app,
                 key_func=get_remote_address,
                 default_limits=["1000 per day", "100 per hour"],
-                storage_uri=app.config['MONGO_URI'],
+                storage_uri=app.config.get('MONGO_URI', 'memory://'),
                 storage_options={}
             )
             logger.info("Flask-Limiter initialized with MongoDB storage")
@@ -46,8 +46,12 @@ def get_mail(app):
     """Get or initialize Flask-Mailman instance."""
     global _mail
     if _mail is None:
-        _mail = Mail(app)
-        logger.info("Flask-Mailman initialized")
+        try:
+            _mail = Mail(app)
+            logger.info("Flask-Mailman initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize Flask-Mailman: {str(e)}")
+            raise RuntimeError(f"Flask-Mailman initialization failed: {str(e)}")
     return _mail
 
 def get_user_query(user_id: str) -> dict:
@@ -72,7 +76,7 @@ def requires_role(role):
                 return f(*args, **kwargs)
             if not current_user.is_authenticated:
                 flash(trans_function('login_required', default='Please log in to access this page'), 'danger')
-                return redirect(url_for('users.login'))
+                return redirect(url_for('users_blueprint.login'))
             if current_user.role != role:
                 flash(trans_function('forbidden_access', default='Access denied'), 'danger')
                 return redirect(url_for('index'))
