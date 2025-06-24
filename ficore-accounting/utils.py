@@ -6,11 +6,22 @@ from flask_login import current_user
 from functools import wraps
 from translations import trans_function
 from bson import ObjectId
+from bson.errors import InvalidId
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 from gridfs import GridFS
 
 logger = logging.getLogger(__name__)
+
+def get_user_query(user_id: str) -> dict:
+    """Generate MongoDB query for user by ID, supporting both ObjectId and string."""
+    try:
+        # Try ObjectId first
+        return {'_id': ObjectId(user_id)}
+    except InvalidId:
+        # Fall back to string
+        logger.warning(f"User ID {user_id} is not a valid ObjectId, falling back to string query")
+        return {'_id': user_id}
 
 def is_admin():
     """Check if current user is an admin - TEMPORARY for testing."""
@@ -49,12 +60,13 @@ def requires_role(role):
         def decorated_function(*args, **kwargs):
             # TEMPORARY: Bypass role check for admin users during testing
             # TODO: Remove this bypass for production
+            
             if is_admin():
                 return f(*args, **kwargs)
                 
             if not current_user.is_authenticated:
                 flash(trans_function('login_required', default='Please log in to access this page'), 'danger')
-                return redirect(url_for('users.login'))
+                return redirect(url_for('users_blueprint.login'))
             if current_user.role != role:
                 flash(trans_function('forbidden_access', default='Access denied'), 'danger')
                 return redirect(url_for('index'))
@@ -71,7 +83,8 @@ def check_coin_balance(required_coins):
         
     try:
         db = get_mongo_db()
-        user = db.users.find_one({'_id': current_user.id})
+        user_query = get_user_query(current_user.id)
+        user = db.users.find_one(user_query)
         if not user:
             logger.error(f"User {current_user.id} not found")
             return False
