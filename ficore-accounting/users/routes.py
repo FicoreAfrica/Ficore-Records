@@ -247,7 +247,7 @@ def verify_2fa():
             logger.error(f"MongoDB error during 2FA verification: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
             return render_template('users/verify_2fa.html', form=form), 500
-    return render_template('users/verify_2fa.html', form=form))
+    return render_template('users/verify_2fa.html', form=form)
 
 @users_bp.route('/signup', methods=['GET', 'POST'])
 @limiter.limit("50/hour")
