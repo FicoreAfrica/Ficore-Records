@@ -8,7 +8,7 @@ from flask_mailman import EmailMessage
 import logging
 import uuid
 from datetime import datetime, timedelta
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin, get_user_query
 import re
 import random
 from itsdangerous import URLSafeTimedSerializer
@@ -376,7 +376,8 @@ def profile():
         # TEMPORARY: Allow admin to manage any user's profile during testing
         # TODO: Restore original user_id filter {'_id': current_user.id} for production
         user_id = request.args.get('user_id', current_user.id) if is_admin() and request.args.get('user_id') else current_user.id
-        user = db.users.find_one({'_id': user_id})
+        user_query = get_user_query(user_id)
+        user = db.users.find_one(user_query)
         if not user:
             flash(trans_function('user_not_found', default='User not found'), 'error')
             return redirect(url_for('index'))
@@ -409,7 +410,7 @@ def profile():
                 if not is_admin():
                     update_data['coin_balance'] = user.get('coin_balance', 0) - 1
                 db.users.update_one(
-                    {'_id': user_id},
+                    user_query,
                     {'$set': update_data}
                 )
                 # TEMPORARY: Skip coin transaction for admin during testing
@@ -451,7 +452,8 @@ def setup_wizard():
     # TEMPORARY: Allow admin to manage any user's setup wizard during testing
     # TODO: Restore original user_id filter {'_id': current_user.id} for production
     user_id = request.args.get('user_id', current_user.id) if is_admin() and request.args.get('user_id') else current_user.id
-    user = db.users.find_one({'_id': user_id})
+    user_query = get_user_query(user_id)
+    user = db.users.find_one(user_query)
     if user.get('setup_complete', False):
         return redirect(url_for('dashboard_blueprint.index'))
     form = BusinessSetupForm()
@@ -461,7 +463,7 @@ def setup_wizard():
                 flash(trans_function('setup_skipped', default='Business setup skipped'), 'info')
                 return redirect(url_for('users_blueprint.profile', user_id=user_id) if is_admin() else url_for('users_blueprint.profile'))
             db.users.update_one(
-                {'_id': user_id},
+                user_query,
                 {
                     '$set': {
                         'business_details': {
@@ -533,7 +535,8 @@ def check_wizard_completion():
             return redirect(url_for('users_blueprint.login'))
     elif current_user.is_authenticated:
         db = get_mongo_db()
-        user = db.users.find_one({'_id': current_user.id})
+        user_query = get_user_query(current_user.id)
+        user = db.users.find_one(user_query)
         if user and not user.get('setup_complete', False):
             if request.endpoint not in ['users_blueprint.setup_wizard', 'users_blueprint.logout', 'users_blueprint.profile', 
                                        'coins_blueprint.purchase', 'coins_blueprint.get_balance', 'set_language', 
