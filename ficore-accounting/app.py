@@ -413,8 +413,8 @@ def setup_database():
                 'properties': {
                     'admin_id': {'bsonType': 'string'},
                     'action': {'bsonType': 'string'},
-                    'details': {'bsonType': 'object', 'null']},
-                    'timestamp': {'bsonType': 'datetime'}
+                    'details': {'bsonType': ['object', 'null']},
+                    'timestamp': {'bsonType': 'date'}
                 }
             }
         })
