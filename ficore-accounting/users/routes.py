@@ -8,7 +8,7 @@ from flask_mailman import EmailMessage
 import logging
 import uuid
 from datetime import datetime, timedelta
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin, get_mail, Limiter
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin, get_mail, get_limiter
 import re
 import random
 from itsdangerous import URLSafeTimedSerializer
@@ -20,6 +20,9 @@ users_bp = Blueprint('users_blueprint', __name__, template_folder='templates/use
 
 USERNAME_REGEX = re.compile(r'^[a-zA-Z0-9_]{3,50}$')
 PASSWORD_REGEX = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$')
+
+# Initialize limiter
+limiter = get_limiter(current_app)
 
 class LoginForm(FlaskForm):
     username = StringField(trans_function('username', default='Username'), [
@@ -103,22 +106,22 @@ class ProfileForm(FlaskForm):
     submit = SubmitField(trans_function('update_profile', default='Update Profile'), render_kw={'class': 'btn btn-primary w-100'})
 
 class BusinessSetupForm(FlaskForm):
-    business_name = StringField(trans_function('business_name', default='Business Name'), 
-                               validators=[validators.DataRequired(message=trans_function('business_name_required', default='Business name is required')), 
-                                           validators.Length(min=1, max=255)], 
+    business_name = StringField(trans_function('business_name', default='Business Name'),
+                               validators=[validators.DataRequired(message=trans_function('business_name_required', default='Business name is required')),
+                                           validators.Length(min=1, max=255)],
                                render_kw={'class': 'form-control'})
-    address = TextAreaField(trans_function('address', default='Address'), 
-                            validators=[validators.DataRequired(message=trans_function('address_required', default='Address is required')), 
-                                        validators.Length(max=500)], 
+    address = TextAreaField(trans_function('address', default='Address'),
+                            validators=[validators.DataRequired(message=trans_function('address_required', default='Address is required')),
+                                        validators.Length(max=500)],
                             render_kw={'class': 'form-control'})
-    industry = SelectField(trans_function('industry', default='Industry'), 
+    industry = SelectField(trans_function('industry', default='Industry'),
                           choices=[
                               ('retail', trans_function('retail', default='Retail')),
                               ('services', trans_function('services', default='Services')),
                               ('manufacturing', trans_function('manufacturing', default='Manufacturing')),
                               ('other', trans_function('other', default='Other'))
-                          ], 
-                          validators=[validators.DataRequired(message=trans_function('industry_required', default='Industry is required'))], 
+                          ],
+                          validators=[validators.DataRequired(message=trans_function('industry_required', default='Industry is required'))],
                           render_kw={'class': 'form-control'})
     submit = SubmitField(trans_function('save_and_continue', default='Save and Continue'), render_kw={'class': 'btn btn-primary w-100'})
     back = SubmitField(trans_function('back', default='Back'), render_kw={'class': 'btn btn-secondary w-100 mt-2'})
@@ -137,7 +140,7 @@ def log_audit_action(action, details=None):
         logger.error(f"Error logging audit action: {str(e)}")
 
 @users_bp.route('/login', methods=['GET', 'POST'])
-@Limiter.limit("50 per hour")
+@limiter.limit("50/hour")
 def login():
     """Handle user login."""
     if current_user.is_authenticated:
@@ -204,7 +207,7 @@ def login():
     return render_template('users/login.html', form=form)
 
 @users_bp.route('/verify_2fa', methods=['GET', 'POST'])
-@Limiter.limit("50 per hour")
+@limiter.limit("50/hour")
 def verify_2fa():
     """Verify 2FA OTP."""
     if current_user.is_authenticated:
@@ -244,10 +247,10 @@ def verify_2fa():
             logger.error(f"MongoDB error during 2FA verification: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
             return render_template('users/verify_2fa.html', form=form), 500
-    return render_template('users/verify_2fa.html', form=form)
+    return render_template('users/verify_2fa.html', form=form))
 
 @users_bp.route('/signup', methods=['GET', 'POST'])
-@Limiter.limit("50 per hour")
+@limiter.limit("50/hour")
 def signup():
     """Handle user signup with MongoDB transaction for user creation and coin bonus."""
     if current_user.is_authenticated:
@@ -337,7 +340,7 @@ def signup():
     return render_template('users/signup.html', form=form)
 
 @users_bp.route('/forgot_password', methods=['GET', 'POST'])
-@Limiter.limit("50 per hour")
+@limiter.limit("50/hour")
 def forgot_password():
     """Handle forgot password request."""
     if current_user.is_authenticated:
@@ -378,7 +381,7 @@ def forgot_password():
     return render_template('users/forgot_password.html', form=form)
 
 @users_bp.route('/reset_password', methods=['GET', 'POST'])
-@Limiter.limit("50 per hour")
+@limiter.limit("50/hour")
 def reset_password():
     """Handle password reset."""
     if current_user.is_authenticated:
@@ -397,17 +400,17 @@ def reset_password():
             db = get_mongo_db()
             user = db.users.find_one({'email': email})
             if not user:
-                flash(trans_function('invalid_or_expired_token', default='Invalid or expired token'), 'danger')
+                flash(trans_function('invalid_email', default='No user found with this email'), 'danger')
                 logger.warning(f"No user found with email: {email}")
                 return render_template('users/reset_password.html', form=form, token=token)
             db.users.update_one(
                 {'_id': user['_id']},
-                {'$set': {'password': generate_password_hash(form.password.data)}, 
+                {'$set': {'password': generate_password_hash(form.password.data)},
                  '$unset': {'reset_token': '', 'reset_token_expiry': ''}}
             )
             log_audit_action('reset_password', {'user_id': user['_id']})
             logger.info(f"Password reset successfully for user: {user['_id']}")
-            flash(trans_function('reset_password_success', default='Password reset successfully'), 'success')
+            flash(trans_function('reset_success', default='Password reset successfully'), 'success')
             return redirect(url_for('users_blueprint.login'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during password reset for {email}: {str(e)}")
@@ -417,7 +420,7 @@ def reset_password():
 
 @users_bp.route('/profile', methods=['GET', 'POST'])
 @login_required
-@Limiter.limit("50 per hour")
+@limiter.limit("50/hour")
 def profile():
     """Manage user profile."""
     try:
@@ -488,7 +491,7 @@ def profile():
 
 @users_bp.route('/setup_wizard', methods=['GET', 'POST'])
 @login_required
-@Limiter.limit("50 per hour")
+@limiter.limit("50/hour")
 def setup_wizard():
     """Handle business setup wizard."""
     db = get_mongo_db()
@@ -500,8 +503,8 @@ def setup_wizard():
     if form.validate_on_submit():
         try:
             if form.back.data:
-                flash(trans_function('setup_skipped', default='Business setup skipped'), 'info')
-                logger.info(f"Business setup skipped for user: {user_id}")
+                flash(trans('setup_completed', default='Business setup completed'), 'info')
+                logger.info(f"Business setup completed for user: {user_id}")
                 return redirect(url_for('users_blueprint.profile', user_id=user_id) if is_admin() else url_for('users_blueprint.profile'))
             db.users.update_one(
                 {'_id': user_id},
@@ -518,17 +521,17 @@ def setup_wizard():
             )
             log_audit_action('complete_setup_wizard', {'user_id': user_id, 'updated_by': current_user.id})
             logger.info(f"Business setup completed for user: {user_id} by {current_user.id}")
-            flash(trans_function('business_setup_completed', default='Business setup completed'), 'success')
+            flash(trans('business_setup_success', default='Business setup completed'), 'success')
             return redirect(url_for('users_blueprint.profile', user_id=user_id) if is_admin() else url_for('users_blueprint.profile'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during business setup for {user_id}: {str(e)}")
-            flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
+            flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'error')
             return render_template('users/setup.html', form=form), 500
     return render_template('users/setup.html', form=form)
 
 @users_bp.route('/logout')
 @login_required
-@Limiter.limit("100 per hour")
+@limiter.limit("100/hour")
 def logout():
     """Handle user logout."""
     user_id = current_user.id
@@ -567,11 +570,11 @@ def check_wizard_completion():
     if request.endpoint == 'static':
         return
     if not current_user.is_authenticated:
-        if request.endpoint not in ['users_blueprint.login', 'users_blueprint.signup', 'users_blueprint.forgot_password', 
-                                   'users_blueprint.reset_password', 'users_blueprint.verify_2fa', 'users_blueprint.signin', 
-                                   'users_blueprint.signup_redirect', 'users_blueprint.forgot_password_redirect', 
-                                   'users_blueprint.reset_password_redirect', 'index', 'about', 
-                                   'contact', 'privacy', 'terms', 'get_translations', 
+        if request.endpoint not in ['users_blueprint.login', 'users_blueprint.signup', 'users_blueprint.forgot_password',
+                                   'users_blueprint.reset_password', 'users_blueprint.verify_2fa', 'users_blueprint.signin',
+                                   'users_blueprint.signup_redirect', 'users_blueprint.forgot_password_redirect',
+                                   'users_blueprint.reset_password_redirect', 'index', 'about',
+                                   'contact', 'privacy', 'users', 'terms', 'get_translations',
                                    'set_language']:
             flash(trans_function('login_required', default='Please log in'), 'danger')
             return redirect(url_for('users_blueprint.login'))
@@ -579,7 +582,7 @@ def check_wizard_completion():
         db = get_mongo_db()
         user = db.users.find_one({'_id': current_user.id})
         if user and not user.get('setup_complete', False):
-            if request.endpoint not in ['users_blueprint.setup_wizard', 'users_blueprint.logout', 'users_blueprint.profile', 
-                                       'coins_blueprint.purchase', 'coins_blueprint.get_balance', 'set_language', 
+            if request.endpoint not in ['users_blueprint.setup_wizard', 'users_blueprint.logout', 'users_blueprint.profile',
+                                       'users_blueprint', 'coins_blueprint.purchase', 'coins_blueprint.get_balance', 'set_language',
                                        'set_dark_mode']:
                 return redirect(url_for('users_blueprint.setup_wizard'))
