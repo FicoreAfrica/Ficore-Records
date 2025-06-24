@@ -1,7 +1,7 @@
 import re
 import logging
 from datetime import datetime
-from flask import flash, redirect, url_for, current_app, g
+from flask import flash, redirect, url_for, current_app, g, session
 from flask_login import current_user
 from functools import wraps
 from translations import trans_function
@@ -16,17 +16,13 @@ logger = logging.getLogger(__name__)
 def get_user_query(user_id: str) -> dict:
     """Generate MongoDB query for user by ID, supporting both ObjectId and string."""
     try:
-        # Try ObjectId first
         return {'_id': ObjectId(user_id)}
     except InvalidId:
-        # Fall back to string
         logger.warning(f"User ID {user_id} is not a valid ObjectId, falling back to string query")
         return {'_id': user_id}
 
 def is_admin():
-    """Check if current user is an admin - TEMPORARY for testing.
-    TODO: For production, replace with stricter check, e.g., user.get('is_admin', False).
-    """
+    """Check if current user is an admin."""
     return current_user.is_authenticated and current_user.role == 'admin'
 
 def is_valid_email(email):
@@ -39,8 +35,6 @@ def requires_role(role):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # TEMPORARY: Bypass role check for admin users during testing
-            # TODO: Remove this bypass for production
             if is_admin():
                 return f(*args, **kwargs)
             if not current_user.is_authenticated:
@@ -55,8 +49,6 @@ def requires_role(role):
 
 def check_coin_balance(required_coins):
     """Check if user has sufficient coin balance."""
-    # TEMPORARY: Bypass coin check for admin users during testing
-    # TODO: Remove this bypass for production
     if is_admin():
         return True
     try:
@@ -79,7 +71,6 @@ def sanitize_input(value):
     """Sanitize input to prevent XSS and injection attacks."""
     if not isinstance(value, str):
         return value
-    # Basic sanitization: strip tags and escape special characters
     return re.sub(r'<[^>]+>', '', value).strip()
 
 def generate_invoice_number(user_id):
@@ -87,11 +78,23 @@ def generate_invoice_number(user_id):
     timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
     return f"INV-{user_id[:8]}-{timestamp}"
 
+def format_currency(value):
+    """Format a value as currency with appropriate symbol and locale."""
+    try:
+        value = float(value)
+        locale = session.get('lang', 'en')
+        symbol = '₦'
+        if value.is_integer():
+            return f"{symbol}{int(value):,}"
+        return f"{symbol}{value:,.2f}"
+    except (TypeError, ValueError) as e:
+        logger.warning(f"Error formatting currency {value}: {str(e)}")
+        return str(value)
+
 def get_mongo_db():
     """Get MongoDB database connection for the current request."""
     if 'db' not in g:
         try:
-            # Initialize MongoClient once per app
             if 'mongo_client' not in current_app.extensions:
                 mongo_uri = current_app.config['MONGO_URI']
                 client = MongoClient(
@@ -100,7 +103,7 @@ def get_mongo_db():
                     connectTimeoutMS=20000,
                     socketTimeoutMS=20000
                 )
-                client.admin.command('ping')  # Test connection
+                client.admin.command('ping')
                 current_app.extensions['mongo_client'] = client
                 logger.info("MongoDB client initialized for application")
             g.mongo_client = current_app.extensions['mongo_client']
