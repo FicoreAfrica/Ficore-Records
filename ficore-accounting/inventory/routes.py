@@ -3,9 +3,22 @@ from flask_login import login_required, current_user
 from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
 from bson import ObjectId
 from datetime import datetime
+from flask_wtf import FlaskForm
+from wtforms import StringField, IntegerField, FloatField, SubmitField
+from wtforms.validators import DataRequired, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Define form
+class InventoryForm(FlaskForm):
+    item_name = StringField('Item Name', validators=[DataRequired()])
+    qty = IntegerField('Quantity', validators=[DataRequired()])
+    unit = StringField('Unit', validators=[DataRequired()])
+    buying_price = FloatField('Buying Price', validators=[DataRequired()])
+    selling_price = FloatField('Selling Price', validators=[DataRequired()])
+    threshold = IntegerField('Low Stock Threshold', validators=[Optional()])
+    submit = SubmitField('Add Item')
 
 inventory_bp = Blueprint('inventory', __name__, url_prefix='/inventory')
 
@@ -48,7 +61,6 @@ def low_stock():
 @requires_role('trader')
 def add():
     """Add a new inventory item."""
-    from app.forms import InventoryForm
     form = InventoryForm()
     # TEMPORARY: Bypass coin check for admin during testing
     # TODO: Restore original check_coin_balance(1) for production
@@ -95,7 +107,6 @@ def add():
 @requires_role('trader')
 def edit(id):
     """Edit an existing inventory item."""
-    from app.forms import InventoryForm
     try:
         db = get_mongo_db()
         # TEMPORARY: Allow admin to edit any inventory item during testing
