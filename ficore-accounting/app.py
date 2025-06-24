@@ -321,9 +321,9 @@ def setup_database(initialize=False):
                     }
                 },
                 'indexes': [
-                    [('email', ASCENDING), {'unique': True}],
-                    [('reset_token', ASCENDING), {'sparse': True}],
-                    [('role', ASCENDING)]
+                    {'key': [('email', ASCENDING)], 'unique': True},
+                    {'key': [('reset_token', ASCENDING)], 'sparse': True},
+                    {'key': [('role', ASCENDING)]}
                 ]
             },
             'records': {
@@ -343,8 +343,8 @@ def setup_database(initialize=False):
                     }
                 },
                 'indexes': [
-                    [('user_id', ASCENDING), ('type', ASCENDING)],
-                    [('created_at', DESCENDING)]
+                    {'key': [('user_id', ASCENDING), ('type', ASCENDING)]},
+                    {'key': [('created_at', DESCENDING)]}
                 ]
             },
             'cashflows': {
@@ -366,8 +366,8 @@ def setup_database(initialize=False):
                     }
                 },
                 'indexes': [
-                    [('user_id', ASCENDING), ('type', ASCENDING)],
-                    [('created_at', DESCENDING)]
+                    {'key': [('user_id', ASCENDING), ('type', ASCENDING)]},
+                    {'key': [('created_at', DESCENDING)]}
                 ]
             },
             'inventory': {
@@ -389,8 +389,8 @@ def setup_database(initialize=False):
                     }
                 },
                 'indexes': [
-                    [('user_id', ASCENDING)],
-                    [('created_at', DESCENDING)]
+                    {'key': [('user_id', ASCENDING)]},
+                    {'key': [('created_at', DESCENDING)]}
                 ]
             },
             'coin_transactions': {
@@ -408,8 +408,8 @@ def setup_database(initialize=False):
                     }
                 },
                 'indexes': [
-                    [('user_id', ASCENDING)],
-                    [('date', DESCENDING)]
+                    {'key': [('user_id', ASCENDING)]},
+                    {'key': [('date', DESCENDING)]}
                 ]
             },
             'audit_logs': {
@@ -426,7 +426,7 @@ def setup_database(initialize=False):
                     }
                 },
                 'indexes': [
-                    [('timestamp', DESCENDING)]
+                    {'key': [('timestamp', DESCENDING)]}
                 ]
             },
             'feedback': {
@@ -444,14 +444,14 @@ def setup_database(initialize=False):
                     }
                 },
                 'indexes': [
-                    [('user_id', ASCENDING), {'sparse': True}],
-                    [('timestamp', DESCENDING)]
+                    {'key': [('user_id', ASCENDING)], 'sparse': True},
+                    {'key': [('timestamp', DESCENDING)]}
                 ]
             },
             'sessions': {
                 'validator': {},
                 'indexes': [
-                    [('expiration', ASCENDING), {'expireAfterSeconds': 0, 'name': 'session_expiry_index'}]
+                    {'key': [('expiration', ASCENDING)], 'expireAfterSeconds': 0, 'name': 'session_expiry_index'}
                 ]
             }
         }
@@ -462,10 +462,10 @@ def setup_database(initialize=False):
                 db.create_collection(collection_name, validator=config.get('validator', {}))
                 logger.info(f"Created collection: {collection_name}")
             for index in config.get('indexes', []):
-                index_fields = index[0] if isinstance(index[0], list) else [index[0]]
-                index_options = index[1] if len(index) > 1 else {}
-                db[collection_name].create_index(index_fields, **index_options)
-                logger.info(f"Created index on {collection_name}: {index_fields}")
+                keys = index['key']
+                options = {k: v for k, v in index.items() if k != 'key'}
+                db[collection_name].create_index(keys, **options)
+                logger.info(f"Created index on {collection_name}: {keys}")
 
         # Admin user creation
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
