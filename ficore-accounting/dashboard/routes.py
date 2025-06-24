@@ -20,11 +20,11 @@ def index():
         query = {} if is_admin() else {'user_id': str(current_user.id)}
         low_stock_query = {'qty': {'$lte': 5}} if is_admin() else {'user_id': str(current_user.id), 'qty': {'$lte': 5}}  # Assume threshold=5 for simplicity
 
-        # Fetch recent data
-        recent_creditors = list(db.invoices.find({**query, 'type': 'creditor'}).sort('created_at', -1).limit(5))
-        recent_debtors = list(db.invoices.find({**query, 'type': 'debtor'}).sort('created_at', -1).limit(5))
-        recent_payments = list(db.transactions.find({**query, 'type': 'payment'}).sort('date', -1).limit(5))
-        recent_receipts = list(db.transactions.find({**query, 'type': 'receipt'}).sort('date', -1).limit(5))
+        # Fetch recent data using new schema
+        recent_creditors = list(db.records.find({**query, 'type': 'creditor'}).sort('created_at', -1).limit(5))
+        recent_debtors = list(db.records.find({**query, 'type': 'debtor'}).sort('created_at', -1).limit(5))
+        recent_payments = list(db.cashflows.find({**query, 'type': 'payment'}).sort('created_at', -1).limit(5))
+        recent_receipts = list(db.cashflows.find({**query, 'type': 'receipt'}).sort('created_at', -1).limit(5))
         low_stock_items = list(db.inventory.find(low_stock_query).sort('qty', 1).limit(5))
 
         # Convert ObjectIds to strings for template rendering
