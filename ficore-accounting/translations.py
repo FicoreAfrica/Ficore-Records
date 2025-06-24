@@ -501,7 +501,7 @@ TRANSLATIONS = {
         'core_follow_on_twitter': 'Biyi mu akan Twitter',
         'core_follow_on_facebook': 'Biyi mu akan Facebook',
         'core_contact_us': 'Tuntube Mu',
-        'core_provide_feedback': 'Bayar da Ra'ayi',
+        'core_provide_feedback': 'Bayar da Ra\'ayi',
         'core_close': 'Rufe',
         'core_logout': 'Fita',
         'core_profile': 'Bayanan Martaba',
