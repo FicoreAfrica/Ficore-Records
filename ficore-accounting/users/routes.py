@@ -8,7 +8,7 @@ from flask_mailman import EmailMessage
 import logging
 import uuid
 from datetime import datetime, timedelta
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin, get_limiter, get_mail
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin, get_mail, limiter
 import re
 import random
 from itsdangerous import URLSafeTimedSerializer
@@ -16,7 +16,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-users_bp = Blueprint('users', __name__, template_folder='templates/users')
+users_bp = Blueprint('users_blueprint', __name__, template_folder='templates/users')
 
 USERNAME_REGEX = re.compile(r'^[a-zA-Z0-9_]{3,50}$')
 PASSWORD_REGEX = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$')
@@ -137,7 +137,7 @@ def log_audit_action(action, details=None):
         logger.error(f"Error logging audit action: {str(e)}")
 
 @users_bp.route('/login', methods=['GET', 'POST'])
-@get_limiter().limit("50 per hour")
+@limiter.limit("50 per hour")
 def login():
     """Handle user login."""
     if current_user.is_authenticated:
@@ -158,8 +158,8 @@ def login():
                 logger.warning(f"Login attempt for non-existent username: {username}")
                 return render_template('users/login.html', form=form)
             if not check_password_hash(user['password'], form.password.data):
-                flash(trans_function('invalid_password', default='Incorrect password'), 'danger')
                 logger.warning(f"Failed login attempt for username: {username} (invalid password)")
+                flash(trans_function('invalid_password', default='Incorrect password'), 'danger')
                 return render_template('users/login.html', form=form)
             logger.info(f"User found: {username}, proceeding with login")
             if os.environ.get('ENABLE_2FA', 'true').lower() == 'true':
@@ -169,6 +169,7 @@ def login():
                         {'_id': username},
                         {'$set': {'otp': otp, 'otp_expiry': datetime.utcnow() + timedelta(minutes=5)}}
                     )
+                    mail = get_mail(current_app)
                     msg = EmailMessage(
                         subject=trans_function('otp_subject', default='Your One-Time Password'),
                         body=trans_function('otp_body', default=f'Your OTP is {otp}. It expires in 5 minutes.'),
@@ -177,7 +178,7 @@ def login():
                     msg.send()
                     session['pending_user_id'] = username
                     logger.info(f"OTP sent to {user['email']} for username: {username}")
-                    return redirect(url_for('users.verify_2fa'))
+                    return redirect(url_for('users_blueprint.verify_2fa'))
                 except Exception as e:
                     logger.warning(f"Email delivery failed for OTP: {str(e)}. Allowing login without 2FA.")
                     from app import User
@@ -186,16 +187,16 @@ def login():
                     log_audit_action('login_without_2fa', {'user_id': username, 'reason': 'email_failure'})
                     logger.info(f"User {username} logged in without 2FA due to email failure")
                     if not user.get('setup_complete', False):
-                        return redirect(url_for('users.setup_wizard'))
-                    return redirect(url_for('users.profile'))
+                        return redirect(url_for('users_blueprint.setup_wizard'))
+                    return redirect(url_for('users_blueprint.profile'))
             from app import User
             login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
             session['lang'] = user.get('language', 'en')
             log_audit_action('login', {'user_id': username})
             logger.info(f"User {username} logged in successfully")
             if not user.get('setup_complete', False):
-                return redirect(url_for('users.setup_wizard'))
-            return redirect(url_for('users.profile'))
+                return redirect(url_for('users_blueprint.setup_wizard'))
+            return redirect(url_for('users_blueprint.profile'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during login: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
@@ -203,14 +204,14 @@ def login():
     return render_template('users/login.html', form=form)
 
 @users_bp.route('/verify_2fa', methods=['GET', 'POST'])
-@get_limiter().limit("50 per hour")
+@limiter.limit("50 per hour")
 def verify_2fa():
     """Verify 2FA OTP."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard_blueprint.index'))
     if 'pending_user_id' not in session:
         flash(trans_function('invalid_2fa_session', default='Invalid 2FA session. Please log in again'), 'danger')
-        return redirect(url_for('users.login'))
+        return redirect(url_for('users_blueprint.login'))
     form = TwoFactorForm()
     if form.validate_on_submit():
         try:
@@ -222,7 +223,7 @@ def verify_2fa():
                 flash(trans_function('user_not_found', default='User not found'), 'danger')
                 logger.warning(f"2FA attempt for non-existent username: {username}")
                 session.pop('pending_user_id', None)
-                return redirect(url_for('users.login'))
+                return redirect(url_for('users_blueprint.login'))
             if user.get('otp') == form.otp.data and user.get('otp_expiry') > datetime.utcnow():
                 from app import User
                 login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
@@ -235,8 +236,8 @@ def verify_2fa():
                 logger.info(f"User {username} verified 2FA successfully")
                 session.pop('pending_user_id', None)
                 if not user.get('setup_complete', False):
-                    return redirect(url_for('users.setup_wizard'))
-                return redirect(url_for('users.profile'))
+                    return redirect(url_for('users_blueprint.setup_wizard'))
+                return redirect(url_for('users_blueprint.profile'))
             flash(trans_function('invalid_otp', default='Invalid or expired OTP'), 'danger')
             logger.warning(f"Failed 2FA attempt for username: {username}")
         except errors.PyMongoError as e:
@@ -246,7 +247,7 @@ def verify_2fa():
     return render_template('users/verify_2fa.html', form=form)
 
 @users_bp.route('/signup', methods=['GET', 'POST'])
-@get_limiter().limit("50 per hour")
+@limiter.limit("50 per hour")
 def signup():
     """Handle user signup with MongoDB transaction for user creation and coin bonus."""
     if current_user.is_authenticated:
@@ -327,7 +328,7 @@ def signup():
             login_user(User(username, email, username, role), remember=True)
             session['lang'] = language
             logger.info(f"New user created and logged in: {username} (role: {role})")
-            return redirect(url_for('users.setup_wizard'))
+            return redirect(url_for('users_blueprint.setup_wizard'))
 
         except Exception as e:
             logger.error(f"Unexpected error during signup for {username}: {str(e)}")
@@ -336,7 +337,7 @@ def signup():
     return render_template('users/signup.html', form=form)
 
 @users_bp.route('/forgot_password', methods=['GET', 'POST'])
-@get_limiter().limit("50 per hour")
+@limiter.limit("50 per hour")
 def forgot_password():
     """Handle forgot password request."""
     if current_user.is_authenticated:
@@ -358,7 +359,8 @@ def forgot_password():
                 {'_id': user['_id']},
                 {'$set': {'reset_token': reset_token, 'reset_token_expiry': expiry}}
             )
-            reset_url = url_for('users.reset_password', token=reset_token, _external=True)
+            mail = get_mail(current_app)
+            reset_url = url_for('users_blueprint.reset_password', token=reset_token, _external=True)
             msg = EmailMessage(
                 subject=trans_function('reset_password_subject', default='Reset Your Password'),
                 body=trans_function('reset_password_body', default=f'Click the link to reset your password: {reset_url}\nLink expires in 15 minutes.'),
@@ -376,7 +378,7 @@ def forgot_password():
     return render_template('users/forgot_password.html', form=form)
 
 @users_bp.route('/reset_password', methods=['GET', 'POST'])
-@get_limiter().limit("50 per hour")
+@limiter.limit("50 per hour")
 def reset_password():
     """Handle password reset."""
     if current_user.is_authenticated:
@@ -388,7 +390,7 @@ def reset_password():
     except Exception:
         flash(trans_function('invalid_or_expired_token', default='Invalid or expired token'), 'danger')
         logger.warning(f"Invalid or expired reset token")
-        return redirect(url_for('users.forgot_password'))
+        return redirect(url_for('users_blueprint.forgot_password'))
     form = ResetPasswordForm()
     if form.validate_on_submit():
         try:
@@ -406,7 +408,7 @@ def reset_password():
             log_audit_action('reset_password', {'user_id': user['_id']})
             logger.info(f"Password reset successfully for user: {user['_id']}")
             flash(trans_function('reset_password_success', default='Password reset successfully'), 'success')
-            return redirect(url_for('users.login'))
+            return redirect(url_for('users_blueprint.login'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during password reset for {email}: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
@@ -415,7 +417,7 @@ def reset_password():
 
 @users_bp.route('/profile', methods=['GET', 'POST'])
 @login_required
-@get_limiter().limit("50 per hour")
+@limiter.limit("50 per hour")
 def profile():
     """Manage user profile."""
     try:
@@ -436,7 +438,7 @@ def profile():
                 if not is_admin() and not check_coin_balance(1):
                     flash(trans_function('insufficient_coins', default='Insufficient coins to update profile'), 'danger')
                     logger.warning(f"Profile update failed for {user_id}: Insufficient coins")
-                    return redirect(url_for('coins.purchase'))
+                    return redirect(url_for('coins_blueprint.purchase'))
                 new_email = form.email.data.strip().lower()
                 new_display_name = form.display_name.data.strip()
                 new_language = form.language.data
@@ -471,13 +473,13 @@ def profile():
                     session['lang'] = new_language
                 flash(trans_function('profile_updated', default='Profile updated successfully'), 'success')
                 logger.info(f"Profile updated for user: {user_id} by {current_user.id}")
-                return redirect(url_for('users.profile', user_id=user_id) if is_admin() else url_for('users.profile'))
+                return redirect(url_for('users_blueprint.profile', user_id=user_id) if is_admin() else url_for('users_blueprint.profile'))
             except errors.PyMongoError as e:
                 logger.error(f"MongoDB error updating profile for {user_id}: {str(e)}")
                 flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
                 return render_template('users/profile.html', form=form, user=user), 500
         user['_id'] = str(user['_id'])
-        user['coin_balance'] = user.get('coin_balance', 0)
+        user['coin_balance'] = format_currency(user.get('coin_balance', 0))
         return render_template('users/profile.html', form=form, user=user)
     except errors.PyMongoError as e:
         logger.error(f"MongoDB error fetching profile for {user_id}: {str(e)}")
@@ -486,21 +488,21 @@ def profile():
 
 @users_bp.route('/setup_wizard', methods=['GET', 'POST'])
 @login_required
-@get_limiter().limit("50 per hour")
+@limiter.limit("50 per hour")
 def setup_wizard():
     """Handle business setup wizard."""
     db = get_mongo_db()
     user_id = request.args.get('user_id', current_user.id) if is_admin() and request.args.get('user_id') else current_user.id
     user = db.users.find_one({'_id': user_id})
     if user.get('setup_complete', False):
-        return redirect(url_for('dashboard.index'))
+        return redirect(url_for('dashboard_blueprint.index'))
     form = BusinessSetupForm()
     if form.validate_on_submit():
         try:
             if form.back.data:
                 flash(trans_function('setup_skipped', default='Business setup skipped'), 'info')
                 logger.info(f"Business setup skipped for user: {user_id}")
-                return redirect(url_for('users.profile', user_id=user_id) if is_admin() else url_for('users.profile'))
+                return redirect(url_for('users_blueprint.profile', user_id=user_id) if is_admin() else url_for('users_blueprint.profile'))
             db.users.update_one(
                 {'_id': user_id},
                 {
@@ -517,7 +519,7 @@ def setup_wizard():
             log_audit_action('complete_setup_wizard', {'user_id': user_id, 'updated_by': current_user.id})
             logger.info(f"Business setup completed for user: {user_id} by {current_user.id}")
             flash(trans_function('business_setup_completed', default='Business setup completed'), 'success')
-            return redirect(url_for('users.profile', user_id=user_id) if is_admin() else url_for('users.profile'))
+            return redirect(url_for('users_blueprint.profile', user_id=user_id) if is_admin() else url_for('users_blueprint.profile'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during business setup for {user_id}: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
@@ -526,7 +528,7 @@ def setup_wizard():
 
 @users_bp.route('/logout')
 @login_required
-@get_limiter().limit("100 per hour")
+@limiter.limit("100 per hour")
 def logout():
     """Handle user logout."""
     user_id = current_user.id
@@ -537,27 +539,27 @@ def logout():
     flash(trans_function('logged_out', default='Logged out successfully'), 'success')
     session.clear()
     session['lang'] = lang
-    return redirect(url_for('users.login'))
+    return redirect(url_for('users_blueprint.login'))
 
 @users_bp.route('/auth/signin')
 def signin():
     """Redirect to login."""
-    return redirect(url_for('users.login'))
+    return redirect(url_for('users_blueprint.login'))
 
 @users_bp.route('/auth/signup')
 def signup_redirect():
     """Redirect to signup."""
-    return redirect(url_for('users.signup'))
+    return redirect(url_for('users_blueprint.signup'))
 
 @users_bp.route('/auth/forgot-password')
 def forgot_password_redirect():
     """Redirect to forgot password."""
-    return redirect(url_for('users.forgot_password'))
+    return redirect(url_for('users_blueprint.forgot_password'))
 
 @users_bp.route('/auth/reset-password')
 def reset_password_redirect():
     """Redirect to reset password."""
-    return redirect(url_for('users.reset_password'))
+    return redirect(url_for('users_blueprint.reset_password'))
 
 @users_bp.before_app_request
 def check_wizard_completion():
@@ -565,19 +567,19 @@ def check_wizard_completion():
     if request.endpoint == 'static':
         return
     if not current_user.is_authenticated:
-        if request.endpoint not in ['users.login', 'users.signup', 'users.forgot_password', 
-                                   'users.reset_password', 'users.verify_2fa', 'users.signin', 
-                                   'users.signup_redirect', 'users.forgot_password_redirect', 
-                                   'users.reset_password_redirect', 'index', 'about', 
+        if request.endpoint not in ['users_blueprint.login', 'users_blueprint.signup', 'users_blueprint.forgot_password', 
+                                   'users_blueprint.reset_password', 'users_blueprint.verify_2fa', 'users_blueprint.signin', 
+                                   'users_blueprint.signup_redirect', 'users_blueprint.forgot_password_redirect', 
+                                   'users_blueprint.reset_password_redirect', 'index', 'about', 
                                    'contact', 'privacy', 'terms', 'get_translations', 
                                    'set_language']:
             flash(trans_function('login_required', default='Please log in'), 'danger')
-            return redirect(url_for('users.login'))
+            return redirect(url_for('users_blueprint.login'))
     elif current_user.is_authenticated:
         db = get_mongo_db()
         user = db.users.find_one({'_id': current_user.id})
         if user and not user.get('setup_complete', False):
-            if request.endpoint not in ['users.setup_wizard', 'users.logout', 'users.profile', 
-                                       'coins.purchase', 'coins.get_balance', 'set_language', 
+            if request.endpoint not in ['users_blueprint.setup_wizard', 'users_blueprint.logout', 'users_blueprint.profile', 
+                                       'coins_blueprint.purchase', 'coins_blueprint.get_balance', 'set_language', 
                                        'set_dark_mode']:
-                return redirect(url_for('users.setup_wizard'))
+                return redirect(url_for('users_blueprint.setup_wizard'))
