@@ -1,629 +1,569 @@
-import os
-import sys
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, session
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, TextAreaField, SelectField, SubmitField, validators
+from flask_login import login_required, current_user, login_user, logout_user
+from pymongo import errors
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_mailman import EmailMessage
 import logging
-from datetime import datetime, date, timedelta
-from flask import Flask, session, redirect, url_for, flash, render_template, request, Response, jsonify, send_from_directory
-from flask_cors import CORS
-from flask_login import LoginManager, UserMixin, login_user, current_user, login_required
-from flask_mailman import Mail
-from werkzeug.security import generate_password_hash
-import jinja2
-from flask_wtf import CSRFProtect
-from flask_wtf.csrf import validate_csrf, CSRFError
-from utils import trans_function, trans_function as trans, is_valid_email, get_mongo_db, close_mongo_db
-from flask_session import Session
-from pymongo import MongoClient, ASCENDING, DESCENDING
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+import uuid
+from datetime import datetime, timedelta
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin
+import re
+import random
 from itsdangerous import URLSafeTimedSerializer
-from flask_babel import Babel
-from functools import wraps
+from app import limiter, mail
+import os
 
-# Debug dnspython import
-try:
-    import dns
-    print("dnspython is importable")
-except ImportError:
-    raise RuntimeError("dnspython is not installed or not importable")
-
-# Logging setup
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Flask app initialization
-app = Flask(__name__, template_folder='templates', static_folder='static')
-CORS(app)
-CSRFProtect(app)
+users_bp = Blueprint('users', __name__, template_folder='templates/users')
 
-# Environment configuration
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-if not app.config['SECRET_KEY']:
-    logger.error("SECRET_KEY environment variable is not set")
-    raise ValueError("SECRET_KEY must be set in environment variables")
+USERNAME_REGEX = re.compile(r'^[a-zA-Z0-9_]{3,50}$')
+PASSWORD_REGEX = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$')
 
-app.config['MONGO_URI'] = os.getenv('MONGO_URI')
-if not app.config['MONGO_URI']:
-    logger.error("MONGO_URI environment variable is not set")
-    raise ValueError("MONGO_URI must be set in environment variables")
+class LoginForm(FlaskForm):
+    username = StringField(trans_function('username', default='Username'), [
+        validators.DataRequired(message=trans_function('username_required', default='Username is required')),
+        validators.Length(min=3, max=50, message=trans_function('username_length', default='Username must be between 3 and 50 characters')),
+        validators.Regexp(USERNAME_REGEX, message=trans_function('username_format', default='Username must be alphanumeric with underscores'))
+    ], render_kw={'class': 'form-control'})
+    password = PasswordField(trans_function('password', default='Password'), [
+        validators.DataRequired(message=trans_function('password_required', default='Password is required')),
+        validators.Length(min=8, message=trans_function('password_length', default='Password must be at least 8 characters'))
+    ], render_kw={'class': 'form-control'})
+    submit = SubmitField(trans_function('login', default='Login'), render_kw={'class': 'btn btn-primary w-100'})
 
-# Session configuration
-app.config['SESSION_TYPE'] = 'mongodb'
-app.config['SESSION_MONGODB'] = MongoClient(app.config['MONGO_URI'])
-app.config['SESSION_MONGODB_DB'] = 'ficore_accounting'
-app.config['SESSION_MONGODB_COLLECT'] = 'sessions'
-app.config['SESSION_PERMANENT'] = False
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
-app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV', 'development') == 'production'
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
-app.config['SESSION_COOKIE_NAME'] = 'ficore_session'
+class TwoFactorForm(FlaskForm):
+    otp = StringField(trans_function('otp', default='One-Time Password'), [
+        validators.DataRequired(message=trans_function('otp_required', default='OTP is required')),
+        validators.Length(min=6, max=6, message=trans_function('otp_length', default='OTP must be 6 digits'))
+    ], render_kw={'class': 'form-control'})
+    submit = SubmitField(trans_function('verify_otp', default='Verify OTP'), render_kw={'class': 'btn btn-primary w-100'})
 
-# Initialize extensions
-mail = Mail(app)
-sess = Session()
-sess.init_app(app)
-try:
-    limiter = Limiter(
-        app=app,
-        key_func=get_remote_address,
-        default_limits=["1000 per day", "100 per hour"],
-        storage_uri=app.config['MONGO_URI'],
-        storage_options={}
-    )
-    logger.info("Flask-Limiter initialized with MongoDB storage")
-except Exception as e:
-    logger.error(f"Failed to initialize Flask-Limiter with MongoDB: {str(e)}")
-    limiter = Limiter(
-        app=app,
-        key_func=get_remote_address,
-        default_limits=["1000 per day", "100 per hour"],
-        storage_uri="memory://"
-    )
-    logger.warning("Flask-Limiter using in-memory storage as fallback")
-serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
-babel = Babel(app)
+class SignupForm(FlaskForm):
+    username = StringField(trans_function('username', default='Username'), [
+        validators.DataRequired(message=trans_function('username_required', default='Username is required')),
+        validators.Length(min=3, max=50, message=trans_function('username_length', default='Username must be between 3 and 50 characters')),
+        validators.Regexp(USERNAME_REGEX, message=trans_function('username_format', default='Username must be alphanumeric with underscores'))
+    ], render_kw={'class': 'form-control'})
+    email = StringField(trans_function('email', default='Email'), [
+        validators.DataRequired(message=trans_function('email_required', default='Email is required')),
+        validators.Email(message=trans_function('email_invalid', default='Invalid email address')),
+        validators.Length(max=254),
+        lambda form, field: is_valid_email(field.data) or validators.ValidationError(trans_function('email_domain_invalid', default='Invalid email domain'))
+    ], render_kw={'class': 'form-control'})
+    password = PasswordField(trans_function('password', default='Password'), [
+        validators.DataRequired(message=trans_function('password_required', default='Password is required')),
+        validators.Length(min=8, message=trans_function('password_length', default='Password must be at least 8 characters')),
+        validators.Regexp(PASSWORD_REGEX, message=trans_function('password_format', default='Password must include uppercase, lowercase, number, and special character'))
+    ], render_kw={'class': 'form-control'})
+    role = SelectField(trans_function('role', default='Role'), choices=[
+        ('personal', trans_function('personal', default='Personal')),
+        ('trader', trans_function('trader', default='Trader')),
+        ('agent', trans_function('agent', default='Agent'))
+    ], validators=[validators.DataRequired(message=trans_function('role_required', default='Role is required'))], render_kw={'class': 'form-select'})
+    language = SelectField(trans_function('language', default='Language'), choices=[
+        ('en', trans_function('english', default='English')),
+        ('ha', trans_function('hausa', default='Hausa'))
+    ], validators=[validators.DataRequired(message=trans_function('language_required', default='Language is required'))], render_kw={'class': 'form-select'})
+    submit = SubmitField(trans_function('signup', default='Sign Up'), render_kw={'class': 'btn btn-primary w-100'})
 
-# Flask-Babel 4.0.0 compatibility fix
-def get_locale():
-    return session.get('lang', request.accept_languages.best_match(['en', 'ha'], default='en'))
-babel.locale_selector = get_locale
+class ForgotPasswordForm(FlaskForm):
+    email = StringField(trans_function('email', default='Email'), [
+        validators.DataRequired(message=trans_function('email_required', default='Email is required')),
+        validators.Email(message=trans_function('email_invalid', default='Invalid email address'))
+    ], render_kw={'class': 'form-control'})
+    submit = SubmitField(trans_function('send_reset_link', default='Send Reset Link'), render_kw={'class': 'btn btn-primary w-100'})
 
-# Register teardown handler
-app.teardown_appcontext(close_mongo_db)
+class ResetPasswordForm(FlaskForm):
+    password = PasswordField(trans_function('password', default='Password'), [
+        validators.DataRequired(message=trans_function('password_required', default='Password is required')),
+        validators.Length(min=8, message=trans_function('password_length', default='Password must be at least 8 characters')),
+        validators.Regexp(PASSWORD_REGEX, message=trans_function('password_format', default='Password must include uppercase, lowercase, number, and special character'))
+    ], render_kw={'class': 'form-control'})
+    confirm_password = PasswordField(trans_function('confirm_password', default='Confirm Password'), [
+        validators.DataRequired(message=trans_function('confirm_password_required', default='Confirm password is required')),
+        validators.EqualTo('password', message=trans_function('passwords_must_match', default='Passwords must match'))
+    ], render_kw={'class': 'form-control'})
+    submit = SubmitField(trans_function('reset_password', default='Reset Password'), render_kw={'class': 'btn btn-primary w-100'})
 
-# Login manager
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'users_blueprint.login'
+class ProfileForm(FlaskForm):
+    email = StringField(trans_function('email', default='Email'), [
+        validators.DataRequired(message=trans_function('email_required', default='Email is required')),
+        validators.Email(message=trans_function('email_invalid', default='Invalid email address'))
+    ], render_kw={'class': 'form-control'})
+    display_name = StringField(trans_function('display_name', default='Display Name'), [
+        validators.DataRequired(message=trans_function('display_name_required', default='Display Name is required')),
+        validators.Length(min=3, max=50, message=trans_function('display_name_length', default='Display Name must be between 3 and 50 characters'))
+    ], render_kw={'class': 'form-control'})
+    language = SelectField(trans_function('language', default='Language'), choices=[
+        ('en', trans_function('english', default='English')),
+        ('ha', trans_function('hausa', default='Hausa'))
+    ], validators=[validators.DataRequired(message=trans_function('language_required', default='Language is required'))], render_kw={'class': 'form-select'})
+    submit = SubmitField(trans_function('update_profile', default='Update Profile'), render_kw={'class': 'btn btn-primary w-100'})
 
-# Role-based access control decorator
-from utils import requires_role, check_coin_balance
+class BusinessSetupForm(FlaskForm):
+    business_name = StringField(trans_function('business_name', default='Business Name'), 
+                               validators=[validators.DataRequired(message=trans_function('business_name_required', default='Business name is required')), 
+                                           validators.Length(min=1, max=255)], 
+                               render_kw={'class': 'form-control'})
+    address = TextAreaField(trans_function('address', default='Address'), 
+                            validators=[validators.DataRequired(message=trans_function('address_required', default='Address is required')), 
+                                        validators.Length(max=500)], 
+                            render_kw={'class': 'form-control'})
+    industry = SelectField(trans_function('industry', default='Industry'), 
+                          choices=[
+                              ('retail', trans_function('retail', default='Retail')),
+                              ('services', trans_function('services', default='Services')),
+                              ('manufacturing', trans_function('manufacturing', default='Manufacturing')),
+                              ('other', trans_function('other', default='Other'))
+                          ], 
+                          validators=[validators.DataRequired(message=trans_function('industry_required', default='Industry is required'))], 
+                          render_kw={'class': 'form-control'})
+    submit = SubmitField(trans_function('save_and_continue', default='Save and Continue'), render_kw={'class': 'btn btn-primary w-100'})
+    back = SubmitField(trans_function('back', default='Back'), render_kw={'class': 'btn btn-secondary w-100 mt-2'})
 
-class User(UserMixin):
-    def __init__(self, id, email, display_name=None, role='personal'):
-        self.id = id
-        self.email = email
-        self.display_name = display_name or id
-        self.role = role
-
-    def get(self, key, default=None):
-        user = get_mongo_db().users.find_one({'_id': self.id})
-        return user.get(key, default) if user else default
-
-@login_manager.user_loader
-def load_user(user_id):
-    try:
-        user_data = get_mongo_db().users.find_one({'_id': user_id})
-        if user_data:
-            return User(user_data['_id'], user_data['email'], user_data.get('display_name'), user_data.get('role', 'personal'))
-        return None
-    except Exception as e:
-        logger.error(f"Error loading user {user_id}: {str(e)}")
-        return None
-
-# Register blueprints with unique names to avoid conflicts
-from users.routes import users_bp
-from coins.routes import coins_bp
-from admin.routes import admin_bp
-from settings.routes import settings_bp
-from inventory.routes import inventory_bp
-from reports.routes import reports_bp
-from debtors.routes import debtors_bp
-from creditors.routes import creditors_bp
-from receipts.routes import receipts_bp
-from payments.routes import payments_bp
-from dashboard.routes import dashboard_bp
-
-app.register_blueprint(users_bp, url_prefix='/users', name='users_blueprint')
-app.register_blueprint(coins_bp, url_prefix='/coins', name='coins_blueprint')
-app.register_blueprint(admin_bp, url_prefix='/admin', name='admin_blueprint')
-app.register_blueprint(settings_bp, url_prefix='/settings', name='settings_blueprint')
-app.register_blueprint(inventory_bp, url_prefix='/inventory', name='inventory_blueprint')
-app.register_blueprint(reports_bp, url_prefix='/reports', name='reports_blueprint')
-app.register_blueprint(debtors_bp, url_prefix='/debtors', name='debtors_blueprint')
-app.register_blueprint(creditors_bp, url_prefix='/creditors', name='creditors_blueprint')
-app.register_blueprint(receipts_bp, url_prefix='/receipts', name='receipts_blueprint')
-app.register_blueprint(payments_bp, url_prefix='/payments', name='payments_blueprint')
-app.register_blueprint(dashboard_bp, url_prefix='/dashboard', name='dashboard_blueprint')
-
-# Jinja2 globals and filters
-with app.app_context():
-    app.jinja_env.globals.update(
-        FACEBOOK_URL=app.config.get('FACEBOOK_URL', 'https://www.facebook.com'),
-        TWITTER_URL=app.config.get('TWITTER_URL', 'https://www.twitter.com'),
-        LINKEDIN_URL=app.config.get('LINKEDIN_URL', 'https://www.linkedin.com'),
-        trans=trans,
-        trans_function=trans_function
-    )
-
-    @app.template_filter('trans')
-    def trans_filter(key):
-        return trans(key)
-
-    @app.template_filter('format_number')
-    def format_number(value):
-        try:
-            if isinstance(value, (int, float)):
-                return f"{float(value):,.2f}"
-            return str(value)
-        except (ValueError, TypeError) as e:
-            logger.warning(f"Error formatting number {value}: {str(e)}")
-            return str(value)
-
-    @app.template_filter('format_currency')
-    def format_currency(value):
-        try:
-            value = float(value)
-            locale = session.get('lang', 'en')
-            symbol = '₦'
-            if value.is_integer():
-                return f"{symbol}{int(value):,}"
-            return f"{symbol}{value:,.2f}"
-        except (TypeError, ValueError) as e:
-            logger.warning(f"Error formatting currency {value}: {str(e)}")
-            return str(value)
-
-    @app.template_filter('format_datetime')
-    def format_datetime(value):
-        try:
-            locale = session.get('lang', 'en')
-            format_str = '%B %d, %Y, %I:%M %p' if locale == 'en' else '%d %B %Y, %I:%M %p'
-            if isinstance(value, datetime):
-                return value.strftime(format_str)
-            elif isinstance(value, date):
-                return value.strftime('%B %d, %Y' if locale == 'en' else '%d %B %Y')
-            elif isinstance(value, str):
-                parsed = datetime.strptime(value, '%Y-%m-%d')
-                return parsed.strftime(format_str)
-            return str(value)
-        except Exception as e:
-            logger.warning(f"Error formatting datetime {value}: {str(e)}")
-            return str(value)
-
-    @app.template_filter('format_date')
-    def format_date(value):
-        try:
-            locale = session.get('lang', 'en')
-            format_str = '%Y-%m-%d' if locale == 'en' else '%d-%m-%Y'
-            if isinstance(value, datetime):
-                return value.strftime(format_str)
-            elif isinstance(value, date):
-                return value.strftime(format_str)
-            elif isinstance(value, str):
-                parsed = datetime.strptime(value, '%Y-%m-%d').date()
-                return parsed.strftime(format_str)
-            return str(value)
-        except Exception as e:
-            logger.warning(f"Error formatting date {value}: {str(e)}")
-            return str(value)
-
-@app.route('/api/translations/<lang>')
-def get_translations(lang):
-    valid_langs = ['en', 'ha']
-    if lang in valid_langs:
-        return jsonify({'translations': app.config.get('TRANSLATIONS', {}).get(lang, app.config.get('TRANSLATIONS', {}).get('en', {}))})
-    return jsonify({'translations': app.config.get('TRANSLATIONS', {}).get('en', {})}), 400
-
-@app.route('/setlang/<lang>')
-def set_language(lang):
-    valid_langs = ['en', 'ha']
-    if lang in valid_langs:
-        session['lang'] = lang
-        if current_user.is_authenticated:
-            get_mongo_db().users.update_one({'_id': current_user.id}, {'$set': {'language': lang}})
-        flash(trans('language_updated', default='Language updated'), 'success')
-    else:
-        flash(trans('invalid_language', default='Invalid language'), 'danger')
-    return redirect(request.referrer or url_for('index'))
-
-@app.route('/contact')
-def contact():
-    return render_template('general/contact.html')
-
-@app.route('/privacy')
-def privacy():
-    return render_template('general/privacy.html')
-
-@app.route('/terms')
-def terms():
-    return render_template('general/terms.html')
-
-@app.route('/set_dark_mode', methods=['POST'])
-def set_dark_mode():
-    try:
-        # Validate CSRF token
-        validate_csrf(request.headers.get('X-CSRF-Token'))
-        data = request.get_json()
-        if not data or 'dark_mode' not in data:
-            return jsonify({'status': 'error', 'message': 'Invalid request data'}), 400
-        dark_mode = bool(data.get('dark_mode', False))
-        session['dark_mode'] = dark_mode
-        if current_user.is_authenticated:
-            get_mongo_db().users.update_one({'_id': current_user.id}, {'$set': {'dark_mode': dark_mode}})
-        return Response(status=204)
-    except CSRFError:
-        logger.error("CSRF validation failed for /set_dark_mode")
-        return jsonify({'status': 'error', 'message': 'CSRF token invalid'}), 403
-    except Exception as e:
-        logger.error(f"Error in set_dark_mode: {str(e)}")
-        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
-
-@app.route('/favicon.ico')
-def favicon():
-    """Serve favicon to prevent 404 errors."""
-    return send_from_directory(app.static_folder, 'favicon.ico')
-
-def setup_database():
+def log_audit_action(action, details=None):
+    """Log an audit action."""
     try:
         db = get_mongo_db()
-        collections = db.list_collection_names()
-        db.command('ping')
-        logger.info("MongoDB connection successful during setup")
-
-        # Drop all existing collections to clear test data
-        for collection in collections:
-            db.drop_collection(collection)
-            logger.info(f"Dropped collection: {collection}")
-
-        # Users collection
-        db.create_collection('users', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['_id', 'email', 'password', 'role', 'coin_balance', 'created_at'],
-                'properties': {
-                    '_id': {'bsonType': 'string'},
-                    'email': {'bsonType': 'string', 'pattern': r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'},
-                    'password': {'bsonType': 'string'},
-                    'role': {'enum': ['personal', 'trader', 'agent', 'admin']},
-                    'coin_balance': {'bsonType': 'int', 'minimum': 0},
-                    'language': {'enum': ['en', 'ha']},
-                    'created_at': {'bsonType': 'date'},
-                    'display_name': {'bsonType': ['string', 'null']},
-                    'dark_mode': {'bsonType': 'bool'},
-                    'is_admin': {'bsonType': 'bool'},
-                    'setup_complete': {'bsonType': 'bool'},
-                    'reset_token': {'bsonType': ['string', 'null']}
-                }
-            }
+        db.audit_logs.insert_one({
+            'admin_id': str(current_user.id) if current_user.is_authenticated else 'system',
+            'action': action,
+            'details': details or {},
+            'timestamp': datetime.utcnow()
         })
-        db.users.create_index([('email', ASCENDING)], unique=True)
-        db.users.create_index([('reset_token', ASCENDING)], sparse=True)
-        db.users.create_index([('role', ASCENDING)])
-        logger.info("Created users collection with indexes")
-
-        # Records collection (replaces debtors and creditors)
-        db.create_collection('records', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['user_id', 'name', 'amount_owed', 'type', 'created_at'],
-                'properties': {
-                    'user_id': {'bsonType': 'string'},
-                    'name': {'bsonType': 'string'},
-                    'amount_owed': {'bsonType': 'double', 'minimum': 0},
-                    'type': {'enum': ['debtor', 'creditor']},
-                    'created_at': {'bsonType': 'date'},
-                    'contact': {'bsonType': ['string', 'null']},
-                    'description': {'bsonType': ['string', 'null']}
-                }
-            }
-        })
-        db.records.create_index([('user_id', ASCENDING), ('type', ASCENDING)])
-        db.records.create_index([('created_at', DESCENDING)])
-        logger.info("Created records collection with indexes")
-
-        # Cashflows collection (replaces payments and receipts)
-        db.create_collection('cashflows', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['user_id', 'amount', 'party_name', 'type', 'created_at'],
-                'properties': {
-                    'user_id': {'bsonType': 'string'},
-                    'amount': {'bsonType': 'double', 'minimum': 0},
-                    'party_name': {'bsonType': 'string'},
-                    'type': {'enum': ['payment', 'receipt']},
-                    'created_at': {'bsonType': 'date'},
-                    'method': {'enum': ['card', 'bank', 'cash', None]},
-                    'category': {'bsonType': ['string', 'null']},
-                    'file_id': {'bsonType': ['objectId', 'null']},
-                    'filename': {'bsonType': ['string', 'null']}
-                }
-            }
-        })
-        db.cashflows.create_index([('user_id', ASCENDING), ('type', ASCENDING)])
-        db.cashflows.create_index([('created_at', DESCENDING)])
-        logger.info("Created cashflows collection with indexes")
-
-        # Inventory collection
-        db.create_collection('inventory', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['user_id', 'item_name', 'qty', 'created_at'],
-                'properties': {
-                    'user_id': {'bsonType': 'string'},
-                    'item_name': {'bsonType': 'string'},
-                    'qty': {'bsonType': 'int', 'minimum': 0},
-                    'created_at': {'bsonType': 'date'},
-                    'unit': {'bsonType': ['string', 'null']},
-                    'buying_price': {'bsonType': ['double', 'null'], 'minimum': 0},
-                    'selling_price': {'bsonType': ['double', 'null'], 'minimum': 0},
-                    'threshold': {'bsonType': ['int', 'null'], 'minimum': 0},
-                    'updated_at': {'bsonType': ['date', 'null']}
-                }
-            }
-        })
-        db.inventory.create_index([('user_id', ASCENDING)])
-        db.inventory.create_index([('created_at', DESCENDING)])
-        logger.info("Created inventory collection with indexes")
-
-        # Coin transactions collection
-        db.create_collection('coin_transactions', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['user_id', 'amount', 'type', 'date'],
-                'properties': {
-                    'user_id': {'bsonType': 'string'},
-                    'amount': {'bsonType': 'int'},
-                    'type': {'enum': ['purchase', 'spend', 'credit', 'admin_credit']},
-                    'date': {'bsonType': 'date'},
-                    'ref': {'bsonType': ['string', 'null']}
-                }
-            }
-        })
-        db.coin_transactions.create_index([('user_id', ASCENDING)])
-        db.coin_transactions.create_index([('date', DESCENDING)])
-        logger.info("Created coin_transactions collection with indexes")
-
-        # Audit logs collection
-        db.create_collection('audit_logs', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['admin_id', 'action', 'details', 'timestamp'],
-                'properties': {
-                    'admin_id': {'bsonType': 'string'},
-                    'action': {'bsonType': 'string'},
-                    'details': {'bsonType': 'object'},
-                    'timestamp': {'bsonType': 'date'}
-                }
-            }
-        })
-        db.audit_logs.create_index([('timestamp', DESCENDING)])
-        logger.info("Created audit_logs collection with indexes")
-
-        # Feedback collection
-        db.create_collection('feedback', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['user_id', 'tool_name', 'rating', 'timestamp'],
-                'properties': {
-                    'user_id': {'bsonType': 'string'},
-                    'tool_name': {'bsonType': 'string'},
-                    'rating': {'bsonType': 'int', 'minimum': 1, 'maximum': 5},
-                    'comment': {'bsonType': ['string', 'null']},
-                    'timestamp': {'bsonType': 'date'}
-                }
-            }
-        })
-        db.feedback.create_index([('user_id', ASCENDING)], sparse=True)
-        db.feedback.create_index([('timestamp', DESCENDING)])
-        logger.info("Created feedback collection with indexes")
-
-        # Sessions collection with TTL index
-        db.create_collection('sessions')
-        db.sessions.create_index(
-            [('expiration', ASCENDING)],
-            expireAfterSeconds=0,
-            name='session_expiry_index'
-        )
-        logger.info("Created sessions collection with TTL index")
-
-        # Admin user creation
-        admin_username = os.getenv('ADMIN_USERNAME', 'admin')
-        admin_email = os.getenv('ADMIN_EMAIL', 'ficorerecords@gmail.com')
-        admin_password = os.getenv('ADMIN_PASSWORD', 'Admin123!')
-        if not db.users.find_one({'_id': admin_username}):
-            db.users.insert_one({
-                '_id': admin_username.lower(),
-                'email': admin_email.lower(),
-                'password': generate_password_hash(admin_password),
-                'role': 'admin',
-                'coin_balance': 0,
-                'language': 'en',
-                'dark_mode': False,
-                'is_admin': True,
-                'setup_complete': True,
-                'display_name': admin_username,
-                'created_at': datetime.utcnow()
-            })
-            logger.info(f"Default admin user created: {admin_username}")
-
-        logger.info("Database setup completed successfully")
-        return True
     except Exception as e:
-        logger.error(f"Error initializing database: {str(e)}")
-        return False
+        logger.error(f"Error logging audit action: {str(e)}")
 
-# Security headers
-@app.after_request
-def add_security_headers(response):
-    response.headers['Content-Security-Policy'] = (
-        "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com; "
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
-        "img-src 'self' data:; "
-        "connect-src 'self'; "
-        "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com;"
-    )
-    response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    return response
-
-@app.route('/service-worker.js')
-def service_worker():
-    return app.send_static_file('service-worker.js')
-
-@app.route('/manifest.json')
-def manifest():
-    return {
-        'name': 'FiCore',
-        'short_name': 'FiCore',
-        'description': 'Manage your finances with ease',
-        'theme_color': '#007bff',
-        'background_color': '#ffffff',
-        'display': 'standalone',
-        'scope': '/',
-        'start_url': '/',
-        'icons': [
-            {'src': '/static/icons/icon-192x192.png', 'sizes': '192x192', 'type': 'image/png'},
-            {'src': '/static/icons/icon-512x512.png', 'sizes': '512x512', 'type': 'image/png'}
-        ]
-    }
-
-# Routes
-@app.route('/')
-def index():
-    return render_template('general/home.html')
-
-@app.route('/about')
-def about():
-    return render_template('general/about.html')
-
-@app.route('/feedback', methods=['GET', 'POST'])
-@login_required
-def feedback():
-    lang = session.get('lang', 'en')
-    tool_options = [
-        ['profile', trans('tool_profile', default='Profile')],
-        ['coins', trans('tool_coins', default='Coins')],
-        ['debtors', trans('debtors', default='Debtors')],
-        ['creditors', trans('creditors', default='Creditors')],
-        ['receipts', trans('receipts', default='Receipts')],
-        ['payments', trans('payments', default='Payments')],
-        ['inventory', trans('inventory', default='Inventory')],
-        ['reports', trans('reports', default='Reports')]
-    ]
-    if request.method == 'POST':
+@users_bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit("50 per hour")
+def login():
+    """Handle user login."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard_blueprint.index'))
+    form = LoginForm()
+    if form.validate_on_submit():
         try:
-            if not check_coin_balance(1):
-                flash(trans('insufficient_coins', default='Insufficient coins to submit feedback'), 'danger')
-                return redirect(url_for('coins_blueprint.purchase'))
-            tool_name = request.form.get('tool_name')
-            rating = request.form.get('rating')
-            comment = request.form.get('comment', '').strip()
-            valid_tools = [option[0] for option in tool_options]
-            if not tool_name or tool_name not in valid_tools:
-                flash(trans('invalid_tool', default='Please select a valid tool'), 'danger')
-                return render_template('general/feedback.html', tool_options=tool_options)
-            if not rating or not rating.isdigit() or int(rating) < 1 or int(rating) > 5:
-                flash(trans('invalid_rating', default='Rating must be between 1 and 5'), 'danger')
-                return render_template('general/feedback.html', tool_options=tool_options)
+            username = form.username.data.strip().lower()
+            logger.info(f"Login attempt for username: {username}")
+            if not USERNAME_REGEX.match(username):
+                flash(trans_function('username_format', default='Username must be alphanumeric with underscores'), 'danger')
+                logger.warning(f"Invalid username format: {username}")
+                return render_template('users/login.html', form=form)
             db = get_mongo_db()
-            from coins.routes import get_user_query
-            query = get_user_query(str(current_user.id))
-            result = db.users.update_one(query, {'$inc': {'coin_balance': -1}})
-            if result.matched_count == 0:
-                raise ValueError(f"No user found for ID {current_user.id}")
-            db.coin_transactions.insert_one({
-                'user_id': str(current_user.id),
-                'amount': -1,
-                'type': 'spend',
-                'ref': f"FEEDBACK_{datetime.utcnow().isoformat()}",
-                'date': datetime.utcnow()
-            })
-            feedback_entry = {
-                'user_id': str(current_user.id),
-                'tool_name': tool_name,
-                'rating': int(rating),
-                'comment': comment or None,
-                'timestamp': datetime.utcnow()
+            user = db.users.find_one({'_id': username})
+            if not user:
+                flash(trans_function('username_not_found', default='Username does not exist. Please check your signup details.'), 'danger')
+                logger.warning(f"Login attempt for non-existent username: {username}")
+                return render_template('users/login.html', form=form)
+            if not check_password_hash(user['password'], form.password.data):
+                flash(trans_function('invalid_password', default='Incorrect password'), 'danger')
+                logger.warning(f"Failed login attempt for username: {username} (invalid password)")
+                return render_template('users/login.html', form=form)
+            logger.info(f"User found: {username}, proceeding with login")
+            if os.environ.get('ENABLE_2FA', 'true').lower() == 'true':
+                otp = ''.join(str(random.randint(0, 9)) for _ in range(6))
+                try:
+                    db.users.update_one(
+                        {'_id': username},
+                        {'$set': {'otp': otp, 'otp_expiry': datetime.utcnow() + timedelta(minutes=5)}}
+                    )
+                    msg = EmailMessage(
+                        subject=trans_function('otp_subject', default='Your One-Time Password'),
+                        body=trans_function('otp_body', default=f'Your OTP is {otp}. It expires in 5 minutes.'),
+                        to=[user['email']]
+                    )
+                    msg.send()
+                    session['pending_user_id'] = username
+                    logger.info(f"OTP sent to {user['email']} for username: {username}")
+                    return redirect(url_for('users.verify_2fa'))
+                except Exception as e:
+                    logger.warning(f"Email delivery failed for OTP: {str(e)}. Allowing login without 2FA.")
+                    from app import User
+                    login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
+                    session['lang'] = user.get('language', 'en')
+                    log_audit_action('login_without_2fa', {'user_id': username, 'reason': 'email_failure'})
+                    logger.info(f"User {username} logged in without 2FA due to email failure")
+                    if not user.get('setup_complete', False):
+                        return redirect(url_for('users.setup_wizard'))
+                    return redirect(url_for('users.profile'))
+            from app import User
+            login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
+            session['lang'] = user.get('language', 'en')
+            log_audit_action('login', {'user_id': username})
+            logger.info(f"User {username} logged in successfully")
+            if not user.get('setup_complete', False):
+                return redirect(url_for('users.setup_wizard'))
+            return redirect(url_for('users.profile'))
+        except errors.PyMongoError as e:
+            logger.error(f"MongoDB error during login: {str(e)}")
+            flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
+            return render_template('users/login.html', form=form), 500
+    return render_template('users/login.html', form=form)
+
+@users_bp.route('/verify_2fa', methods=['GET', 'POST'])
+@limiter.limit("50 per hour")
+def verify_2fa():
+    """Verify 2FA OTP."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard_blueprint.index'))
+    if 'pending_user_id' not in session:
+        flash(trans_function('invalid_2fa_session', default='Invalid 2FA session. Please log in again'), 'danger')
+        return redirect(url_for('users.login'))
+    form = TwoFactorForm()
+    if form.validate_on_submit():
+        try:
+            username = session['pending_user_id']
+            logger.info(f"2FA verification attempt for username: {username}")
+            db = get_mongo_db()
+            user = db.users.find_one({'_id': username})
+            if not user:
+                flash(trans_function('user_not_found', default='User not found'), 'danger')
+                logger.warning(f"2FA attempt for non-existent username: {username}")
+                session.pop('pending_user_id', None)
+                return redirect(url_for('users.login'))
+            if user.get('otp') == form.otp.data and user.get('otp_expiry') > datetime.utcnow():
+                from app import User
+                login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
+                session['lang'] = user.get('language', 'en')
+                db.users.update_one(
+                    {'_id': username},
+                    {'$unset': {'otp': '', 'otp_expiry': ''}}
+                )
+                log_audit_action('verify_2fa', {'user_id': username})
+                logger.info(f"User {username} verified 2FA successfully")
+                session.pop('pending_user_id', None)
+                if not user.get('setup_complete', False):
+                    return redirect(url_for('users.setup_wizard'))
+                return redirect(url_for('users.profile'))
+            flash(trans_function('invalid_otp', default='Invalid or expired OTP'), 'danger')
+            logger.warning(f"Failed 2FA attempt for username: {username}")
+        except errors.PyMongoError as e:
+            logger.error(f"MongoDB error during 2FA verification: {str(e)}")
+            flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
+            return render_template('users/verify_2fa.html', form=form), 500
+    return render_template('users/verify_2fa.html', form=form)
+
+@users_bp.route('/signup', methods=['GET', 'POST'])
+@limiter.limit("50 per hour")
+def signup():
+    """Handle user signup."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard_blueprint.index'))
+    form = SignupForm()
+    if form.validate_on_submit():
+        try:
+            username = form.username.data.strip().lower()
+            email = form.email.data.strip().lower()
+            role = form.role.data
+            language = form.language.data
+            logger.info(f"Signup attempt: username={username}, email={email}, role={role}, language={language}")
+            db = get_mongo_db()
+            if db.users.find_one({'_id': username}):
+                flash(trans_function('username_exists', default='Username already exists'), 'danger')
+                logger.warning(f"Signup failed: Username {username} already exists")
+                return render_template('users/signup.html', form=form)
+            if db.users.find_one({'email': email}):
+                flash(trans_function('email_exists', default='Email already exists'), 'danger')
+                logger.warning(f"Signup failed: Email {email} already exists")
+                return render_template('users/signup.html', form=form)
+            user_data = {
+                '_id': username,
+                'email': email,
+                'password': generate_password_hash(form.password.data),
+                'role': role,
+                'coin_balance': 10,  # Grant 10 free coins
+                'language': language,
+                'dark_mode': False,
+                'is_admin': False,
+                'setup_complete': False,
+                'display_name': username,
+                'created_at': datetime.utcnow()
             }
-            db.feedback.insert_one(feedback_entry)
-            db.audit_logs.insert_one({
-                'admin_id': 'system',
-                'action': 'submit_feedback',
-                'details': {'user_id': str(current_user.id), 'tool_name': tool_name},
-                'timestamp': datetime.utcnow()
-            })
-            flash(trans('feedback_success', default='Feedback submitted successfully'), 'success')
-            return redirect(url_for('index'))
-        except ValueError as e:
-            logger.error(f"User not found: {str(e)}")
-            flash(trans('user_not_found', default='User not found'), 'danger')
+            try:
+                result = db.users.insert_one(user_data)
+                logger.info(f"User inserted: {username}, result: {result.inserted_id}")
+            except errors.DuplicateKeyError as e:
+                logger.error(f"Duplicate key error during signup for username {username}: {str(e)}")
+                flash(trans_function('duplicate_error', default='Username or email already exists'), 'danger')
+                return render_template('users/signup.html', form=form)
+            except errors.PyMongoError as e:
+                logger.error(f"MongoDB error during user insertion for {username}: {str(e)}")
+                flash(trans_function('database_error', default='An error occurred while creating your account. Please try again later.'), 'danger')
+                return render_template('users/signup.html', form=form), 500
+            try:
+                db.coin_transactions.insert_one({
+                    'user_id': username,
+                    'amount': 10,
+                    'type': 'credit',
+                    'ref': f"SIGNUP_BONUS_{datetime.utcnow().isoformat()}",
+                    'date': datetime.utcnow()
+                })
+                logger.info(f"Signup bonus of 10 coins recorded for {username}")
+            except errors.PyMongoError as e:
+                logger.error(f"MongoDB error during coin transaction for {username}: {str(e)}")
+                # Roll back user insertion on coin transaction failure
+                db.users.delete_one({'_id': username})
+                logger.info(f"Rolled back user {username} due to coin transaction failure")
+                flash(trans_function('database_error', default='An error occurred while processing signup bonus. Please try again later.'), 'danger')
+                return render_template('users/signup.html', form=form), 500
+            log_audit_action('signup', {'user_id': username, 'role': role})
+            from app import User
+            login_user(User(username, email, username, role), remember=True)
+            session['lang'] = language
+            logger.info(f"New user created and logged in: {username} (role: {role})")
+            return redirect(url_for('users.setup_wizard'))
         except Exception as e:
-            logger.error(f"Error processing feedback: {str(e)}")
-            flash(trans('feedback_error', default='An error occurred while submitting feedback'), 'danger')
-            return render_template('general/feedback.html', tool_options=tool_options), 500
-    return render_template('general/feedback.html', tool_options=tool_options)
+            logger.error(f"Unexpected error during signup for {username}: {str(e)}")
+            flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
+            return render_template('users/signup.html', form=form), 500
+    return render_template('users/signup.html', form=form)
 
-@app.route('/setup', methods=['GET'])
-@limiter.limit("10 per minute")
-def setup_database_route():
-    setup_key = request.args.get('key')
-    if setup_key != os.getenv('SETUP_KEY', 'setup-secret'):
-        return render_template('errors/403.html', content=trans('forbidden_access', default='Access denied')), 403
-    if os.getenv('FLASK_ENV', 'development') == 'production' and not os.getenv('ALLOW_DB_SETUP', 'false').lower() == 'true':
-        flash(trans('database_setup_disabled', default='Database setup disabled in production'), 'danger')
-        return render_template('errors/403.html', content=trans('forbidden_access', default='Access denied')), 403
-    if setup_database():
-        flash(trans('database_setup_success', default='Database setup successful'), 'success')
-        return redirect(url_for('index'))
-    else:
-        flash(trans('database_setup_error', default='An error occurred during database setup'), 'danger')
-        return render_template('errors/500.html', content=trans('internal_error', default='Internal server error')), 500
+@users_bp.route('/forgot_password', methods=['GET', 'POST'])
+@limiter.limit("50 per hour")
+def forgot_password():
+    """Handle forgot password request."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard_blueprint.index'))
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        try:
+            email = form.email.data.strip().lower()
+            logger.info(f"Forgot password request for email: {email}")
+            db = get_mongo_db()
+            user = db.users.find_one({'email': email})
+            if not user:
+                flash(trans_function('email_not_found', default='No user found with this email'), 'danger')
+                logger.warning(f"No user found with email: {email}")
+                return render_template('users/forgot_password.html', form=form)
+            reset_token = URLSafeTimedSerializer(current_app.config['SECRET_KEY']).dumps(email, salt='reset-salt')
+            expiry = datetime.utcnow() + timedelta(minutes=15)
+            db.users.update_one(
+                {'_id': user['_id']},
+                {'$set': {'reset_token': reset_token, 'reset_token_expiry': expiry}}
+            )
+            reset_url = url_for('users.reset_password', token=reset_token, _external=True)
+            msg = EmailMessage(
+                subject=trans_function('reset_password_subject', default='Reset Your Password'),
+                body=trans_function('reset_password_body', default=f'Click the link to reset your password: {reset_url}\nLink expires in 15 minutes.'),
+                to=[email]
+            )
+            msg.send()
+            log_audit_action('forgot_password', {'email': email})
+            logger.info(f"Password reset email sent to {email}")
+            flash(trans_function('reset_email_sent', default='Password reset email sent'), 'success')
+            return render_template('users/forgot_password.html', form=form)
+        except Exception as e:
+            logger.error(f"Error during forgot password for {email}: {str(e)}")
+            flash(trans_function('email_send_error', default='An error occurred while sending the reset email'), 'danger')
+            return render_template('users/forgot_password.html', form=form), 500
+    return render_template('users/forgot_password.html', form=form)
 
-@app.errorhandler(403)
-def forbidden(e):
-    return render_template('errors/403.html', message=trans('forbidden', default='Forbidden')), 403
+@users_bp.route('/reset_password', methods=['GET', 'POST'])
+@limiter.limit("50 per hour")
+def reset_password():
+    """Handle password reset."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard_blueprint.index'))
+    token = request.args.get('token')
+    try:
+        email = URLSafeTimedSerializer(current_app.config['SECRET_KEY']).loads(token, salt='reset-salt', max_age=900)
+        logger.info(f"Password reset attempt for email: {email}")
+    except Exception:
+        flash(trans_function('invalid_or_expired_token', default='Invalid or expired token'), 'danger')
+        logger.warning(f"Invalid or expired reset token")
+        return redirect(url_for('users.forgot_password'))
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        try:
+            db = get_mongo_db()
+            user = db.users.find_one({'email': email})
+            if not user:
+                flash(trans_function('invalid_or_expired_token', default='Invalid or expired token'), 'danger')
+                logger.warning(f"No user found with email: {email}")
+                return render_template('users/reset_password.html', form=form, token=token)
+            db.users.update_one(
+                {'_id': user['_id']},
+                {'$set': {'password': generate_password_hash(form.password.data)}, 
+                 '$unset': {'reset_token': '', 'reset_token_expiry': ''}}
+            )
+            log_audit_action('reset_password', {'user_id': user['_id']})
+            logger.info(f"Password reset successfully for user: {user['_id']}")
+            flash(trans_function('reset_password_success', default='Password reset successfully'), 'success')
+            return redirect(url_for('users.login'))
+        except errors.PyMongoError as e:
+            logger.error(f"MongoDB error during password reset for {email}: {str(e)}")
+            flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
+            return render_template('users/reset_password.html', form=form, token=token), 500
+    return render_template('users/reset_password.html', form=form, token=token)
 
-@app.errorhandler(404)
-def page_not_found(e):
-    return render_template('errors/404.html', message=trans('page_not_found', default='Page not found')), 404
+@users_bp.route('/profile', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("50 per hour")
+def profile():
+    """Manage user profile."""
+    try:
+        db = get_mongo_db()
+        user_id = request.args.get('user_id', current_user.id) if is_admin() and request.args.get('user_id') else current_user.id
+        user = db.users.find_one({'_id': user_id})
+        if not user:
+            flash(trans_function('user_not_found', default='User not found'), 'error')
+            logger.warning(f"Profile access failed: User {user_id} not found")
+            return redirect(url_for('index'))
+        form = ProfileForm(data={
+            'email': user['email'],
+            'display_name': user['display_name'],
+            'language': user.get('language', 'en')
+        })
+        if form.validate_on_submit():
+            try:
+                if not is_admin() and not check_coin_balance(1):
+                    flash(trans_function('insufficient_coins', default='Insufficient coins to update profile'), 'danger')
+                    logger.warning(f"Profile update failed for {user_id}: Insufficient coins")
+                    return redirect(url_for('coins.purchase'))
+                new_email = form.email.data.strip().lower()
+                new_display_name = form.display_name.data.strip()
+                new_language = form.language.data
+                if new_email != user['email'] and db.users.find_one({'email': new_email}):
+                    flash(trans_function('email_exists', default='Email already exists'), 'danger')
+                    logger.warning(f"Profile update failed for {user_id}: Email {new_email} already exists")
+                    return render_template('users/profile.html', form=form, user=user)
+                update_data = {
+                    'email': new_email,
+                    'display_name': new_display_name,
+                    'language': new_language,
+                    'updated_at': datetime.utcnow()
+                }
+                if not is_admin():
+                    update_data['coin_balance'] = user.get('coin_balance', 0) - 1
+                db.users.update_one(
+                    {'_id': user_id},
+                    {'$set': update_data}
+                )
+                if not is_admin():
+                    db.coin_transactions.insert_one({
+                        'user_id': user_id,
+                        'amount': -1,
+                        'type': 'spend',
+                        'ref': f"PROFILE_UPDATE_{datetime.utcnow().isoformat()}",
+                        'date': datetime.utcnow()
+                    })
+                log_audit_action('update_profile', {'user_id': user_id, 'updated_by': current_user.id})
+                if user_id == current_user.id:
+                    current_user.email = new_email
+                    current_user.display_name = new_display_name
+                    session['lang'] = new_language
+                flash(trans_function('profile_updated', default='Profile updated successfully'), 'success')
+                logger.info(f"Profile updated for user: {user_id} by {current_user.id}")
+                return redirect(url_for('users.profile', user_id=user_id) if is_admin() else url_for('users.profile'))
+            except errors.PyMongoError as e:
+                logger.error(f"MongoDB error updating profile for {user_id}: {str(e)}")
+                flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
+                return render_template('users/profile.html', form=form, user=user), 500
+        user['_id'] = str(user['_id'])
+        user['coin_balance'] = user.get('coin_balance', 0)
+        return render_template('users/profile.html', form=form, user=user)
+    except errors.PyMongoError as e:
+        logger.error(f"MongoDB error fetching profile for {user_id}: {str(e)}")
+        flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
+        return redirect(url_for('index')), 500
 
-@app.errorhandler(500)
-def internal_server_error(e):
-    return render_template('errors/500.html', message=trans('internal_server_error', default='Internal server error')), 500
+@users_bp.route('/setup_wizard', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("50 per hour")
+def setup_wizard():
+    """Handle business setup wizard."""
+    db = get_mongo_db()
+    user_id = request.args.get('user_id', current_user.id) if is_admin() and request.args.get('user_id') else current_user.id
+    user = db.users.find_one({'_id': user_id})
+    if user.get('setup_complete', False):
+        return redirect(url_for('dashboard.index'))
+    form = BusinessSetupForm()
+    if form.validate_on_submit():
+        try:
+            if form.back.data:
+                flash(trans_function('setup_skipped', default='Business setup skipped'), 'info')
+                logger.info(f"Business setup skipped for user: {user_id}")
+                return redirect(url_for('users.profile', user_id=user_id) if is_admin() else url_for('users.profile'))
+            db.users.update_one(
+                {'_id': user_id},
+                {
+                    '$set': {
+                        'business_details': {
+                            'name': form.business_name.data.strip(),
+                            'address': form.address.data.strip(),
+                            'industry': form.industry.data
+                        },
+                        'setup_complete': True
+                    }
+                }
+            )
+            log_audit_action('complete_setup_wizard', {'user_id': user_id, 'updated_by': current_user.id})
+            logger.info(f"Business setup completed for user: {user_id} by {current_user.id}")
+            flash(trans_function('business_setup_completed', default='Business setup completed'), 'success')
+            return redirect(url_for('users.profile', user_id=user_id) if is_admin() else url_for('users.profile'))
+        except errors.PyMongoError as e:
+            logger.error(f"MongoDB error during business setup for {user_id}: {str(e)}")
+            flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
+            return render_template('users/setup.html', form=form), 500
+    return render_template('users/setup.html', form=form)
 
-# Gunicorn hooks
-def worker_init(worker):
-    """Initialize MongoDB client for each Gunicorn worker."""
-    with app.app_context():
-        get_mongo_db()
-        logger.info("MongoDB client initialized for Gunicorn worker")
+@users_bp.route('/logout')
+@login_required
+@limiter.limit("100 per hour")
+def logout():
+    """Handle user logout."""
+    user_id = current_user.id
+    lang = session.get('lang', 'en')
+    logout_user()
+    log_audit_action('logout', {'user_id': user_id})
+    logger.info(f"User {user_id} logged out")
+    flash(trans_function('logged_out', default='Logged out successfully'), 'success')
+    session.clear()
+    session['lang'] = lang
+    return redirect(url_for('users.login'))
 
-def worker_exit(server, worker):
-    """Close MongoDB connections on worker exit."""
-    close_mongo_db()
-    logger.info("MongoDB client closed on worker exit")
+@users_bp.route('/auth/signin')
+def signin():
+    """Redirect to login."""
+    return redirect(url_for('users.login'))
 
-with app.app_context():
-    if os.getenv('FLASK_ENV', 'development') != 'production' or os.getenv('ALLOW_DB_SETUP', 'false').lower() == 'true':
-        if not setup_database():
-            logger.error("Application startup aborted due to database initialization failure")
-            raise RuntimeError("Database initialization failed")
-    else:
-        logger.info("Database initialization skipped in production environment")
+@users_bp.route('/auth/signup')
+def signup_redirect():
+    """Redirect to signup."""
+    return redirect(url_for('users.signup'))
 
-if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))
-    logger.info(f"Starting Flask app on port {port} at {datetime.now().strftime('%I:%M %p WAT on %B %d, %Y')}")
-    app.run(host='0.0.0.0', port=port, debug=os.getenv('FLASK_ENV', 'development') == 'development')
+@users_bp.route('/auth/forgot-password')
+def forgot_password_redirect():
+    """Redirect to forgot password."""
+    return redirect(url_for('users.forgot_password'))
+
+@users_bp.route('/auth/reset-password')
+def reset_password_redirect():
+    """Redirect to reset password."""
+    return redirect(url_for('users.reset_password'))
+
+@users_bp.before_app_request
+def check_wizard_completion():
+    """Check if setup wizard is complete."""
+    if request.endpoint == 'static':
+        return
+    if not current_user.is_authenticated:
+        if request.endpoint not in ['users.login', 'users.signup', 'users.forgot_password', 
+                                   'users.reset_password', 'users.verify_2fa', 'users.signin', 
+                                   'users.signup_redirect', 'users.forgot_password_redirect', 
+                                   'users.reset_password_redirect', 'index', 'about', 
+                                   'contact', 'privacy', 'terms', 'get_translations', 
+                                   'set_language']:
+            flash(trans_function('login_required', default='Please log in'), 'danger')
+            return redirect(url_for('users.login'))
+    elif current_user.is_authenticated:
+        db = get_mongo_db()
+        user = db.users.find_one({'_id': current_user.id})
+        if user and not user.get('setup_complete', False):
+            if request.endpoint not in ['users.setup_wizard', 'users.logout', 'users.profile', 
+                                       'coins.purchase', 'coins.get_balance', 'set_language', 
+                                       'set_dark_mode']:
+                return redirect(url_for('users.setup_wizard'))
