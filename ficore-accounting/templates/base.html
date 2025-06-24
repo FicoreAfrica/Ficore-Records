@@ -152,7 +152,7 @@
                         </ul>
                     </li>
                     <li class="nav-item">
-                        <button class="nav-link btn btn-link" onclick="toggleDarkMode()" data-bs-toggle="tooltip" data-bs-title="{{ trans('mode_toggle_tooltip', default='Switch to ' + ('dark mode' if not session.get('dark_mode', False) else 'light mode')) }}" aria-label="{{ trans('mode_toggle', default='Toggle dark mode') }}">
+                        <button class="nav-link btn btn-link" id="darkModeToggle" onclick="toggleDarkMode()" data-bs-toggle="tooltip" data-bs-title="{{ trans('mode_toggle_tooltip', default='Switch to ' + ('dark mode' if not session.get('dark_mode', False) else 'light mode')) }}" aria-label="{{ trans('mode_toggle', default='Toggle dark mode') }}">
                             {% if session.get('dark_mode', False) %}
                                 <i class="bi bi-sun"></i>
                             {% else %}
@@ -197,32 +197,36 @@
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Initialize tooltips
+        // Initialize tooltips and dark mode
         document.addEventListener('DOMContentLoaded', function () {
+            // Initialize tooltips
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipTriggerList.forEach(function (tooltipTriggerEl) {
                 new bootstrap.Tooltip(tooltipTriggerEl);
             });
 
-            // Initialize dark mode from session
+            // Initialize dark mode from localStorage or server
             const serverDarkMode = {{ session.get('dark_mode', False) | tojson }};
-            localStorage.setItem('dark_mode', serverDarkMode);
-            if (serverDarkMode) {
+            const storedDarkMode = localStorage.getItem('dark_mode');
+            const initialDarkMode = storedDarkMode !== null ? storedDarkMode === 'true' : serverDarkMode;
+            localStorage.setItem('dark_mode', initialDarkMode);
+            if (initialDarkMode) {
                 document.documentElement.classList.add('dark-mode');
             }
         });
 
         // Dark mode toggle
-        function toggleDarkMode() {
-            const button = document.querySelector('.btn-link[data-bs-toggle="tooltip"]');
+        async function toggleDarkMode() {
+            const button = document.querySelector('#darkModeToggle');
             const currentMode = localStorage.getItem('dark_mode') === 'true';
             const newMode = !currentMode;
+
+            // Disable button to prevent multiple clicks
+            button.disabled = true;
 
             // Update UI immediately
             document.documentElement.classList.toggle('dark-mode');
             localStorage.setItem('dark_mode', newMode);
-
-            // Update button icon and tooltip
             button.querySelector('i').classList.toggle('bi-sun', newMode);
             button.querySelector('i').classList.toggle('bi-moon-stars', !newMode);
             button.setAttribute('data-bs-title', newMode ? '{{ trans("mode_toggle_tooltip_switch_to_light", default="Switch to light mode") }}' : '{{ trans("mode_toggle_tooltip_switch_to_dark", default="Switch to dark mode") }}');
@@ -233,26 +237,18 @@
             if (tooltip) tooltip.dispose();
             new bootstrap.Tooltip(button);
 
-            // Sync with server
-            fetch('{{ url_for("set_dark_mode") }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dark_mode: newMode })
-            })
-            .then(response => {
+            try {
+                // Sync with server
+                const response = await fetch('{{ url_for("set_dark_mode") }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dark_mode: newMode })
+                });
+
                 if (!response.ok) {
-                    // Revert UI changes if server fails
-                    document.documentElement.classList.toggle('dark-mode');
-                    localStorage.setItem('dark_mode', currentMode);
-                    button.querySelector('i').classList.toggle('bi-sun', currentMode);
-                    button.querySelector('i').classList.toggle('bi-moon-stars', !currentMode);
-                    button.setAttribute('data-bs-title', currentMode ? '{{ trans("mode_toggle_tooltip_switch_to_light", default="Switch to light mode") }}' : '{{ trans("mode_toggle_tooltip_switch_to_dark", default="Switch to dark mode") }}');
-                    button.setAttribute('aria-label', currentMode ? '{{ trans("mode_toggle_light", default="Toggle light mode") }}' : '{{ trans("mode_toggle_dark", default="Toggle dark mode") }}');
-                    new bootstrap.Tooltip(button);
-                    console.error('Failed to sync dark mode with server');
+                    throw new Error('Server sync failed');
                 }
-            })
-            .catch(error => {
+            } catch (error) {
                 // Revert UI changes on error
                 document.documentElement.classList.toggle('dark-mode');
                 localStorage.setItem('dark_mode', currentMode);
@@ -261,8 +257,11 @@
                 button.setAttribute('data-bs-title', currentMode ? '{{ trans("mode_toggle_tooltip_switch_to_light", default="Switch to light mode") }}' : '{{ trans("mode_toggle_tooltip_switch_to_dark", default="Switch to dark mode") }}');
                 button.setAttribute('aria-label', currentMode ? '{{ trans("mode_toggle_light", default="Toggle light mode") }}' : '{{ trans("mode_toggle_dark", default="Toggle dark mode") }}');
                 new bootstrap.Tooltip(button);
-                console.error('Fetch error:', error);
-            });
+                console.error('Failed to sync dark mode:', error);
+            } finally {
+                // Re-enable button
+                button.disabled = false;
+            }
         }
     </script>
     {% block scripts %}{% endblock %}
