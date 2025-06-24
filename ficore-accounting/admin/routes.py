@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, FloatField, validators, SubmitField
 from datetime import datetime
-from utils import trans_function, requires_role, get_mongo_db, is_admin
+from utils import trans_function, requires_role, get_mongo_db, is_admin, get_user_query
 from bson import ObjectId
 from app import limiter
 import logging
@@ -45,8 +45,8 @@ def dashboard():
     try:
         db = get_mongo_db()
         user_count = db.users.count_documents({'role': {'$ne': 'admin'}} if not is_admin() else {})
-        invoice_count = db.invoices.count_documents({})
-        transaction_count = db.transactions.count_documents({})
+        records_count = db.records.count_documents({})
+        cashflows_count = db.cashflows.count_documents({})
         inventory_count = db.inventory.count_documents({})
         coin_tx_count = db.coin_transactions.count_documents({})
         audit_log_count = db.audit_logs.count_documents({})
@@ -59,8 +59,8 @@ def dashboard():
             'admin/dashboard.html',
             stats={
                 'users': user_count,
-                'invoices': invoice_count,
-                'transactions': transaction_count,
+                'records': records_count,
+                'cashflows': cashflows_count,
                 'inventory': inventory_count,
                 'coin_transactions': coin_tx_count,
                 'audit_logs': audit_log_count
@@ -101,12 +101,13 @@ def suspend_user(user_id):
         db = get_mongo_db()
         # TEMPORARY: Allow admin to suspend any user during testing
         # TODO: Restore original filter {'_id': user_id, 'role': {'$ne': 'admin'}} for production
-        user = db.users.find_one({'_id': user_id})
+        user_query = get_user_query(user_id)
+        user = db.users.find_one(user_query)
         if not user:
             flash(trans_function('user_not_found', default='User not found'), 'danger')
             return redirect(url_for('admin_blueprint.manage_users'))
         result = db.users.update_one(
-            {'_id': user_id},
+            user_query,
             {'$set': {'suspended': True, 'updated_at': datetime.utcnow()}}
         )
         if result.modified_count == 0:
@@ -131,16 +132,17 @@ def delete_user(user_id):
         db = get_mongo_db()
         # TEMPORARY: Allow admin to delete any user during testing
         # TODO: Restore original filter {'_id': user_id, 'role': {'$ne': 'admin'}} for production
-        user = db.users.find_one({'_id': user_id})
+        user_query = get_user_query(user_id)
+        user = db.users.find_one(user_query)
         if not user:
             flash(trans_function('user_not_found', default='User not found'), 'danger')
             return redirect(url_for('admin_blueprint.manage_users'))
-        db.invoices.delete_many({'user_id': user_id})
-        db.transactions.delete_many({'user_id': user_id})
+        db.records.delete_many({'user_id': user_id})
+        db.cashflows.delete_many({'user_id': user_id})
         db.inventory.delete_many({'user_id': user_id})
         db.coin_transactions.delete_many({'user_id': user_id})
         db.audit_logs.delete_many({'details.user_id': user_id})
-        result = db.users.delete_one({'_id': user_id})
+        result = db.users.delete_one(user_query)
         if result.deleted_count == 0:
             flash(trans_function('user_not_deleted', default='User could not be deleted'), 'danger')
         else:
@@ -159,7 +161,7 @@ def delete_user(user_id):
 @limiter.limit("10 per hour")
 def delete_item(collection, item_id):
     """Delete an item from a collection."""
-    valid_collections = ['invoices', 'transactions', 'inventory']
+    valid_collections = ['records', 'cashflows', 'inventory']
     if collection not in valid_collections:
         flash(trans_function('invalid_collection', default='Invalid collection selected'), 'danger')
         return redirect(url_for('admin_blueprint.dashboard'))
@@ -171,7 +173,7 @@ def delete_item(collection, item_id):
         else:
             flash(trans_function('item_deleted', default='Item deleted successfully'), 'success')
             logger.info(f"Admin {current_user.id} deleted {collection} item {item_id}")
-            log_audit_action(f'db_{collection}_item', {'item_id': item_id, 'collection': collection})
+            log_audit_action(f'delete_{collection}_item', {'item_id': item_id, 'collection': collection})
         return redirect(url_for('admin_blueprint.dashboard'))
     except Exception as e:
         logger.error(f"Error deleting {collection} item {item_id}: {str(e)}")
@@ -189,13 +191,14 @@ def credit_coins():
         try:
             db = get_mongo_db()
             user_id = form.user_id.data.strip().lower()
-            user = db.users.find_one({'_id': user_id})
+            user_query = get_user_query(user_id)
+            user = db.users.find_one(user_query)
             if not user:
                 flash(trans_function('user_not_found', default='User not found'), 'danger')
                 return render_template('admin/reset.html', form=form)
             amount = int(form.amount.data)
             db.users.update_one(
-                {'_id': user_id},
+                user_query,
                 {'$inc': {'coin_balance': amount}}
             )
             ref = f"ADMIN_CREDIT_{datetime.utcnow().isoformat()}"
@@ -210,10 +213,10 @@ def credit_coins():
             logger.info(f"Admin {current_user.id} credited {amount} coins to user {user_id}")
             log_audit_action('credit_coins', {'user_id': user_id, 'amount': amount, 'ref': ref})
             return redirect(url_for('admin_blueprint.dashboard'))
-        except errors.PyMongoError as e:
+        except Exception as e:
             logger.error(f"Error crediting coins by admin {current_user.id}: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database'), 'danger')
-            return render_template('admin/coins/reset.html', form=form), 500
+            return render_template('admin/reset.html', form=form), 500
     return render_template('admin/reset.html', form=form)
 
 @admin_bp.route('/audit', methods=['GET'])
