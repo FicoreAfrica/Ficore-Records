@@ -451,7 +451,7 @@ def setup_database(initialize=False):
             'sessions': {
                 'validator': {},
                 'indexes': [
-                    {'key': [('expiration', ASCENDING)], 'expireAfterSeconds': 0, 'name': 'session_expiry_index'}
+                    {'key': [('expiration', ASCENDING)], 'expireAfterSeconds': 0, 'name': 'expiration_1'}
                 ]
             }
         }
@@ -461,11 +461,35 @@ def setup_database(initialize=False):
             if collection_name not in collections:
                 db.create_collection(collection_name, validator=config.get('validator', {}))
                 logger.info(f"Created collection: {collection_name}")
+            
+            # Check existing indexes to avoid conflicts
+            existing_indexes = db[collection_name].index_information()
             for index in config.get('indexes', []):
                 keys = index['key']
                 options = {k: v for k, v in index.items() if k != 'key'}
-                db[collection_name].create_index(keys, **options)
-                logger.info(f"Created index on {collection_name}: {keys}")
+                index_key_tuple = tuple(keys)  # Convert to tuple for comparison
+                index_name = options.get('name', '')
+                
+                # Check if index already exists with matching keys
+                index_exists = False
+                for existing_index_name, existing_index_info in existing_indexes.items():
+                    if tuple(existing_index_info['key']) == index_key_tuple:
+                        # Index exists, check if options match
+                        existing_options = {k: v for k, v in existing_index_info.items() if k not in ['key', 'v', 'ns']}
+                        if existing_options == options:
+                            logger.info(f"Index already exists on {collection_name}: {keys} with options {options}")
+                            index_exists = True
+                        else:
+                            logger.warning(f"Index conflict on {collection_name}: {keys}. Existing options: {existing_options}, Requested: {options}")
+                            # Optionally drop and recreate index if options differ (be cautious with this in production)
+                            # db[collection_name].drop_index(existing_index_name)
+                            # db[collection_name].create_index(keys, **options)
+                            # logger.info(f"Recreated index on {collection_name}: {keys} with options {options}")
+                        break
+                
+                if not index_exists:
+                    db[collection_name].create_index(keys, **options)
+                    logger.info(f"Created index on {collection_name}: {keys} with options {options}")
 
         # Admin user creation
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
