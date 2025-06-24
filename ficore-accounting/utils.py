@@ -1,12 +1,13 @@
 import re
+import os
 import logging
 from datetime import datetime, date
-from flask import flash, redirect, url_for, current_app, g, session
+from flask import flash, request, redirect, url_for, current_app, g, session
 from flask_login import current_user
 from functools import wraps
 from translations import trans_function
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
+from pymongo.errors import ConnectionError
 from gridfs import GridFS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -23,20 +24,21 @@ def get_limiter(app):
     global _limiter
     if _limiter is None:
         try:
+            storage_uri = app.config.get('MONGO_URI', 'memory://')
             _limiter = Limiter(
                 app=app,
                 key_func=get_remote_address,
-                default_limits=["1000 per day", "100 per hour"],
-                storage_uri=app.config.get('MONGO_URI', 'memory://'),
+                default_limits=["1000 per day", "50 per hour"],
+                storage_uri=storage_uri,
                 storage_options={}
             )
-            logger.info("Flask-Limiter initialized with MongoDB storage")
+            logger.info(f"Flask-Limiter initialized with storage: {storage_uri}")
         except Exception as e:
             logger.error(f"Failed to initialize Flask-Limiter with MongoDB: {str(e)}")
             _limiter = Limiter(
                 app=app,
                 key_func=get_remote_address,
-                default_limits=["1000 per day", "100 per hour"],
+                default_limits=["1000 per day", "50 per hour"],
                 storage_uri="memory://"
             )
             logger.warning("Flask-Limiter using in-memory storage as fallback")
@@ -48,7 +50,7 @@ def get_mail(app):
     if _mail is None:
         try:
             _mail = Mail(app)
-            logger.info("Flask-Mailman initialized")
+            logger.info("Flask-Mailman initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Flask-Mailman: {str(e)}")
             raise RuntimeError(f"Flask-Mailman initialization failed: {str(e)}")
@@ -63,7 +65,7 @@ def is_admin():
     return current_user.is_authenticated and current_user.role == 'admin'
 
 def is_valid_email(email):
-    """Validate email format."""
+    """Validate email address format."""
     email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(email_regex, email) is not None
 
@@ -146,7 +148,7 @@ def format_date(value):
 
 def get_mongo_db():
     """Get MongoDB database connection for the current request."""
-    if 'db' not in g:
+    if 'mongo_db' not in g:
         try:
             if 'mongo_client' not in current_app.extensions:
                 logger.error("MongoDB client not initialized in application")
@@ -158,7 +160,7 @@ def get_mongo_db():
             current_app.extensions['pymongo'] = g.db
             current_app.extensions['gridfs'] = g.gridfs
             logger.debug(f"Using MongoClient: {g.mongo_client}")
-        except ConnectionFailure as e:
+        except ConnectionError as e:
             logger.error(f"Failed to connect to MongoDB: {str(e)}")
             raise RuntimeError(f"Cannot connect to MongoDB: {str(e)}")
         except Exception as e:
@@ -168,6 +170,6 @@ def get_mongo_db():
 
 def close_mongo_db(error=None):
     """Clean up MongoDB request-specific resources."""
-    g.pop('db', None)
+    g.pop('mongo_db', None)
     g.pop('gridfs', None)
     logger.debug("MongoDB request context cleaned up")
