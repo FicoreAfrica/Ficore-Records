@@ -1,8 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ trans('coin_history', default='Coin History') }} - FiCore{% endblock %}
+{% block title %}{{ trans('your_wallet', default='Your Wallet') }} - FiCore{% endblock %}
 {% block content %}
 <div class="container mt-5">
-    <h1 class="mb-4">{{ trans('coin_history', default='Coin History') }}</h1>
+    <div class="page-title">
+        <h1>{{ trans('your_wallet', default='Your Wallet') }}</h1>
+        <small class="subtext">{{ trans('wallet_subtext', default='Tsabobin Cikin App') }}</small>
+    </div>
     <div class="d-flex gap-2 mb-4">
         <a href="{{ url_for('coins_blueprint.purchase') }}" class="btn btn-primary">{{ trans('purchase_coins', default='Purchase Coins') }}</a>
         <a href="{{ url_for('coins_blueprint.receipt_upload') }}" class="btn btn-primary">{{ trans('upload_receipt', default='Upload Receipt') }}</a>
@@ -22,10 +25,10 @@
                 <tbody>
                     {% for tx in transactions %}
                         <tr>
-                            <td>{{ tx.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                            <td>{{ trans(tx.type, default=tx.type) }}</td>
-                            <td>{{ tx.amount }}</td>
-                            <td>{{ tx.ref }}</td>
+                            <td data-label="{{ trans('date', default='Date') }}">{{ tx.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td data-label="{{ trans('type', default='Type') }}">{{ trans(tx.type, default=tx.type) }}</td>
+                            <td data-label="{{ trans('amount', default='Amount') }}">{{ tx.amount }}</td>
+                            <td data-label="{{ trans('reference', default='Reference') }}">{{ tx.ref }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>

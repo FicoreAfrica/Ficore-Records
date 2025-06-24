@@ -2,7 +2,10 @@
 {% block title %}{{ trans('profit_loss_report', default='Profit/Loss Report') }} - FiCore{% endblock %}
 {% block content %}
 <div class="container mt-5">
-    <h1 class="mb-4">{{ trans('profit_loss_report', default='Profit/Loss Report') }}</h1>
+    <div class="page-title">
+        <h1>{{ trans('profit_loss_report', default='Profit/Loss Report') }}</h1>
+        <small class="subtext">{{ trans('reports_subtext', default='Rahoton Kasuwanci') }}</small>
+    </div>
     <form action="{{ url_for('reports_blueprint.profit_loss') }}" method="POST" class="row g-3 mb-4">
         {{ form.hidden_tag() }}
         <div class="col-12">
@@ -32,7 +35,7 @@
             <button type="submit" name="format" value="csv" class="btn btn-success">{{ trans('download_csv', default='Download CSV') }}</button>
         </div>
     </form>
-    {% if transactions.count() %}
+    {% if cashflows|length > 0 %}
         <div class="table-responsive">
             <table class="table table-striped table-bordered">
                 <thead class="table-light">
@@ -45,13 +48,13 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for transaction in transactions %}
+                    {% for cashflow in cashflows %}
                         <tr>
-                            <td>{{ format_date(transaction.date) }}</td>
-                            <td>{{ transaction.party_name }}</td>
-                            <td>{{ trans(transaction.type, default=transaction.type) }}</td>
-                            <td>{{ format_currency(transaction.amount) }}</td>
-                            <td>{{ trans(transaction.category, default=transaction.category) }}</td>
+                            <td data-label="{{ trans('date', default='Date') }}">{{ format_date(cashflow.created_at) }}</td>
+                            <td data-label="{{ trans('party_name', default='Party Name') }}">{{ cashflow.party_name }}</td>
+                            <td data-label="{{ trans('type', default='Type') }}">{{ trans(cashflow.type, default=cashflow.type) }}</td>
+                            <td data-label="{{ trans('amount', default='Amount') }}">{{ format_currency(cashflow.amount) }}</td>
+                            <td data-label="{{ trans('category', default='Category') }}">{{ trans(cashflow.category, default=cashflow.category) }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>

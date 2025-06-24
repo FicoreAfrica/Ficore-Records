@@ -1,8 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ trans('edit_receipt', default='Edit Receipt') }} - FiCore{% endblock %}
+{% block title %}{{ trans('edit_money_in', default='Edit Money In') }} - FiCore{% endblock %}
 {% block content %}
 <div class="container mt-5">
-    <h1 class="mb-4">{{ trans('edit_receipt', default='Edit Receipt') }}</h1>
+    <div class="page-title">
+        <h1>{{ trans('edit_money_in', default='Edit Money In') }}</h1>
+        <small class="subtext">{{ trans('money_in_subtext', default='Kuɗin Da Aka Biyaka') }}</small>
+    </div>
     <form action="{{ url_for('receipts_blueprint.edit', id=receipt._id) }}" method="POST" class="row g-3">
         {{ form.hidden_tag() }}
         <div class="col-12">
@@ -27,10 +30,10 @@
             {% endif %}
         </div>
         <div class="col-12">
-            <label for="description" class="form-label">{{ trans('description', default='Description') }}</label>
-            {{ form.description(class="form-control") }}
-            {% if form.description.errors %}
-                <p class="text-danger mt-1">{{ form.description.errors[0] }}</p>
+            <label for="method" class="form-label">{{ trans('payment_method', default='Payment Method') }}</label>
+            {{ form.method(class="form-control") }}
+            {% if form.method.errors %}
+                <p class="text-danger mt-1">{{ form.method.errors[0] }}</p>
             {% endif %}
         </div>
         <div class="col-12">

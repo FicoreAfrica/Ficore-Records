@@ -2,7 +2,10 @@
 {% block title %}{{ trans('inventory_report', default='Inventory Report') }} - FiCore{% endblock %}
 {% block content %}
 <div class="container mt-5">
-    <h1 class="mb-4">{{ trans('inventory_report', default='Inventory Report') }}</h1>
+    <div class="page-title">
+        <h1>{{ trans('inventory_report', default='Inventory Report') }}</h1>
+        <small class="subtext">{{ trans('reports_subtext', default='Rahoton Kasuwanci') }}</small>
+    </div>
     <form action="{{ url_for('reports_blueprint.inventory') }}" method="POST" class="row g-3 mb-4">
         {{ form.hidden_tag() }}
         <div class="col-12">
@@ -18,7 +21,7 @@
             <button type="submit" name="format" value="csv" class="btn btn-success">{{ trans('download_csv', default='Download CSV') }}</button>
         </div>
     </form>
-    {% if items.count() %}
+    {% if items|length > 0 %}
         <div class="table-responsive">
             <table class="table table-striped table-bordered">
                 <thead class="table-light">
@@ -34,12 +37,12 @@
                 <tbody>
                     {% for item in items %}
                         <tr>
-                            <td>{{ item.item_name }}</td>
-                            <td>{{ item.qty }}</td>
-                            <td>{{ trans(item.unit, default=item.unit) }}</td>
-                            <td>{{ format_currency(item.buying_price) }}</td>
-                            <td>{{ format_currency(item.selling_price) }}</td>
-                            <td>{{ item.threshold }}</td>
+                            <td data-label="{{ trans('item_name', default='Item Name') }}">{{ item.item_name }}</td>
+                            <td data-label="{{ trans('quantity', default='Quantity') }}">{{ item.qty }}</td>
+                            <td data-label="{{ trans('unit', default='Unit') }}">{{ trans(item.unit, default=item.unit) }}</td>
+                            <td data-label="{{ trans('buying_price', default='Buying Price') }}">{{ format_currency(item.buying_price) }}</td>
+                            <td data-label="{{ trans('selling_price', default='Selling Price') }}">{{ format_currency(item.selling_price) }}</td>
+                            <td data-label="{{ trans('threshold', default='Threshold') }}">{{ item.threshold }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>

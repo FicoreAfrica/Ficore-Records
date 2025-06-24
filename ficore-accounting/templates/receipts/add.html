@@ -1,10 +1,14 @@
 {% extends "base.html" %}
-{% block title %}{{ trans('add_receipt', default='Add Receipt') }} - FiCore{% endblock %}
+{% block title %}{{ trans('add_money_in', default='Add Money In') }} - FiCore{% endblock %}
 {% block content %}
 <div class="container mt-5">
-    <h1 class="mb-4">{{ trans('add_receipt', default='Add Receipt') }}</h1>
-    <form action="{{ url_for('receipts_blueprint.add') }}" method="POST" class="row g-3">
+    <div class="page-title">
+        <h1>{{ trans('add_money_in', default='Add Money In') }}</h1>
+        <small class="subtext">{{ trans('money_in_subtext', default='Kuɗin Da Aka Biyaka') }}</small>
+    </div>
+    <form action="{{ url_for('receipts_blueprint.add') }}" method="POST" enctype="multipart/form-data" class="row g-3">
         {{ form.hidden_tag() }}
+        <input type="hidden" name="type" value="receipt">
         <div class="col-12">
             <label for="party_name" class="form-label">{{ trans('party_name', default='Party Name') }}</label>
             {{ form.party_name(class="form-control", required=True) }}
@@ -27,10 +31,10 @@
             {% endif %}
         </div>
         <div class="col-12">
-            <label for="description" class="form-label">{{ trans('description', default='Description') }}</label>
-            {{ form.description(class="form-control") }}
-            {% if form.description.errors %}
-                <p class="text-danger mt-1">{{ form.description.errors[0] }}</p>
+            <label for="method" class="form-label">{{ trans('payment_method', default='Payment Method') }}</label>
+            {{ form.method(class="form-control") }}
+            {% if form.method.errors %}
+                <p class="text-danger mt-1">{{ form.method.errors[0] }}</p>
             {% endif %}
         </div>
         <div class="col-12">
@@ -41,7 +45,11 @@
             {% endif %}
         </div>
         <div class="col-12">
-            <button type="submit" class="btn btn-primary w-100">{{ trans('save', default='Save') }}</button>
+            <label for="file" class="form-label">{{ trans('file_upload', default='File Upload (Optional)') }}</label>
+            <input type="file" name="file" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary w-100">{{ trans('submit', default='Submit') }}</button>
         </div>
     </form>
 </div>

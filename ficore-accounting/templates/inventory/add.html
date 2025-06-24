@@ -1,8 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ trans('add_item', default='Add Item') }} - FiCore{% endblock %}
+{% block title %}{{ trans('add_goods_stock', default='Add Goods & Stock') }} - FiCore{% endblock %}
 {% block content %}
 <div class="container mt-5">
-    <h1 class="mb-4">{{ trans('add_item', default='Add Item') }}</h1>
+    <div class="page-title">
+        <h1>{{ trans('add_goods_stock', default='Add Goods & Stock') }}</h1>
+        <small class="subtext">{{ trans('goods_stock_subtext', default='Kayanka da Hajojinka') }}</small>
+    </div>
     <form action="{{ url_for('inventory_blueprint.add') }}" method="POST" class="row g-3">
         {{ form.hidden_tag() }}
         <div class="col-12">
