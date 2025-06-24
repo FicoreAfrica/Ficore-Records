@@ -3,9 +3,21 @@ from flask_login import login_required, current_user
 from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
 from bson import ObjectId
 from datetime import datetime
+from flask_wtf import FlaskForm
+from wtforms import StringField, DateField, FloatField, SubmitField
+from wtforms.validators import DataRequired, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Define form
+class PaymentForm(FlaskForm):
+    party_name = StringField('Recipient Name', validators=[DataRequired()])
+    date = DateField('Date', validators=[DataRequired()])
+    amount = FloatField('Amount', validators=[DataRequired()])
+    description = StringField('Description', validators=[Optional()])
+    category = StringField('Category', validators=[Optional()])
+    submit = SubmitField('Add Payment')
 
 payments_bp = Blueprint('payments', __name__, url_prefix='/payments')
 
@@ -31,8 +43,7 @@ def index():
 @requires_role('trader')
 def add():
     """Add a new payment."""
-    from app.forms import TransactionForm
-    form = TransactionForm()
+    form = PaymentForm()
     # TEMPORARY: Bypass coin check for admin during testing
     # TODO: Restore original check_coin_balance(1) for production
     if not is_admin() and not check_coin_balance(1):
@@ -78,7 +89,6 @@ def add():
 @requires_role('trader')
 def edit(id):
     """Edit an existing payment."""
-    from app.forms import TransactionForm
     try:
         db = get_mongo_db()
         # TEMPORARY: Allow admin to edit any payment during testing
@@ -88,7 +98,7 @@ def edit(id):
         if not payment:
             flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
             return redirect(url_for('payments_blueprint.index'))
-        form = TransactionForm(data={
+        form = PaymentForm(data={
             'party_name': payment['party_name'],
             'date': payment['date'],
             'amount': payment['amount'],
@@ -124,7 +134,7 @@ def edit(id):
 @login_required
 @requires_role('trader')
 def delete(id):
-    """Delete a payment."""
+    """Delete a payment Stuart payment."""
     try:
         db = get_mongo_db()
         # TEMPORARY: Allow admin to delete any payment during testing
