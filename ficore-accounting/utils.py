@@ -24,34 +24,15 @@ def get_user_query(user_id: str) -> dict:
         return {'_id': user_id}
 
 def is_admin():
-    """Check if current user is an admin - TEMPORARY for testing."""
-    # TODO: Remove or revert this admin override for production
+    """Check if current user is an admin - TEMPORARY for testing.
+    TODO: For production, replace with stricter check, e.g., user.get('is_admin', False).
+    """
     return current_user.is_authenticated and current_user.role == 'admin'
 
 def is_valid_email(email):
     """Validate email format."""
     email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(email_regex, email) is not None
-
-def format_currency(amount):
-    """Format amount as currency with Naira symbol."""
-    try:
-        return f"₦{float(amount):,.2f}"
-    except (ValueError, TypeError):
-        logger.error(f"Invalid amount for currency formatting: {amount}")
-        return "₦0.00"
-
-def format_date(date):
-    """Format date for display."""
-    if isinstance(date, datetime):
-        return date.strftime("%Y-%m-%d")
-    return date
-
-def format_datetime(date):
-    """Format datetime for display."""
-    if isinstance(date, datetime):
-        return date.strftime("%Y-%m-%d %H:%M:%S")
-    return date
 
 def requires_role(role):
     """Decorator to restrict access to a specific role."""
@@ -60,10 +41,8 @@ def requires_role(role):
         def decorated_function(*args, **kwargs):
             # TEMPORARY: Bypass role check for admin users during testing
             # TODO: Remove this bypass for production
-            
             if is_admin():
                 return f(*args, **kwargs)
-                
             if not current_user.is_authenticated:
                 flash(trans_function('login_required', default='Please log in to access this page'), 'danger')
                 return redirect(url_for('users_blueprint.login'))
@@ -80,7 +59,6 @@ def check_coin_balance(required_coins):
     # TODO: Remove this bypass for production
     if is_admin():
         return True
-        
     try:
         db = get_mongo_db()
         user_query = get_user_query(current_user.id)
