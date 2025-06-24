@@ -525,7 +525,7 @@ def feedback():
         ['coins', trans('tool_coins', default='Coins')],
         ['debtors', trans('people', default='People')],
         ['creditors', trans('people')],
-        ['receipts', default='Receipts')],
+        ['receipts', trans('receipts', default='Receipts')],
         ['payment', trans('payment', default='Payments')],
         ['inventory', trans('inventory', default='Inventory')],
         ['report', trans('report', default='Reports')]
