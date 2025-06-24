@@ -1,26 +1,20 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin, get_user_query
 from bson import ObjectId
 from datetime import datetime
 from flask_wtf import FlaskForm
-from wtforms import StringField, DateField, FloatField, IntegerField, FieldList, FormField, SubmitField
+from wtforms import StringField, DateField, FloatField, TextAreaField, SubmitField
 from wtforms.validators import DataRequired, Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Define forms
-class ItemForm(FlaskForm):
-    description = StringField('Description', validators=[DataRequired()])
-    quantity = IntegerField('Quantity', validators=[DataRequired()])
-    price = FloatField('Price', validators=[DataRequired()])
-
 class DebtorForm(FlaskForm):
-    party_name = StringField('Debtor Name', validators=[DataRequired()])
-    phone = StringField('Phone', validators=[Optional()])
-    due_date = DateField('Due Date', validators=[DataRequired()])
-    items = FieldList(FormField(ItemForm), min_entries=1, validators=[DataRequired()])
+    name = StringField('Debtor Name', validators=[DataRequired()])
+    contact = StringField('Contact', validators=[Optional()])
+    amount_owed = FloatField('Amount Owed', validators=[DataRequired()])
+    description = TextAreaField('Description', validators=[Optional()])
     submit = SubmitField('Add Debtor')
 
 debtors_bp = Blueprint('debtors', __name__, url_prefix='/debtors')
@@ -29,13 +23,13 @@ debtors_bp = Blueprint('debtors', __name__, url_prefix='/debtors')
 @login_required
 @requires_role('trader')
 def index():
-    """List all debtor invoices for the current user."""
+    """List all debtor records for the current user."""
     try:
         db = get_mongo_db()
-        # TEMPORARY: Allow admin to view all debtor invoices during testing
+        # TEMPORARY: Allow admin to view all debtor records during testing
         # TODO: Restore original user_id filter for production
-        query = {} if is_admin() else {'user_id': str(current_user.id), 'type': 'debtor'}
-        debtors = list(db.invoices.find(query).sort('created_at', -1))  # Convert cursor to list
+        query = {'type': 'debtor'} if is_admin() else {'user_id': str(current_user.id), 'type': 'debtor'}
+        debtors = list(db.records.find(query).sort('created_at', -1))
         return render_template('debtors/index.html', debtors=debtors, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching debtors for user {current_user.id}: {str(e)}")
@@ -46,7 +40,7 @@ def index():
 @login_required
 @requires_role('trader')
 def add():
-    """Add a new debtor invoice."""
+    """Add a new debtor record."""
     form = DebtorForm()
     # TEMPORARY: Bypass coin check for admin during testing
     # TODO: Restore original check_coin_balance(1) for production
@@ -56,29 +50,22 @@ def add():
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
-            invoice = {
+            record = {
                 'user_id': str(current_user.id),
                 'type': 'debtor',
-                'party_name': form.party_name.data,
-                'phone': form.phone.data,
-                'items': [{
-                    'description': item.description.data,
-                    'quantity': item.quantity.data,
-                    'price': item.price.data
-                } for item in form.items],
-                'total': sum(item.quantity.data * item.price.data for item in form.items),
-                'paid_amount': 0,
-                'due_date': form.due_date.data,
-                'status': 'unpaid',
-                'payments': [],
+                'name': form.name.data,
+                'contact': form.contact.data,
+                'amount_owed': form.amount_owed.data,
+                'description': form.description.data,
                 'created_at': datetime.utcnow()
             }
-            db.invoices.insert_one(invoice)
+            db.records.insert_one(record)
             # TEMPORARY: Skip coin deduction for admin during testing
             # TODO: Restore original coin deduction for production
             if not is_admin():
+                user_query = get_user_query(str(current_user.id))
                 db.users.update_one(
-                    {'_id': ObjectId(current_user.id)},
+                    user_query,
                     {'$inc': {'coin_balance': -1}}
                 )
                 db.coin_transactions.insert_one({
@@ -86,7 +73,7 @@ def add():
                     'amount': -1,
                     'type': 'spend',
                     'date': datetime.utcnow(),
-                    'ref': f"Debtor creation: {invoice['party_name']}"
+                    'ref': f"Debtor creation: {record['name']}"
                 })
             flash(trans_function('create_debtor_success', default='Debtor created successfully'), 'success')
             return redirect(url_for('debtors_blueprint.index'))
@@ -99,39 +86,34 @@ def add():
 @login_required
 @requires_role('trader')
 def edit(id):
-    """Edit an existing debtor invoice."""
+    """Edit an existing debtor record."""
     try:
         db = get_mongo_db()
-        # TEMPORARY: Allow admin to edit any debtor invoice during testing
+        # TEMPORARY: Allow admin to edit any debtor record during testing
         # TODO: Restore original user_id filter for production
         query = {'_id': ObjectId(id), 'type': 'debtor'} if is_admin() else {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'debtor'}
-        debtor = db.invoices.find_one(query)
+        debtor = db.records.find_one(query)
         if not debtor:
-            flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
+            flash(trans_function('record_not_found', default='Record not found'), 'danger')
             return redirect(url_for('debtors_blueprint.index'))
         form = DebtorForm(data={
-            'party_name': debtor['party_name'],
-            'phone': debtor['phone'],
-            'due_date': debtor['due_date'],
-            'items': debtor['items']
+            'name': debtor['name'],
+            'contact': debtor['contact'],
+            'amount_owed': debtor['amount_owed'],
+            'description': debtor['description']
         })
         if form.validate_on_submit():
             try:
-                updated_invoice = {
-                    'party_name': form.party_name.data,
-                    'phone': form.phone.data,
-                    'items': [{
-                        'description': item.description.data,
-                        'quantity': item.quantity.data,
-                        'price': item.price.data
-                    } for item in form.items],
-                    'total': sum(item.quantity.data * item.price.data for item in form.items),
-                    'due_date': form.due_date.data,
+                updated_record = {
+                    'name': form.name.data,
+                    'contact': form.contact.data,
+                    'amount_owed': form.amount_owed.data,
+                    'description': form.description.data,
                     'updated_at': datetime.utcnow()
                 }
-                db.invoices.update_one(
+                db.records.update_one(
                     {'_id': ObjectId(id)},
-                    {'$set': updated_invoice}
+                    {'$set': updated_record}
                 )
                 flash(trans_function('edit_debtor_success', default='Debtor updated successfully'), 'success')
                 return redirect(url_for('debtors_blueprint.index'))
@@ -141,24 +123,24 @@ def edit(id):
         return render_template('debtors/edit.html', form=form, debtor=debtor)
     except Exception as e:
         logger.error(f"Error fetching debtor {id} for user {current_user.id}: {str(e)}")
-        flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
+        flash(trans_function('record_not_found', default='Record not found'), 'danger')
         return redirect(url_for('debtors_blueprint.index'))
 
 @debtors_bp.route('/delete/<id>', methods=['POST'])
 @login_required
 @requires_role('trader')
 def delete(id):
-    """Delete a debtor invoice."""
+    """Delete a debtor record."""
     try:
         db = get_mongo_db()
-        # TEMPORARY: Allow admin to delete any debtor invoice during testing
+        # TEMPORARY: Allow admin to delete any debtor record during testing
         # TODO: Restore original user_id filter for production
         query = {'_id': ObjectId(id), 'type': 'debtor'} if is_admin() else {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'debtor'}
-        result = db.invoices.delete_one(query)
+        result = db.records.delete_one(query)
         if result.deleted_count:
             flash(trans_function('delete_debtor_success', default='Debtor deleted successfully'), 'success')
         else:
-            flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
+            flash(trans_function('record_not_found', default='Record not found'), 'danger')
     except Exception as e:
         logger.error(f"Error deleting debtor {id} for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
