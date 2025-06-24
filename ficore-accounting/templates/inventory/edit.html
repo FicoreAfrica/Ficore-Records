@@ -24,28 +24,28 @@
         </div>
         <div class="col-12">
             <label for="unit" class="form-label">{{ trans('unit', default='Unit') }}</label>
-            {{ form.unit(class="form-control", required=True) }}
+            {{ form.unit(class="form-control") }}
             {% if form.unit.errors %}
                 <p class="text-danger mt-1">{{ form.unit.errors[0] }}</p>
             {% endif %}
         </div>
         <div class="col-12">
             <label for="buying_price" class="form-label">{{ trans('buying_price', default='Buying Price') }}</label>
-            {{ form.buying_price(class="form-control", type="number", step="0.01", required=True) }}
+            {{ form.buying_price(class="form-control", type="number", step="0.01") }}
             {% if form.buying_price.errors %}
                 <p class="text-danger mt-1">{{ form.buying_price.errors[0] }}</p>
             {% endif %}
         </div>
         <div class="col-12">
             <label for="selling_price" class="form-label">{{ trans('selling_price', default='Selling Price') }}</label>
-            {{ form.selling_price(class="form-control", type="number", step="0.01", required=True) }}
+            {{ form.selling_price(class="form-control", type="number", step="0.01") }}
             {% if form.selling_price.errors %}
                 <p class="text-danger mt-1">{{ form.selling_price.errors[0] }}</p>
             {% endif %}
         </div>
         <div class="col-12">
             <label for="threshold" class="form-label">{{ trans('threshold', default='Low Stock Threshold') }}</label>
-            {{ form.threshold(class="form-control", type="number", required=True) }}
+            {{ form.threshold(class="form-control", type="number") }}
             {% if form.threshold.errors %}
                 <p class="text-danger mt-1">{{ form.threshold.errors[0] }}</p>
             {% endif %}

@@ -10,7 +10,7 @@
         {{ form.hidden_tag() }}
         <input type="hidden" name="type" value="creditor">
         <div class="col-12">
-            <label for="name" class="form-label">{{ trans('party_name', default='Party Name') }}</label>
+            <label for="name" class="form-label">{{ trans('name', default='Name') }}</label>
             {{ form.name(class="form-control", required=True) }}
             {% if form.name.errors %}
                 <p class="text-danger mt-1">{{ form.name.errors[0] }}</p>

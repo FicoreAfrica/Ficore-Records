@@ -34,7 +34,7 @@
                             <table class="table table-striped mt-3">
                                 <thead>
                                     <tr>
-                                        <th>{{ trans('party_name', default='Party Name') }}</th>
+                                        <th>{{ trans('name', default='Name') }}</th>
                                         <th>{{ trans('amount', default='Amount') }}</th>
                                         <th>{{ trans('actions', default='Actions') }}</th>
                                     </tr>
@@ -73,7 +73,7 @@
                             <table class="table table-striped mt-3">
                                 <thead>
                                     <tr>
-                                        <th>{{ trans('party_name', default='Party Name') }}</th>
+                                        <th>{{ trans('name', default='Name') }}</th>
                                         <th>{{ trans('amount', default='Amount') }}</th>
                                         <th>{{ trans('actions', default='Actions') }}</th>
                                     </tr>
@@ -202,8 +202,8 @@
                                         <tr>
                                             <td>{{ item.item_name }}</td>
                                             <td>{{ item.qty }}</td>
-                                            <td>{{ item.unit }}</td>
-                                            <td>{{ item.selling_price | format_currency }}</td>
+                                            <td>{{ item.unit or '-' }}</td>
+                                            <td>{{ item.selling_price | format_currency if item.selling_price else '-' }}</td>
                                             <td>
                                                 {% if current_user.role != 'admin' or item.user_id == current_user.id %}
                                                     <a href="{{ url_for('inventory_blueprint.edit', id=item._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>

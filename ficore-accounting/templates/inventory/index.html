@@ -26,13 +26,13 @@
                 </thead>
                 <tbody>
                     {% for item in items %}
-                        <tr class="{{ 'table-warning' if item.qty <= item.threshold else '' }}">
+                        <tr class="{{ 'table-warning' if item.qty <= (item.threshold or 5) else '' }}">
                             <td data-label="{{ trans('item_name', default='Item Name') }}">{{ item.item_name }}</td>
                             <td data-label="{{ trans('quantity', default='Quantity') }}">{{ item.qty }}</td>
-                            <td data-label="{{ trans('unit', default='Unit') }}">{{ trans(item.unit, default=item.unit) }}</td>
-                            <td data-label="{{ trans('buying_price', default='Buying Price') }}">{{ format_currency(item.buying_price) }}</td>
-                            <td data-label="{{ trans('selling_price', default='Selling Price') }}">{{ format_currency(item.selling_price) }}</td>
-                            <td data-label="{{ trans('threshold', default='Threshold') }}">{{ item.threshold }}</td>
+                            <td data-label="{{ trans('unit', default='Unit') }}">{{ item.unit or '-' }}</td>
+                            <td data-label="{{ trans('buying_price', default='Buying Price') }}">{{ format_currency(item.buying_price) if item.buying_price else '-' }}</td>
+                            <td data-label="{{ trans('selling_price', default='Selling Price') }}">{{ format_currency(item.selling_price) if item.selling_price else '-' }}</td>
+                            <td data-label="{{ trans('threshold', default='Threshold') }}">{{ item.threshold or 5 }}</td>
                             <td data-label="{{ trans('actions', default='Actions') }}">
                                 <a href="{{ url_for('inventory_blueprint.edit', id=item._id) }}" class="btn btn-primary btn-sm">{{ trans('edit', default='Edit') }}</a>
                                 <form action="{{ url_for('inventory_blueprint.delete', id=item._id) }}" method="POST" class="d-inline">

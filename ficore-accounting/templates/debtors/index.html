@@ -12,7 +12,7 @@
             <table class="table table-striped table-bordered">
                 <thead class="table-light">
                     <tr>
-                        <th>{{ trans('party_name', default='Party Name') }}</th>
+                        <th>{{ trans('name', default='Name') }}</th>
                         <th>{{ trans('amount', default='Amount') }}</th>
                         <th>{{ trans('contact', default='Contact') }}</th>
                         <th>{{ trans('created_at', default='Created At') }}</th>
@@ -22,7 +22,7 @@
                 <tbody>
                     {% for debtor in debtors %}
                         <tr>
-                            <td data-label="{{ trans('party_name', default='Party Name') }}">{{ debtor.name }}</td>
+                            <td data-label="{{ trans('name', default='Name') }}">{{ debtor.name }}</td>
                             <td data-label="{{ trans('amount', default='Amount') }}">{{ format_currency(debtor.amount_owed) }}</td>
                             <td data-label="{{ trans('contact', default='Contact') }}">{{ debtor.contact or '-' }}</td>
                             <td data-label="{{ trans('created_at', default='Created At') }}">{{ format_date(debtor.created_at) }}</td>
