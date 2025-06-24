@@ -7,7 +7,7 @@ from flask_login import current_user
 from functools import wraps
 from translations import trans_function
 from pymongo import MongoClient
-from pymongo.errors import ConnectionError
+from pymongo.errors import ConnectionFailure
 from gridfs import GridFS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -160,7 +160,7 @@ def get_mongo_db():
             current_app.extensions['pymongo'] = g.db
             current_app.extensions['gridfs'] = g.gridfs
             logger.debug(f"Using MongoClient: {g.mongo_client}")
-        except ConnectionError as e:
+        except ConnectionFailure as e:
             logger.error(f"Failed to connect to MongoDB: {str(e)}")
             raise RuntimeError(f"Cannot connect to MongoDB: {str(e)}")
         except Exception as e:
