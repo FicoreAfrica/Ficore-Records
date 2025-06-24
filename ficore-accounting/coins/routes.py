@@ -10,6 +10,7 @@ from gridfs import GridFS
 from wtforms import FloatField, StringField, SelectField, SubmitField, validators
 from app import limiter
 from utils import trans_function, requires_role, check_coin_balance, get_mongo_db, is_admin, get_user_query
+from pymongo import errors
 
 logger = getLogger(__name__)
 
@@ -45,32 +46,49 @@ class ReceiptUploadForm(FlaskForm):
     submit = SubmitField(trans_function('upload_receipt', default='Upload Receipt'))
 
 def credit_coins(user_id: str, amount: int, ref: str, type: str = 'purchase') -> None:
-    """Credit coins to a user and log transaction."""
+    """Credit coins to a user and log transaction using MongoDB transaction."""
     db = get_mongo_db()
+    client = db.client  # Get MongoDB client for session
     user_query = get_user_query(user_id)
-    result = db.users.update_one(
-        user_query,
-        {'$inc': {'coin_balance': amount}}
-    )
-    if result.matched_count == 0:
-        logger.error(f"No user found for ID {user_id} to credit coins")
-        raise ValueError(f"No user found for ID {user_id}")
-    db.coin_transactions.insert_one({
-        'user_id': user_id,
-        'amount': amount,
-        'type': type,
-        'ref': ref,
-        'date': datetime.utcnow()
-    })
-    try:
-        db.audit_logs.insert_one({
-            'admin_id': 'system' if type == 'purchase' else str(current_user.id),
-            'action': f'credit_coins_{type}',
-            'details': {'user_id': user_id, 'amount': amount, 'ref': ref},
-            'timestamp': datetime.utcnow()
-        })
-    except Exception as e:
-        logger.error(f"Error logging audit action for coin credit: {str(e)}")
+    
+    with client.start_session() as session:
+        with session.start_transaction():
+            try:
+                # Update user coin balance
+                result = db.users.update_one(
+                    user_query,
+                    {'$inc': {'coin_balance': amount}},
+                    session=session
+                )
+                if result.matched_count == 0:
+                    logger.error(f"No user found for ID {user_id} to credit coins")
+                    raise ValueError(f"No user found for ID {user_id}")
+                
+                # Insert coin transaction
+                db.coin_transactions.insert_one({
+                    'user_id': user_id,
+                    'amount': amount,
+                    'type': type,
+                    'ref': ref,
+                    'date': datetime.utcnow()
+                }, session=session)
+                
+                # Insert audit log
+                db.audit_logs.insert_one({
+                    'admin_id': 'system' if type == 'purchase' else str(current_user.id),
+                    'action': f'credit_coins_{type}',
+                    'details': {'user_id': user_id, 'amount': amount, 'ref': ref},
+                    'timestamp': datetime.utcnow()
+                }, session=session)
+                
+            except ValueError as e:
+                logger.error(f"Transaction aborted: {str(e)}")
+                session.abort_transaction()
+                raise
+            except errors.PyMongoError as e:
+                logger.error(f"MongoDB error during coin credit transaction for user {user_id}: {str(e)}")
+                session.abort_transaction()
+                raise
 
 @coins_bp.route('/purchase', methods=['GET', 'POST'])
 @login_required
@@ -92,8 +110,12 @@ def purchase():
             logger.error(f"User not found for coin purchase: {str(e)}")
             flash(trans_function('user_not_found', default='User not found'), 'danger')
             return render_template('coins/purchase.html', form=form), 404
+        except errors.PyMongoError as e:
+            logger.error(f"MongoDB error purchasing coins for user {current_user.id}: {str(e)}")
+            flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
+            return render_template('coins/purchase.html', form=form), 500
         except Exception as e:
-            logger.error(f"Error purchasing coins for user {current_user.id}: {str(e)}")
+            logger.error(f"Unexpected error purchasing coins for user {current_user.id}: {str(e)}")
             flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
             return render_template('coins/purchase.html', form=form), 500
     return render_template('coins/purchase.html', form=form)
@@ -128,7 +150,7 @@ def history():
 @requires_role(['trader', 'personal'])
 @limiter.limit("10 per hour")
 def receipt_upload():
-    """Handle payment receipt uploads."""
+    """Handle payment receipt uploads with transaction for coin deduction."""
     form = ReceiptUploadForm()
     # TEMPORARY: Bypass coin check for admin during testing
     # TODO: Restore original check_coin_balance(1) for production
@@ -141,39 +163,50 @@ def receipt_upload():
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
+            client = db.client  # Get MongoDB client for session
             fs = GridFS(db)
             receipt_file = form.receipt.data
-            file_id = fs.put(
-                receipt_file,
-                filename=receipt_file.filename,
-                user_id=str(current_user.id),
-                upload_date=datetime.utcnow()
-            )
-            # TEMPORARY: Skip coin deduction for admin during testing
-            # TODO: Restore original coin deduction for production
-            if not is_admin():
-                user_query = get_user_query(str(current_user.id))
-                result = db.users.update_one(
-                    user_query,
-                    {'$inc': {'coin_balance': -1}}
-                )
-                if result.matched_count == 0:
-                    logger.error(f"No user found for ID {current_user.id} to deduct coins")
-                    raise ValueError(f"No user found for ID {current_user.id}")
-                db.coin_transactions.insert_one({
-                    'user_id': str(current_user.id),
-                    'amount': -1,
-                    'type': 'spend',
-                    'ref': f"RECEIPT_UPLOAD_{datetime.utcnow().isoformat()}",
-                    'date': datetime.utcnow()
-                })
             ref = f"RECEIPT_UPLOAD_{datetime.utcnow().isoformat()}"
-            db.audit_logs.insert_one({
-                'admin_id': 'system',
-                'action': 'receipt_upload',
-                'details': {'user_id': str(current_user.id), 'file_id': str(file_id), 'ref': ref},
-                'timestamp': datetime.utcnow()
-            })
+            
+            with client.start_session() as session:
+                with session.start_transaction():
+                    # Store receipt file
+                    file_id = fs.put(
+                        receipt_file,
+                        filename=receipt_file.filename,
+                        user_id=str(current_user.id),
+                        upload_date=datetime.utcnow(),
+                        session=session
+                    )
+                    
+                    # Deduct coins and log transaction (non-admin only)
+                    if not is_admin():
+                        user_query = get_user_query(str(current_user.id))
+                        result = db.users.update_one(
+                            user_query,
+                            {'$inc': {'coin_balance': -1}},
+                            session=session
+                        )
+                        if result.matched_count == 0:
+                            logger.error(f"No user found for ID {current_user.id} to deduct coins")
+                            raise ValueError(f"No user found for ID {current_user.id}")
+                        
+                        db.coin_transactions.insert_one({
+                            'user_id': str(current_user.id),
+                            'amount': -1,
+                            'type': 'spend',
+                            'ref': ref,
+                            'date': datetime.utcnow()
+                        }, session=session)
+                    
+                    # Insert audit log
+                    db.audit_logs.insert_one({
+                        'admin_id': 'system',
+                        'action': 'receipt_upload',
+                        'details': {'user_id': str(current_user.id), 'file_id': str(file_id), 'ref': ref},
+                        'timestamp': datetime.utcnow()
+                    }, session=session)
+            
             flash(trans_function('receipt_uploaded', default='Receipt uploaded successfully'), 'success')
             logger.info(f"User {current_user.id} uploaded receipt {file_id}")
             return redirect(url_for('coins_blueprint.history'))
@@ -181,8 +214,12 @@ def receipt_upload():
             logger.error(f"User not found for receipt upload: {str(e)}")
             flash(trans_function('user_not_found', default='User not found'), 'danger')
             return render_template('coins/receipt_upload.html', form=form), 404
+        except errors.PyMongoError as e:
+            logger.error(f"MongoDB error uploading receipt for user {current_user.id}: {str(e)}")
+            flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
+            return render_template('coins/receipt_upload.html', form=form), 500
         except Exception as e:
-            logger.error(f"Error uploading receipt for user {current_user.id}: {str(e)}")
+            logger.error(f"Unexpected error uploading receipt for user {current_user.id}: {str(e)}")
             flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
             return render_template('coins/receipt_upload.html', form=form), 500
     return render_template('coins/receipt_upload.html', form=form)
