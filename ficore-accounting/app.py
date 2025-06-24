@@ -18,7 +18,6 @@ from flask_babel import Babel
 from functools import wraps
 
 # Ensure dnspython is installed for mongodb+srv:// URIs
-# Add to requirements.txt: pymongo[srv]>=4.3
 try:
     import dns
     logging.info("dnspython is importable")
@@ -125,7 +124,9 @@ def load_user(user_id):
     try:
         user_data = get_mongo_db().users.find_one({'_id': user_id})
         if user_data:
+            logger.info(f"User loaded successfully: {user_id}")
             return User(user_data['_id'], user_data['email'], user_data.get('display_name'), user_data.get('role', 'personal'))
+        logger.warning(f"User not found in database: {user_id}")
         return None
     except Exception as e:
         logger.error(f"Error loading user {user_id}: {str(e)}")
@@ -281,168 +282,190 @@ def set_dark_mode():
 def favicon():
     return send_from_directory(app.static_folder, 'favicon.ico')
 
-def setup_database():
+def setup_database(force=False):
     try:
         db = get_mongo_db()
         collections = db.list_collection_names()
         db.command('ping')
         logger.info("MongoDB connection successful during setup")
 
-        # Only drop collections in development or if ALLOW_DB_SETUP is explicitly enabled
-        if os.getenv('FLASK_ENV', 'development') != 'production' or os.getenv('ALLOW_DB_SETUP', 'false').lower() == 'true':
+        # Only drop collections if explicitly requested via initialize=True
+        if initialize:
             for collection in collections:
                 db.drop_collection(collection)
                 logger.info(f"Dropped collection: {collection}")
         else:
-            logger.info("Skipping collection drop in production environment")
-            return True
+            logger.info("Skipping collection drop to preserve data")
 
-        # Users collection
-        db.create_collection('users', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['_id', 'email', 'password', 'role', 'coin_balance', 'created_at'],
-                'properties': {
-                    '_id': {'bsonType': 'string'},
-                    'email': {'bsonType': 'string', 'pattern': r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'},
-                    'password': {'bsonType': 'string'},
-                    'role': {'enum': ['personal', 'trader', 'agent', 'admin']},
-                    'coin_balance': {'bsonType': 'int', 'minimum': 0},
-                    'language': {'enum': ['en', 'ha']},
-                    'created_at': {'bsonType': 'date'},
-                    'display_name': {'bsonType': ['string', 'null']},
-                    'dark_mode': {'bsonType': 'bool'},
-                    'is_admin': {'bsonType': 'bool'},
-                    'setup_complete': {'bsonType': 'bool'},
-                    'reset_token': {'bsonType': ['string', 'null']}
-                }
+        # Define collections and their schemas
+        collection_schemas = {
+            'users': {
+                'validator': {
+                    '$jsonSchema': {
+                        'bsonType': 'object',
+                        'required': ['_id', 'email', 'password', 'role', 'coin_balance', 'created_at'],
+                        'properties': {
+                            '_id': {'bsonType': 'string'},
+                            'email': {'bsonType': 'string', 'pattern': r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'},
+                            'password': {'bsonType': 'string'},
+                            'role': {'enum': ['personal', 'trader', 'agent', 'admin']},
+                            'coin_balance': {'bsonType': 'int', 'minimum': 0},
+                            'language': {'enum': ['en', 'ha']},
+                            'created_at': {'bsonType': 'date'},
+                            'display_name': {'bsonType': ['string', 'null']},
+                            'dark_mode': {'bsonType': 'bool'},
+                            'is_admin': {'bsonType': 'bool'},
+                            'setup_complete': {'bsonType': 'bool'},
+                            'reset_token': {'bsonType': ['string', 'null']}
+                        }
+                    }
+                },
+                'indexes': [
+                    [('email', ASCENDING), {'unique': True}],
+                    [('reset_token', ASCENDING), {'sparse': True}],
+                    [('role', ASCENDING)]
+                ]
+            },
+            'records': {
+                'validator': {
+                    '$jsonSchema': {
+                        'bsonType': 'object',
+                        'required': ['user_id', 'name', 'amount_owed', 'type', 'created_at'],
+                        'properties': {
+                            'user_id': {'bsonType': 'string'},
+                            'name': {'bsonType': 'string'},
+                            'amount_owed': {'bsonType': 'double', 'minimum': 0},
+                            'type': {'enum': ['debtor', 'creditor']},
+                            'created_at': {'bsonType': 'date'},
+                            'contact': {'bsonType': ['string', 'null']},
+                            'description': {'bsonType': ['string', 'null']}
+                        }
+                    }
+                },
+                'indexes': [
+                    [('user_id', ASCENDING), ('type', ASCENDING)],
+                    [('created_at', DESCENDING)]
+                ]
+            },
+            'cashflows': {
+                'validator': {
+                    '$jsonSchema': {
+                        'bsonType': 'object',
+                        'required': ['user_id', 'amount', 'party_name', 'type', 'created_at'],
+                        'properties': {
+                            'user_id': {'bsonType': 'string'},
+                            'amount': {'bsonType': 'double', 'minimum': 0},
+                            'party_name': {'bsonType': 'string'},
+                            'type': {'enum': ['payment', 'receipt']},
+                            'created_at': {'bsonType': 'date'},
+                            'method': {'enum': ['card', 'bank', 'cash', None]},
+                            'category': {'bsonType': ['string', 'null']},
+                            'file_id': {'bsonType': ['objectId', 'null']},
+                            'filename': {'bsonType': ['string', 'null']}
+                        }
+                    }
+                },
+                'indexes': [
+                    [('user_id', ASCENDING), ('type', ASCENDING)],
+                    [('created_at', DESCENDING)]
+                ]
+            },
+            'inventory': {
+                'validator': {
+                    '$jsonSchema': {
+                        'bsonType': 'object',
+                        'required': ['user_id', 'item_name', 'qty', 'created_at'],
+                        'properties': {
+                            'user_id': {'bsonType': 'string'},
+                            'item_name': {'bsonType': 'string'},
+                            'qty': {'bsonType': 'int', 'minimum': 0},
+                            'created_at': {'bsonType': 'date'},
+                            'unit': {'bsonType': ['string', 'null']},
+                            'buying_price': {'bsonType': ['double', 'null'], 'minimum': 0},
+                            'selling_price': {'bsonType': ['double', 'null'], 'minimum': 0},
+                            'threshold': {'bsonType': ['int', 'null'], 'minimum': 0},
+                            'updated_at': {'bsonType': ['date', 'null']}
+                        }
+                    }
+                },
+                'indexes': [
+                    [('user_id', ASCENDING)],
+                    [('created_at', DESCENDING)]
+                ]
+            },
+            'coin_transactions': {
+                'validator': {
+                    '$jsonSchema': {
+                        'bsonType': 'object',
+                        'required': ['user_id', 'amount', 'type', 'date'],
+                        'properties': {
+                            'user_id': {'bsonType': 'string'},
+                            'amount': {'bsonType': 'int'},
+                            'type': {'enum': ['purchase', 'spend', 'credit', 'admin_credit']},
+                            'date': {'bsonType': 'date'},
+                            'ref': {'bsonType': ['string', 'null']}
+                        }
+                    }
+                },
+                'indexes': [
+                    [('user_id', ASCENDING)],
+                    [('date', DESCENDING)]
+                ]
+            },
+            'audit_logs': {
+                'validator': {
+                    '$jsonSchema': {
+                        'bsonType': 'object',
+                        'required': ['admin_id', 'action', 'details', 'timestamp'],
+                        'properties': {
+                            'admin_id': {'bsonType': 'string'},
+                            'action': {'bsonType': 'string'},
+                            'details': {'bsonType': ['object', 'null']},
+                            'timestamp': {'bsonType': 'date'}
+                        }
+                    }
+                },
+                'indexes': [
+                    [('timestamp', DESCENDING)]
+                ]
+            },
+            'feedback': {
+                'validator': {
+                    '$jsonSchema': {
+                        'bsonType': 'object',
+                        'required': ['user_id', 'tool_name', 'rating', 'timestamp'],
+                        'properties': {
+                            'user_id': {'bsonType': 'string'},
+                            'tool_name': {'bsonType': 'string'},
+                            'rating': {'bsonType': 'int', 'minimum': 1, 'maximum': 5},
+                            'comment': {'bsonType': ['string', 'null']},
+                            'timestamp': {'bsonType': 'date'}
+                        }
+                    }
+                },
+                'indexes': [
+                    [('user_id', ASCENDING), {'sparse': True}],
+                    [('timestamp', DESCENDING)]
+                ]
+            },
+            'sessions': {
+                'validator': {},
+                'indexes': [
+                    [('expiration', ASCENDING), {'expireAfterSeconds': 0, 'name': 'session_expiry_index'}]
+                ]
             }
-        })
-        db.users.create_index([('email', ASCENDING)], unique=True)
-        db.users.create_index([('reset_token', ASCENDING)], sparse=True)
-        db.users.create_index([('role', ASCENDING)])
-        logger.info("Created users collection with indexes")
+        }
 
-        # Records collection (replaces debtors and creditors)
-        db.create_collection('records', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['user_id', 'name', 'amount_owed', 'type', 'created_at'],
-                'properties': {
-                    'user_id': {'bsonType': 'string'},
-                    'name': {'bsonType': 'string'},
-                    'amount_owed': {'bsonType': 'double', 'minimum': 0},
-                    'type': {'enum': ['debtor', 'creditor']},
-                    'created_at': {'bsonType': 'date'},
-                    'contact': {'bsonType': ['string', 'null']},
-                    'description': {'bsonType': ['string', 'null']}
-                }
-            }
-        })
-        db.records.create_index([('user_id', ASCENDING), ('type', ASCENDING)])
-        db.records.create_index([('created_at', DESCENDING)])
-        logger.info("Created records collection with indexes")
-
-        # Cashflows collection (replaces payments and receipts)
-        db.create_collection('cashflows', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['user_id', 'amount', 'party_name', 'type', 'created_at'],
-                'properties': {
-                    'user_id': {'bsonType': 'string'},
-                    'amount': {'bsonType': 'double', 'minimum': 0},
-                    'party_name': {'bsonType': 'string'},
-                    'type': {'enum': ['payment', 'receipt']},
-                    'created_at': {'bsonType': 'date'},
-                    'method': {'enum': ['card', 'bank', 'cash', None]},
-                    'category': {'bsonType': ['string', 'null']},
-                    'file_id': {'bsonType': ['objectId', 'null']},
-                    'filename': {'bsonType': ['string', 'null']}
-                }
-            }
-        })
-        db.cashflows.create_index([('user_id', ASCENDING), ('type', ASCENDING)])
-        db.cashflows.create_index([('created_at', DESCENDING)])
-        logger.info("Created cashflows collection with indexes")
-
-        # Inventory collection
-        db.create_collection('inventory', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['user_id', 'item_name', 'qty', 'created_at'],
-                'properties': {
-                    'user_id': {'bsonType': 'string'},
-                    'item_name': {'bsonType': 'string'},
-                    'qty': {'bsonType': 'int', 'minimum': 0},
-                    'created_at': {'bsonType': 'date'},
-                    'unit': {'bsonType': ['string', 'null']},
-                    'buying_price': {'bsonType': ['double', 'null'], 'minimum': 0},
-                    'selling_price': {'bsonType': ['double', 'null'], 'minimum': 0},
-                    'threshold': {'bsonType': ['int', 'null'], 'minimum': 0},
-                    'updated_at': {'bsonType': ['date', 'null']}
-                }
-            }
-        })
-        db.inventory.create_index([('user_id', ASCENDING)])
-        db.inventory.create_index([('created_at', DESCENDING)])
-        logger.info("Created inventory collection with indexes")
-
-        # Coin transactions collection
-        db.create_collection('coin_transactions', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['user_id', 'amount', 'type', 'date'],
-                'properties': {
-                    'user_id': {'bsonType': 'string'},
-                    'amount': {'bsonType': 'int'},
-                    'type': {'enum': ['purchase', 'spend', 'credit', 'admin_credit']},
-                    'date': {'bsonType': 'date'},
-                    'ref': {'bsonType': ['string', 'null']}
-                }
-            }
-        })
-        db.coin_transactions.create_index([('user_id', ASCENDING)])
-        db.coin_transactions.create_index([('date', DESCENDING)])
-        logger.info("Created coin_transactions collection with indexes")
-
-        # Audit logs collection
-        db.create_collection('audit_logs', {
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['admin_id', 'action', 'details', 'timestamp'],
-                'properties': {
-                    'admin_id': {'bsonType': 'string'},
-                    'action': {'bsonType': 'string'},
-                    'details': {'bsonType': ['object', 'null']},
-                    'timestamp': {'bsonType': 'date'}
-                }
-            }
-        })
-        db.audit_logs.create_index([('timestamp', DESCENDING)])
-        logger.info("Created audit_logs collection with indexes")
-
-        # Feedback collection
-        db.create_collection('feedback', validator={
-            '$jsonSchema': {
-                'bsonType': 'object',
-                'required': ['user_id', 'tool_name', 'rating', 'timestamp'],
-                'properties': {
-                    'user_id': {'bsonType': 'string'},
-                    'tool_name': {'bsonType': 'string'},
-                    'rating': {'bsonType': 'int', 'minimum': 1, 'maximum': 5},
-                    'comment': {'bsonType': ['string', 'null']},
-                    'timestamp': {'bsonType': 'date'}
-                }
-            }
-        })
-        db.feedback.create_index([('user_id', ASCENDING)], sparse=True)
-        db.feedback.create_index([('timestamp', DESCENDING)])
-        logger.info("Created feedback collection with indexes")
-
-        # Sessions collection with TTL index
-        db.create_collection('sessions')
-        db.sessions.create_index([('expiration', ASCENDING)], expireAfterSeconds=0, name='session_expiry_index')
-        logger.info("Created sessions collection with TTL index")
+        # Create collections and indexes only if they don't exist
+        for collection_name, config in collection_schemas.items():
+            if collection_name not in collections:
+                db.create_collection(collection_name, validator=config.get('validator', {}))
+                logger.info(f"Created collection: {collection_name}")
+            for index in config.get('indexes', []):
+                index_fields = index[0] if isinstance(index[0], list) else [index[0]]
+                index_options = index[1] if len(index) > 1 else {}
+                db[collection_name].create_index(index_fields, **index_options)
+                logger.info(f"Created index on {collection_name}: {index_fields}")
 
         # Admin user creation
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
@@ -589,10 +612,7 @@ def setup_database_route():
     setup_key = request.args.get('key')
     if setup_key != os.getenv('SETUP_KEY', 'setup-secret'):
         return render_template('errors/403.html', content=trans('forbidden_access', default='Access denied')), 403
-    if os.getenv('FLASK_ENV', 'development') == 'production' and not os.getenv('ALLOW_DB_SETUP', 'false').lower() == 'true':
-        flash(trans('database_setup_disabled', default='Database setup disabled in production'), 'danger')
-        return render_template('errors/403.html', content=trans('forbidden_access', default='Access denied')), 403
-    if setup_database():
+    if setup_database(initialize=True):
         flash(trans('database_setup_success', default='Database setup successful'), 'success')
         return redirect(url_for('index'))
     else:
@@ -629,12 +649,10 @@ def worker_exit(server, worker):
     logger.info("MongoDB request context cleaned up on worker exit")
 
 with app.app_context():
-    if os.getenv('FLASK_ENV', 'development') != 'production' or os.getenv('ALLOW_DB_SETUP', 'false').lower() == 'true':
-        if not setup_database():
-            logger.error("Application startup aborted due to database initialization failure")
-            raise RuntimeError("Database initialization failed")
-    else:
-        logger.info("Database initialization skipped in production environment")
+    # Initialize database without dropping collections
+    if not setup_database(initialize=False):
+        logger.error("Application startup aborted due to database initialization failure")
+        raise RuntimeError("Database initialization failed")
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
