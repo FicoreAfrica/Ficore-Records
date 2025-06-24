@@ -249,7 +249,7 @@ def verify_2fa():
 @users_bp.route('/signup', methods=['GET', 'POST'])
 @limiter.limit("50 per hour")
 def signup():
-    """Handle user signup."""
+    """Handle user signup with MongoDB transaction for atomicity."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard_blueprint.index'))
     form = SignupForm()
@@ -261,6 +261,7 @@ def signup():
             language = form.language.data
             logger.info(f"Signup attempt: username={username}, email={email}, role={role}, language={language}")
             db = get_mongo_db()
+            client = db.client  # Get the MongoDB client for session
             if db.users.find_one({'_id': username}):
                 flash(trans_function('username_exists', default='Username already exists'), 'danger')
                 logger.warning(f"Signup failed: Username {username} already exists")
@@ -269,6 +270,7 @@ def signup():
                 flash(trans_function('email_exists', default='Email already exists'), 'danger')
                 logger.warning(f"Signup failed: Email {email} already exists")
                 return render_template('users/signup.html', form=form)
+            
             user_data = {
                 '_id': username,
                 'email': email,
@@ -282,39 +284,46 @@ def signup():
                 'display_name': username,
                 'created_at': datetime.utcnow()
             }
-            try:
-                result = db.users.insert_one(user_data)
-                logger.info(f"User inserted: {username}, result: {result.inserted_id}")
-            except errors.DuplicateKeyError as e:
-                logger.error(f"Duplicate key error during signup for username {username}: {str(e)}")
-                flash(trans_function('duplicate_error', default='Username or email already exists'), 'danger')
-                return render_template('users/signup.html', form=form)
-            except errors.PyMongoError as e:
-                logger.error(f"MongoDB error during user insertion for {username}: {str(e)}")
-                flash(trans_function('database_error', default='An error occurred while creating your account. Please try again later.'), 'danger')
-                return render_template('users/signup.html', form=form), 500
-            try:
-                db.coin_transactions.insert_one({
-                    'user_id': username,
-                    'amount': 10,
-                    'type': 'credit',
-                    'ref': f"SIGNUP_BONUS_{datetime.utcnow().isoformat()}",
-                    'date': datetime.utcnow()
-                })
-                logger.info(f"Signup bonus of 10 coins recorded for {username}")
-            except errors.PyMongoError as e:
-                logger.error(f"MongoDB error during coin transaction for {username}: {str(e)}")
-                # Roll back user insertion on coin transaction failure
-                db.users.delete_one({'_id': username})
-                logger.info(f"Rolled back user {username} due to coin transaction failure")
-                flash(trans_function('database_error', default='An error occurred while processing signup bonus. Please try again later.'), 'danger')
-                return render_template('users/signup.html', form=form), 500
-            log_audit_action('signup', {'user_id': username, 'role': role})
+            
+            # Start a MongoDB session for transaction
+            with client.start_session() as session:
+                with session.start_transaction():
+                    try:
+                        # Insert user
+                        result = db.users.insert_one(user_data, session=session)
+                        logger.info(f"User inserted: {username}, result: {result.inserted_id}")
+                        
+                        # Insert signup bonus coin transaction
+                        db.coin_transactions.insert_one({
+                            'user_id': username,
+                            'amount': 10,
+                            'type': 'credit',
+                            'ref': f"SIGNUP_BONUS_{datetime.utcnow().isoformat()}",
+                            'date': datetime.utcnow()
+                        }, session=session)
+                        logger.info(f"Signup bonus of 10 coins recorded for {username}")
+                        
+                        # Log audit action
+                        db.audit_logs.insert_one({
+                            'admin_id': 'system',
+                            'action': 'signup',
+                            'details': {'user_id': username, 'role': role},
+                            'timestamp': datetime.utcnow()
+                        }, session=session)
+                        
+                    except errors.PyMongoError as e:
+                        logger.error(f"MongoDB error during signup transaction for {username}: {str(e)}")
+                        session.abort_transaction()  # Explicitly abort transaction
+                        flash(trans_function('database_error', default='An error occurred while creating your account. Please try again later.'), 'danger')
+                        return render_template('users/signup.html', form=form), 500
+            
+            # If transaction succeeds, log in the user
             from app import User
             login_user(User(username, email, username, role), remember=True)
             session['lang'] = language
             logger.info(f"New user created and logged in: {username} (role: {role})")
             return redirect(url_for('users.setup_wizard'))
+        
         except Exception as e:
             logger.error(f"Unexpected error during signup for {username}: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
