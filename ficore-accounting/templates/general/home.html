@@ -2,7 +2,10 @@
 {% block title %}{{ trans('home') | default('Home') }}{% endblock %}
 {% block content %}
 <div class="container">
-    <h1 class="text-center text-4xl font-bold mb-8">{{ trans('welcome') | default('Welcome to Ficore Records') }}</h1>
+    <div class="page-title text-center">
+        <h1>{{ trans('welcome') | default('Welcome to Ficore Records') }}</h1>
+        <small class="subtext">{{ trans('welcome_desc') | default('Ficore Records helps you manage your debtors, creditors, receipts, and payments with ease. Streamline your financial tracking and gain clearer insights into your business\'s health.') }}</small>
+    </div>
     {% if current_user.is_authenticated %}
         <div class="row g-4">
             {% if current_user.get('is_admin', False) %}
@@ -10,6 +13,7 @@
                     <div class="card toolcard">
                         <div class="card-body">
                             <h2 class="card-title"><i class="bi bi-gear card-icon"></i> {{ trans('admin_dashboard') | default('Admin Dashboard') }}</h2>
+                            <small class="subtext">{{ trans('admin_dashboard_desc') | default('Manage users and settings') }}</small>
                             <p class="card-text">{{ trans('admin_dashboard_desc') | default('Manage users and view system stats') }}</p>
                             <a href="{{ url_for('admin_blueprint.dashboard') }}" class="btn btn-primary">{{ trans('go_to_admin_dashboard') | default('Go to Admin Dashboard') }}</a>
                         </div>
@@ -20,6 +24,7 @@
                     <div class="card toolcard">
                         <div class="card-body">
                             <h2 class="card-title"><i class="bi bi-bar-chart card-icon"></i> {{ trans('general_dashboard') | default('General Dashboard') }}</h2>
+                            <small class="subtext">{{ trans('general_dashboard_desc') | default('See overall financial summary and stats') }}</small>
                             <p class="card-text">{{ trans('general_dashboard_desc') | default('See overall financial summary and stats') }}</p>
                             <a href="{{ url_for('dashboard_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_dashboard') | default('Go to Dashboard') }}</a>
                         </div>
@@ -29,53 +34,59 @@
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="card toolcard">
                     <div class="card-body">
-                        <h2 class="card-title"><i class="bi bi-person card-icon"></i> {{ trans('manage_debtors') | default('Manage Debtors') }}</h2>
-                        <p class="card-text">{{ trans('debtors_desc') | default('Track and manage debtor records') }}</p>
-                        <a href="{{ url_for('debtors_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_debtors') | default('Go to Debtors') }}</a>
+                        <h2 class="card-title"><i class="bi bi-person card-icon"></i> {{ trans('what_they_owe_you') | default('What They Owe You') }}</h2>
+                        <small class="subtext">{{ trans('what_they_owe_you_subtext') | default('Kuɗin da Kake Bin Wasu') }}</small>
+                        <p class="card-text">{{ trans('what_they_owe_you_desc') | default('See who owes you and how much is left.') }}</p>
+                        <a href="{{ url_for('debtors_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_what_they_owe_you') | default('Go to What They Owe You') }}</a>
                     </div>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="card toolcard">
                     <div class="card-body">
-                        <h2 class="card-title"><i class="bi bi-building card-icon"></i> {{ trans('manage_creditors') | default('Manage Creditors') }}</h2>
-                        <p class="card-text">{{ trans('creditors_desc') | default('Track and manage creditor records') }}</p>
-                        <a href="{{ url_for('creditors_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_creditors') | default('Go to Creditors') }}</a>
+                        <h2 class="card-title"><i class="bi bi-building card-icon"></i> {{ trans('what_you_owe') | default('What You Owe') }}</h2>
+                        <small class="subtext">{{ trans('what_you_owe_subtext') | default('Kuɗin da Mutane ke Bin Ka') }}</small>
+                        <p class="card-text">{{ trans('what_you_owe_desc') | default('See what you need to pay and to whom.') }}</p>
+                        <a href="{{ url_for('creditors_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_what_you_owe') | default('Go to What You Owe') }}</a>
                     </div>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="card toolcard">
                     <div class="card-body">
-                        <h2 class="card-title"><i class="bi bi-receipt card-icon"></i> {{ trans('manage_receipts') | default('Manage Receipts') }}</h2>
-                        <p class="card-text">{{ trans('receipts_desc') | default('Upload and view receipts') }}</p>
-                        <a href="{{ url_for('receipts_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_receipts') | default('Go to Receipts') }}</a>
+                        <h2 class="card-title"><i class="bi bi-receipt card-icon"></i> {{ trans('money_in') | default('Money In') }}</h2>
+                        <small class="subtext">{{ trans('money_in_subtext') | default('Kuɗin Da Aka Biyaka') }}</small>
+                        <p class="card-text">{{ trans('money_in_desc') | default('Track who paid you and how much.') }}</p>
+                        <a href="{{ url_for('receipts_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_money_in') | default('Go to Money In') }}</a>
                     </div>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="card toolcard">
                     <div class="card-body">
-                        <h2 class="card-title"><i class="bi bi-cash-stack card-icon"></i> {{ trans('manage_payments') | default('Manage Payments') }}</h2>
-                        <p class="card-text">{{ trans('payments_desc') | default('Record and view payments') }}</p>
-                        <a href="{{ url_for('payments_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_payments') | default('Go to Payments') }}</a>
+                        <h2 class="card-title"><i class="bi bi-cash-stack card-icon"></i> {{ trans('money_out') | default('Money Out') }}</h2>
+                        <small class="subtext">{{ trans('money_out_subtext') | default('Kuɗin Da Ka Biya Wasu') }}</small>
+                        <p class="card-text">{{ trans('money_out_desc') | default('Record your spending and what you paid for.') }}</p>
+                        <a href="{{ url_for('payments_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_money_out') | default('Go to Money Out') }}</a>
                     </div>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="card toolcard">
                     <div class="card-body">
-                        <h2 class="card-title"><i class="bi bi-box-seam card-icon"></i> {{ trans('manage_inventory') | default('Manage Inventory') }}</h2>
-                        <p class="card-text">{{ trans('inventory_desc') | default('Track inventory items and stock levels') }}</p>
-                        <a href="{{ url_for('inventory_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_inventory') | default('Go to Inventory') }}</a>
+                        <h2 class="card-title"><i class="bi bi-box-seam card-icon"></i> {{ trans('your_goods_stock') | default('Your Goods & Stock') }}</h2>
+                        <small class="subtext">{{ trans('goods_stock_subtext') | default('Kayanka da Hajojinka') }}</small>
+                        <p class="card-text">{{ trans('goods_stock_desc') | default('Track how much goods you have left.') }}</p>
+                        <a href="{{ url_for('inventory_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_your_goods_stock') | default('Go to Your Goods & Stock') }}</a>
                     </div>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="card toolcard">
                     <div class="card-body">
-                        <h2 class="card-title"><i class="bi bi-file-earmark-text card-icon"></i> {{ trans('view_reports') | default('View Reports') }}</h2>
-                        <p class="card-text">{{ trans('reports_desc') | default('Generate financial reports and insights') }}</p>
+                        <h2 class="card-title"><i class="bi bi-file-earmark-text card-icon"></i> {{ trans('reports') | default('Reports') }}</h2>
+                        <small class="subtext">{{ trans('reports_subtext') | default('Rahoton Kasuwanci') }}</small>
+                        <p class="card-text">{{ trans('reports_desc') | default('Get your business summary in one place.') }}</p>
                         <a href="{{ url_for('reports_blueprint.index') }}" class="btn btn-primary">{{ trans('go_to_reports') | default('Go to Reports') }}</a>
                     </div>
                 </div>
@@ -83,9 +94,10 @@
             <div class="col-12 col-md-6 col-lg-4">
                 <div class="card toolcard">
                     <div class="card-body">
-                        <h2 class="card-title"><i class="bi bi-coin card-icon"></i> {{ trans('manage_coins') | default('Manage Coins') }}</h2>
-                        <p class="card-text">{{ trans('coins_desc') | default('Check your coin balance and transactions') }}</p>
-                        <a href="{{ url_for('coins_blueprint.get_balance') }}" class="btn btn-primary">{{ trans('go_to_coins') | default('Go to Coins') }}</a>
+                        <h2 class="card-title"><i class="bi bi-coin card-icon"></i> {{ trans('your_wallet') | default('Your Wallet') }}</h2>
+                        <small class="subtext">{{ trans('wallet_subtext') | default('Tsabobin Cikin App') }}</small>
+                        <p class="card-text">{{ trans('wallet_desc') | default('See your balance and feedback points.') }}</p>
+                        <a href="{{ url_for('coins_blueprint.get_balance') }}" class="btn btn-primary">{{ trans('go_to_your_wallet') | default('Go to Your Wallet') }}</a>
                     </div>
                 </div>
             </div>
