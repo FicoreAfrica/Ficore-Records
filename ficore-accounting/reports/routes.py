@@ -8,10 +8,24 @@ from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 from io import BytesIO
+from flask_wtf import FlaskForm
+from wtforms import DateField, StringField, SubmitField
+from wtforms.validators import Optional
 import csv
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Define forms
+class ReportForm(FlaskForm):
+    start_date = DateField('Start Date', validators=[Optional()])
+    end_date = DateField('End Date', validators=[Optional()])
+    category = StringField('Category', validators=[Optional()])
+    submit = SubmitField('Generate Report')
+
+class InventoryReportForm(FlaskForm):
+    item_name = StringField('Item Name', validators=[Optional()])
+    submit = SubmitField('Generate Report')
 
 reports_bp = Blueprint('reports', __name__, url_prefix='/reports')
 
@@ -32,7 +46,6 @@ def index():
 @requires_role('trader')
 def profit_loss():
     """Generate profit/loss report with filters."""
-    from app.forms import ReportForm
     form = ReportForm()
     # TEMPORARY: Bypass coin check for admin during testing
     # TODO: Restore original check_coin_balance(1) for production
@@ -85,7 +98,6 @@ def profit_loss():
 @requires_role('trader')
 def inventory():
     """Generate inventory report with filters."""
-    from app.forms import InventoryReportForm
     form = InventoryReportForm()
     # TEMPORARY: Bypass coin check for admin during testing
     # TODO: Restore original check_coin_balance(1) for production
@@ -230,5 +242,8 @@ def generate_inventory_csv(items):
     output.append([trans_function('item_name', default='Item Name'), trans_function('quantity', default='Quantity'), trans_function('unit', default='Unit'), trans_function('buying_price', default='Buying Price'), trans_function('selling_price', default='Selling Price'), trans_function('threshold', default='Threshold')])
     for item in items:
         output.append([item['item_name'], item['qty'], trans_function(item['unit'], default=item['unit']), format_currency(item['buying_price']), format_currency(item['selling_price']), item['threshold']])
+    buffer = BytesIO()
+    writer = csv.writer(buffer, lineterminator='\n')
+    writer.writerows(output)
     buffer.seek(0)
     return Response(buffer, mimetype='text/csv', headers={'Content-Disposition': 'attachment;filename=inventory.csv'})
