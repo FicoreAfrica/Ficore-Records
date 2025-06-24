@@ -8,8 +8,47 @@ from translations import trans_function
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 from gridfs import GridFS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_mailman import Mail
 
 logger = logging.getLogger(__name__)
+
+# Initialize limiter and mail as singletons
+_limiter = None
+_mail = None
+
+def get_limiter(app):
+    """Get or initialize Flask-Limiter instance."""
+    global _limiter
+    if _limiter is None:
+        try:
+            _limiter = Limiter(
+                app=app,
+                key_func=get_remote_address,
+                default_limits=["1000 per day", "100 per hour"],
+                storage_uri=app.config['MONGO_URI'],
+                storage_options={}
+            )
+            logger.info("Flask-Limiter initialized with MongoDB storage")
+        except Exception as e:
+            logger.error(f"Failed to initialize Flask-Limiter with MongoDB: {str(e)}")
+            _limiter = Limiter(
+                app=app,
+                key_func=get_remote_address,
+                default_limits=["1000 per day", "100 per hour"],
+                storage_uri="memory://"
+            )
+            logger.warning("Flask-Limiter using in-memory storage as fallback")
+    return _limiter
+
+def get_mail(app):
+    """Get or initialize Flask-Mailman instance."""
+    global _mail
+    if _mail is None:
+        _mail = Mail(app)
+        logger.info("Flask-Mailman initialized")
+    return _mail
 
 def get_user_query(user_id: str) -> dict:
     """Generate MongoDB query for user by ID."""
