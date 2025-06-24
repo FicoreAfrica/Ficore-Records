@@ -292,7 +292,7 @@ def setup_database():
                 'required': ['_id', 'email', 'password', 'role', 'coin_balance', 'created_at'],
                 'properties': {
                     '_id': {'bsonType': 'string'},
-                    'email': {'bsonType': 'string', 'pattern': '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'},
+                    'email': {'bsonType': 'string', 'pattern': r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'},
                     'password': {'bsonType': 'string'},
                     'role': {'enum': ['personal', 'trader', 'agent', 'admin']},
                     'coin_balance': {'bsonType': 'int', 'minimum': 0},
