@@ -282,7 +282,7 @@ def set_dark_mode():
 def favicon():
     return send_from_directory(app.static_folder, 'favicon.ico')
 
-def setup_database(force=False):
+def setup_database(initialize=False):
     try:
         db = get_mongo_db()
         collections = db.list_collection_names()
