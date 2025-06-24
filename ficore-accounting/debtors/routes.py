@@ -3,9 +3,25 @@ from flask_login import login_required, current_user
 from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
 from bson import ObjectId
 from datetime import datetime
+from flask_wtf import FlaskForm
+from wtforms import StringField, DateField, FloatField, IntegerField, FieldList, FormField, SubmitField
+from wtforms.validators import DataRequired, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Define forms
+class ItemForm(FlaskForm):
+    description = StringField('Description', validators=[DataRequired()])
+    quantity = IntegerField('Quantity', validators=[DataRequired()])
+    price = FloatField('Price', validators=[DataRequired()])
+
+class DebtorForm(FlaskForm):
+    party_name = StringField('Debtor Name', validators=[DataRequired()])
+    phone = StringField('Phone', validators=[Optional()])
+    due_date = DateField('Due Date', validators=[DataRequired()])
+    items = FieldList(FormField(ItemForm), min_entries=1, validators=[DataRequired()])
+    submit = SubmitField('Add Debtor')
 
 debtors_bp = Blueprint('debtors', __name__, url_prefix='/debtors')
 
@@ -31,8 +47,7 @@ def index():
 @requires_role('trader')
 def add():
     """Add a new debtor invoice."""
-    from app.forms import InvoiceForm
-    form = InvoiceForm()
+    form = DebtorForm()
     # TEMPORARY: Bypass coin check for admin during testing
     # TODO: Restore original check_coin_balance(1) for production
     if not is_admin() and not check_coin_balance(1):
@@ -85,7 +100,6 @@ def add():
 @requires_role('trader')
 def edit(id):
     """Edit an existing debtor invoice."""
-    from app.forms import InvoiceForm
     try:
         db = get_mongo_db()
         # TEMPORARY: Allow admin to edit any debtor invoice during testing
@@ -95,7 +109,7 @@ def edit(id):
         if not debtor:
             flash(trans_function('invoice_not_found', default='Invoice not found'), 'danger')
             return redirect(url_for('debtors_blueprint.index'))
-        form = InvoiceForm(data={
+        form = DebtorForm(data={
             'party_name': debtor['party_name'],
             'phone': debtor['phone'],
             'due_date': debtor['due_date'],
