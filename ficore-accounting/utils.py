@@ -5,8 +5,6 @@ from flask import flash, redirect, url_for, current_app, g, session
 from flask_login import current_user
 from functools import wraps
 from translations import trans_function
-from bson import ObjectId
-from bson.errors import InvalidId
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 from gridfs import GridFS
@@ -14,19 +12,11 @@ from gridfs import GridFS
 logger = logging.getLogger(__name__)
 
 def get_user_query(user_id: str) -> dict:
-    """Generate MongoDB query for user by ID, supporting both ObjectId and string."""
-    try:
-        # Try ObjectId first
-        return {'_id': ObjectId(user_id)}
-    except InvalidId:
-        # Fall back to string
-        logger.warning(f"User ID {user_id} is not a valid ObjectId, falling back to string query")
-        return {'_id': user_id}
+    """Generate MongoDB query for user by ID."""
+    return {'_id': user_id}
 
 def is_admin():
-    """Check if current user is an admin - TEMPORARY for testing.
-    TODO: For production, replace with stricter check, e.g., user.get('is_admin', False).
-    """
+    """Check if current user is an admin."""
     return current_user.is_authenticated and current_user.role == 'admin'
 
 def is_valid_email(email):
@@ -39,13 +29,11 @@ def requires_role(role):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # TEMPORARY: Bypass role check for admin users during testing
-            # TODO: Remove this bypass for production
             if is_admin():
                 return f(*args, **kwargs)
             if not current_user.is_authenticated:
                 flash(trans_function('login_required', default='Please log in to access this page'), 'danger')
-                return redirect(url_for('users_blueprint.login'))
+                return redirect(url_for('users.login'))
             if current_user.role != role:
                 flash(trans_function('forbidden_access', default='Access denied'), 'danger')
                 return redirect(url_for('index'))
@@ -55,14 +43,11 @@ def requires_role(role):
 
 def check_coin_balance(required_coins):
     """Check if user has sufficient coin balance."""
-    # TEMPORARY: Bypass coin check for admin users during testing
-    # TODO: Remove this bypass for production
     if is_admin():
         return True
     try:
         db = get_mongo_db()
-        user_query = get_user_query(current_user.id)
-        user = db.users.find_one(user_query)
+        user = db.users.find_one({'_id': current_user.id})
         if not user:
             logger.error(f"User {current_user.id} not found")
             return False
@@ -79,7 +64,6 @@ def sanitize_input(value):
     """Sanitize input to prevent XSS and injection attacks."""
     if not isinstance(value, str):
         return value
-    # Basic sanitization: strip tags and escape special characters
     return re.sub(r'<[^>]+>', '', value).strip()
 
 def generate_invoice_number(user_id):
@@ -121,18 +105,9 @@ def get_mongo_db():
     """Get MongoDB database connection for the current request."""
     if 'db' not in g:
         try:
-            # Initialize MongoClient once per app
             if 'mongo_client' not in current_app.extensions:
-                mongo_uri = current_app.config['MONGO_URI']
-                client = MongoClient(
-                    mongo_uri,
-                    serverSelectionTimeoutMS=5000,
-                    connectTimeoutMS=20000,
-                    socketTimeoutMS=20000
-                )
-                client.admin.command('ping')  # Test connection
-                current_app.extensions['mongo_client'] = client
-                logger.info("MongoDB client initialized for application")
+                logger.error("MongoDB client not initialized in application")
+                raise RuntimeError("MongoDB client not initialized")
             g.mongo_client = current_app.extensions['mongo_client']
             db_name = current_app.config.get('SESSION_MONGODB_DB', 'ficore_accounting')
             g.db = g.mongo_client[db_name]
@@ -144,14 +119,12 @@ def get_mongo_db():
             logger.error(f"Failed to connect to MongoDB: {str(e)}")
             raise RuntimeError(f"Cannot connect to MongoDB: {str(e)}")
         except Exception as e:
-            logger.error(f"Error initializing MongoDB connection: {str(e)}")
-            raise RuntimeError(f"MongoDB initialization failed: {str(e)}")
+            logger.error(f"Error accessing MongoDB connection: {str(e)}")
+            raise RuntimeError(f"MongoDB access failed: {str(e)}")
     return g.db
 
 def close_mongo_db(error=None):
-    """Close MongoDB connection after request."""
-    client = g.pop('mongo_client', None)
-    db = g.pop('db', None)
-    gridfs = g.pop('gridfs', None)
-    if client is not None:
-        logger.debug("MongoDB connection context cleaned up")
+    """Clean up MongoDB request-specific resources."""
+    g.pop('db', None)
+    g.pop('gridfs', None)
+    logger.debug("MongoDB request context cleaned up")
