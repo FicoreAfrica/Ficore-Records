@@ -1,21 +1,24 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin, get_user_query
 from bson import ObjectId
 from datetime import datetime
 from flask_wtf import FlaskForm
-from wtforms import StringField, DateField, FloatField, SubmitField
+from wtforms import StringField, DateField, FloatField, SelectField, SubmitField
 from wtforms.validators import DataRequired, Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Define form
 class PaymentForm(FlaskForm):
     party_name = StringField('Recipient Name', validators=[DataRequired()])
     date = DateField('Date', validators=[DataRequired()])
     amount = FloatField('Amount', validators=[DataRequired()])
-    description = StringField('Description', validators=[Optional()])
+    method = SelectField('Payment Method', choices=[
+        ('cash', 'Cash'),
+        ('card', 'Card'),
+        ('bank', 'Bank Transfer')
+    ], validators=[Optional()])
     category = StringField('Category', validators=[Optional()])
     submit = SubmitField('Add Payment')
 
@@ -25,13 +28,13 @@ payments_bp = Blueprint('payments', __name__, url_prefix='/payments')
 @login_required
 @requires_role('trader')
 def index():
-    """List all payments for the current user."""
+    """List all payment cashflows for the current user."""
     try:
         db = get_mongo_db()
-        # TEMPORARY: Allow admin to view all payments during testing
-        # TODO: Restore original user_id filter {'user_id': str(current_user.id), 'type': 'payment'} for production
+        # TEMPORARY: Allow admin to view all payment cashflows during testing
+        # TODO: Restore original user_id filter for production
         query = {'type': 'payment'} if is_admin() else {'user_id': str(current_user.id), 'type': 'payment'}
-        payments = list(db.transactions.find(query).sort('date', -1))
+        payments = list(db.cashflows.find(query).sort('created_at', -1))
         return render_template('payments/index.html', payments=payments, format_currency=format_currency, format_date=format_date)
     except Exception as e:
         logger.error(f"Error fetching payments for user {current_user.id}: {str(e)}")
@@ -42,7 +45,7 @@ def index():
 @login_required
 @requires_role('trader')
 def add():
-    """Add a new payment."""
+    """Add a new payment cashflow."""
     form = PaymentForm()
     # TEMPORARY: Bypass coin check for admin during testing
     # TODO: Restore original check_coin_balance(1) for production
@@ -52,22 +55,23 @@ def add():
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
-            transaction = {
+            cashflow = {
                 'user_id': str(current_user.id),
                 'type': 'payment',
                 'party_name': form.party_name.data,
-                'date': form.date.data,
                 'amount': form.amount.data,
-                'description': form.description.data,
+                'method': form.method.data,
                 'category': form.category.data,
-                'created_at': datetime.utcnow()
+                'created_at': form.date.data,
+                'updated_at': datetime.utcnow()
             }
-            db.transactions.insert_one(transaction)
+            db.cashflows.insert_one(cashflow)
             # TEMPORARY: Skip coin deduction for admin during testing
             # TODO: Restore original coin deduction for production
             if not is_admin():
+                user_query = get_user_query(str(current_user.id))
                 db.users.update_one(
-                    {'_id': ObjectId(current_user.id)},
+                    user_query,
                     {'$inc': {'coin_balance': -1}}
                 )
                 db.coin_transactions.insert_one({
@@ -75,7 +79,7 @@ def add():
                     'amount': -1,
                     'type': 'spend',
                     'date': datetime.utcnow(),
-                    'ref': f"Payment creation: {transaction['party_name']}"
+                    'ref': f"Payment creation: {cashflow['party_name']}"
                 })
             flash(trans_function('add_payment_success', default='Payment added successfully'), 'success')
             return redirect(url_for('payments_blueprint.index'))
@@ -88,36 +92,36 @@ def add():
 @login_required
 @requires_role('trader')
 def edit(id):
-    """Edit an existing payment."""
+    """Edit an existing payment cashflow."""
     try:
         db = get_mongo_db()
-        # TEMPORARY: Allow admin to edit any payment during testing
-        # TODO: Restore original user_id filter {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'payment'} for production
+        # TEMPORARY: Allow admin to edit any payment cashflow during testing
+        # TODO: Restore original user_id filter for production
         query = {'_id': ObjectId(id), 'type': 'payment'} if is_admin() else {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'payment'}
-        payment = db.transactions.find_one(query)
+        payment = db.cashflows.find_one(query)
         if not payment:
-            flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
+            flash(trans_function('cashflow_not_found', default='Cashflow not found'), 'danger')
             return redirect(url_for('payments_blueprint.index'))
         form = PaymentForm(data={
             'party_name': payment['party_name'],
-            'date': payment['date'],
+            'date': payment['created_at'],
             'amount': payment['amount'],
-            'description': payment['description'],
-            'category': payment['category']
+            'method': payment.get('method'),
+            'category': payment.get('category')
         })
         if form.validate_on_submit():
             try:
-                updated_transaction = {
+                updated_cashflow = {
                     'party_name': form.party_name.data,
-                    'date': form.date.data,
                     'amount': form.amount.data,
-                    'description': form.description.data,
+                    'method': form.method.data,
                     'category': form.category.data,
+                    'created_at': form.date.data,
                     'updated_at': datetime.utcnow()
                 }
-                db.transactions.update_one(
+                db.cashflows.update_one(
                     {'_id': ObjectId(id)},
-                    {'$set': updated_transaction}
+                    {'$set': updated_cashflow}
                 )
                 flash(trans_function('edit_payment_success', default='Payment updated successfully'), 'success')
                 return redirect(url_for('payments_blueprint.index'))
@@ -127,24 +131,24 @@ def edit(id):
         return render_template('payments/edit.html', form=form, payment=payment)
     except Exception as e:
         logger.error(f"Error fetching payment {id} for user {current_user.id}: {str(e)}")
-        flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
+        flash(trans_function('cashflow_not_found', default='Cashflow not found'), 'danger')
         return redirect(url_for('payments_blueprint.index'))
 
 @payments_bp.route('/delete/<id>', methods=['POST'])
 @login_required
 @requires_role('trader')
 def delete(id):
-    """Delete a payment Stuart payment."""
+    """Delete a payment cashflow."""
     try:
         db = get_mongo_db()
-        # TEMPORARY: Allow admin to delete any payment during testing
-        # TODO: Restore original user_id filter {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'payment'} for production
+        # TEMPORARY: Allow admin to delete any payment cashflow during testing
+        # TODO: Restore original user_id filter for production
         query = {'_id': ObjectId(id), 'type': 'payment'} if is_admin() else {'_id': ObjectId(id), 'user_id': str(current_user.id), 'type': 'payment'}
-        result = db.transactions.delete_one(query)
+        result = db.cashflows.delete_one(query)
         if result.deleted_count:
             flash(trans_function('delete_payment_success', default='Payment deleted successfully'), 'success')
         else:
-            flash(trans_function('transaction_not_found', default='Transaction not found'), 'danger')
+            flash(trans_function('cashflow_not_found', default='Cashflow not found'), 'danger')
     except Exception as e:
         logger.error(f"Error deleting payment {id} for user {current_user.id}: {str(e)}")
         flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
