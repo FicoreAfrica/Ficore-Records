@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, Response, flash, request
 from flask_login import login_required, current_user
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, get_mongo_db, is_admin, get_user_query
 from bson import ObjectId
 from datetime import datetime
 from reportlab.lib.pagesizes import A4
@@ -16,7 +16,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Define forms
 class ReportForm(FlaskForm):
     start_date = DateField('Start Date', validators=[Optional()])
     end_date = DateField('End Date', validators=[Optional()])
@@ -52,30 +51,31 @@ def profit_loss():
     if not is_admin() and not check_coin_balance(1):
         flash(trans_function('insufficient_coins', default='Insufficient coins to generate a report. Purchase more coins.'), 'danger')
         return redirect(url_for('coins_blueprint.purchase'))
-    transactions = []
-    # TEMPORARY: Allow admin to view all transactions during testing
+    cashflows = []
+    # TEMPORARY: Allow admin to view all cashflows during testing
     # TODO: Restore original user_id filter {'user_id': str(current_user.id)} for production
     query = {} if is_admin() else {'user_id': str(current_user.id)}
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
             if form.start_date.data:
-                query['date'] = {'$gte': form.start_date.data}
+                query['created_at'] = {'$gte': form.start_date.data}
             if form.end_date.data:
-                query['date'] = query.get('date', {}) | {'$lte': form.end_date.data}
+                query['created_at'] = query.get('created_at', {}) | {'$lte': form.end_date.data}
             if form.category.data:
                 query['category'] = form.category.data
-            transactions = db.transactions.find(query).sort('date', -1)
+            cashflows = list(db.cashflows.find(query).sort('created_at', -1))
             output_format = request.form.get('format', 'html')
             if output_format == 'pdf':
-                return generate_profit_loss_pdf(transactions)
+                return generate_profit_loss_pdf(cashflows)
             elif output_format == 'csv':
-                return generate_profit_loss_csv(transactions)
+                return generate_profit_loss_csv(cashflows)
             # TEMPORARY: Skip coin deduction for admin during testing
             # TODO: Restore original coin deduction for production
             if not is_admin():
+                user_query = get_user_query(str(current_user.id))
                 db.users.update_one(
-                    {'_id': ObjectId(current_user.id)},
+                    user_query,
                     {'$inc': {'coin_balance': -1}}
                 )
                 db.coin_transactions.insert_one({
@@ -90,8 +90,8 @@ def profit_loss():
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     else:
         db = get_mongo_db()
-        transactions = db.transactions.find(query).sort('date', -1)
-    return render_template('reports/profit_loss.html', form=form, transactions=transactions, format_currency=format_currency, format_date=format_date)
+        cashflows = list(db.cashflows.find(query).sort('created_at', -1))
+    return render_template('reports/profit_loss.html', form=form, cashflows=cashflows, format_currency=format_currency, format_date=format_date)
 
 @reports_bp.route('/inventory', methods=['GET', 'POST'])
 @login_required
@@ -113,7 +113,7 @@ def inventory():
             db = get_mongo_db()
             if form.item_name.data:
                 query['item_name'] = {'$regex': form.item_name.data, '$options': 'i'}
-            items = db.inventory.find(query).sort('item_name', 1)
+            items = list(db.inventory.find(query).sort('item_name', 1))
             output_format = request.form.get('format', 'html')
             if output_format == 'pdf':
                 return generate_inventory_pdf(items)
@@ -122,8 +122,9 @@ def inventory():
             # TEMPORARY: Skip coin deduction for admin during testing
             # TODO: Restore original coin deduction for production
             if not is_admin():
+                user_query = get_user_query(str(current_user.id))
                 db.users.update_one(
-                    {'_id': ObjectId(current_user.id)},
+                    user_query,
                     {'$inc': {'coin_balance': -1}}
                 )
                 db.coin_transactions.insert_one({
@@ -138,10 +139,10 @@ def inventory():
             flash(trans_function('something_went_wrong', default='An error occurred'), 'danger')
     else:
         db = get_mongo_db()
-        items = db.inventory.find(query).sort('item_name', 1)
+        items = list(db.inventory.find(query).sort('item_name', 1))
     return render_template('reports/inventory.html', form=form, items=items, format_currency=format_currency)
 
-def generate_profit_loss_pdf(transactions):
+def generate_profit_loss_pdf(cashflows):
     """Generate PDF for profit/loss report."""
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=A4)
@@ -158,12 +159,12 @@ def generate_profit_loss_pdf(transactions):
     y -= 0.3 * inch
     total_income = 0
     total_expense = 0
-    for t in transactions:
-        p.drawString(1 * inch, y, format_date(t['date']))
+    for t in cashflows:
+        p.drawString(1 * inch, y, format_date(t['created_at']))
         p.drawString(2.5 * inch, y, t['party_name'])
         p.drawString(4 * inch, y, trans_function(t['type'], default=t['type']))
         p.drawString(5 * inch, y, format_currency(t['amount']))
-        p.drawString(6.5 * inch, y, trans_function(t['category'], default=t['category']))
+        p.drawString(6.5 * inch, y, trans_function(t.get('category', ''), default=t.get('category', '')))
         if t['type'] == 'receipt':
             total_income += t['amount']
         else:
@@ -183,14 +184,14 @@ def generate_profit_loss_pdf(transactions):
     buffer.seek(0)
     return Response(buffer, mimetype='application/pdf', headers={'Content-Disposition': 'attachment;filename=profit_loss.pdf'})
 
-def generate_profit_loss_csv(transactions):
+def generate_profit_loss_csv(cashflows):
     """Generate CSV for profit/loss report."""
     output = []
     output.append([trans_function('date', default='Date'), trans_function('party_name', default='Party Name'), trans_function('type', default='Type'), trans_function('amount', default='Amount'), trans_function('category', default='Category')])
     total_income = 0
     total_expense = 0
-    for t in transactions:
-        output.append([format_date(t['date']), t['party_name'], trans_function(t['type'], default=t['type']), format_currency(t['amount']), trans_function(t['category'], default=t['category'])])
+    for t in cashflows:
+        output.append([format_date(t['created_at']), t['party_name'], trans_function(t['type'], default=t['type']), format_currency(t['amount']), trans_function(t.get('category', ''), default=t.get('category', ''))])
         if t['type'] == 'receipt':
             total_income += t['amount']
         else:
@@ -226,7 +227,7 @@ def generate_inventory_pdf(items):
         p.drawString(3.5 * inch, y, trans_function(item['unit'], default=item['unit']))
         p.drawString(4.5 * inch, y, format_currency(item['buying_price']))
         p.drawString(5.5 * inch, y, format_currency(item['selling_price']))
-        p.drawString(6.5 * inch, y, str(item['threshold']))
+        p.drawString(6.5 * inch, y, str(item.get('threshold', 5)))
         y -= 0.3 * inch
         if y < 1 * inch:
             p.showPage()
@@ -241,7 +242,7 @@ def generate_inventory_csv(items):
     output = []
     output.append([trans_function('item_name', default='Item Name'), trans_function('quantity', default='Quantity'), trans_function('unit', default='Unit'), trans_function('buying_price', default='Buying Price'), trans_function('selling_price', default='Selling Price'), trans_function('threshold', default='Threshold')])
     for item in items:
-        output.append([item['item_name'], item['qty'], trans_function(item['unit'], default=item['unit']), format_currency(item['buying_price']), format_currency(item['selling_price']), item['threshold']])
+        output.append([item['item_name'], item['qty'], trans_function(item['unit'], default=item['unit']), format_currency(item['buying_price']), format_currency(item['selling_price']), item.get('threshold', 5)])
     buffer = BytesIO()
     writer = csv.writer(buffer, lineterminator='\n')
     writer.writerows(output)
