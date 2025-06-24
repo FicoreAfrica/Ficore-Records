@@ -145,6 +145,28 @@ main {
     padding-top: calc(var(--navbar-height) + 1rem);
 }
 
+/* --- Localization Subtext Styling --- */
+.subtext {
+    font-size: 0.9em;
+    color: #666;
+    font-style: italic;
+    display: block;
+    margin-top: 0.2em;
+    font-weight: 400;
+}
+
+.dark-mode .subtext {
+    color: #9ca3af;
+}
+
+.page-title {
+    margin-bottom: 1.5rem;
+}
+
+.page-title h1 {
+    margin-bottom: 0.25rem;
+}
+
 /* --- Container --- */
 .container {
     max-width: 1200px;
