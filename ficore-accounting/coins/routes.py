@@ -9,7 +9,7 @@ from flask_wtf.file import FileField, FileAllowed
 from gridfs import GridFS
 from wtforms import FloatField, StringField, SelectField, SubmitField, validators
 from app import limiter
-from utils import trans_function, requires_role, check_coin_balance, get_mongo_db, is_admin
+from utils import trans_function, requires_role, check_coin_balance, get_mongo_db, is_admin, get_user_query
 
 logger = getLogger(__name__)
 
@@ -44,22 +44,12 @@ class ReceiptUploadForm(FlaskForm):
     )
     submit = SubmitField(trans_function('upload_receipt', default='Upload Receipt'))
 
-def get_user_query(user_id: str) -> dict:
-    """Generate MongoDB query for user by ID, supporting both ObjectId and string."""
-    try:
-        # Try ObjectId first
-        return {'_id': ObjectId(user_id)}
-    except InvalidId:
-        # Fall back to string
-        logger.warning(f"User ID {user_id} is not a valid ObjectId, falling back to string query")
-        return {'_id': user_id}
-
 def credit_coins(user_id: str, amount: int, ref: str, type: str = 'purchase') -> None:
     """Credit coins to a user and log transaction."""
     db = get_mongo_db()
-    query = get_user_query(user_id)
+    user_query = get_user_query(user_id)
     result = db.users.update_one(
-        query,
+        user_query,
         {'$inc': {'coin_balance': amount}}
     )
     if result.matched_count == 0:
