@@ -8,11 +8,10 @@ from flask_mailman import EmailMessage
 import logging
 import uuid
 from datetime import datetime, timedelta
-from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin
+from utils import trans_function, requires_role, check_coin_balance, format_currency, format_date, is_valid_email, get_mongo_db, is_admin, get_limiter, get_mail
 import re
 import random
 from itsdangerous import URLSafeTimedSerializer
-from app import limiter, mail
 import os
 
 logger = logging.getLogger(__name__)
@@ -138,7 +137,7 @@ def log_audit_action(action, details=None):
         logger.error(f"Error logging audit action: {str(e)}")
 
 @users_bp.route('/login', methods=['GET', 'POST'])
-@limiter.limit("50 per hour")
+@get_limiter().limit("50 per hour")
 def login():
     """Handle user login."""
     if current_user.is_authenticated:
@@ -204,7 +203,7 @@ def login():
     return render_template('users/login.html', form=form)
 
 @users_bp.route('/verify_2fa', methods=['GET', 'POST'])
-@limiter.limit("50 per hour")
+@get_limiter().limit("50 per hour")
 def verify_2fa():
     """Verify 2FA OTP."""
     if current_user.is_authenticated:
@@ -247,9 +246,9 @@ def verify_2fa():
     return render_template('users/verify_2fa.html', form=form)
 
 @users_bp.route('/signup', methods=['GET', 'POST'])
-@limiter.limit("50 per hour")
+@get_limiter().limit("50 per hour")
 def signup():
-    """Handle user signup with MongoDB transaction for atomicity."""
+    """Handle user signup with MongoDB transaction for user creation and coin bonus."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard_blueprint.index'))
     form = SignupForm()
@@ -261,7 +260,9 @@ def signup():
             language = form.language.data
             logger.info(f"Signup attempt: username={username}, email={email}, role={role}, language={language}")
             db = get_mongo_db()
-            client = db.client  # Get the MongoDB client for session
+            client = db.client  # Get MongoDB client for session
+
+            # Check for existing username or email
             if db.users.find_one({'_id': username}):
                 flash(trans_function('username_exists', default='Username already exists'), 'danger')
                 logger.warning(f"Signup failed: Username {username} already exists")
@@ -270,7 +271,7 @@ def signup():
                 flash(trans_function('email_exists', default='Email already exists'), 'danger')
                 logger.warning(f"Signup failed: Email {email} already exists")
                 return render_template('users/signup.html', form=form)
-            
+
             user_data = {
                 '_id': username,
                 'email': email,
@@ -284,16 +285,16 @@ def signup():
                 'display_name': username,
                 'created_at': datetime.utcnow()
             }
-            
-            # Start a MongoDB session for transaction
+
+            # Use MongoDB transaction for user insertion and coin transaction
             with client.start_session() as session:
                 with session.start_transaction():
                     try:
                         # Insert user
                         result = db.users.insert_one(user_data, session=session)
                         logger.info(f"User inserted: {username}, result: {result.inserted_id}")
-                        
-                        # Insert signup bonus coin transaction
+
+                        # Insert coin transaction
                         db.coin_transactions.insert_one({
                             'user_id': username,
                             'amount': 10,
@@ -301,8 +302,7 @@ def signup():
                             'ref': f"SIGNUP_BONUS_{datetime.utcnow().isoformat()}",
                             'date': datetime.utcnow()
                         }, session=session)
-                        logger.info(f"Signup bonus of 10 coins recorded for {username}")
-                        
+
                         # Log audit action
                         db.audit_logs.insert_one({
                             'admin_id': 'system',
@@ -310,20 +310,25 @@ def signup():
                             'details': {'user_id': username, 'role': role},
                             'timestamp': datetime.utcnow()
                         }, session=session)
-                        
+
+                    except errors.DuplicateKeyError as e:
+                        logger.error(f"Duplicate key error during signup for username {username}: {str(e)}")
+                        session.abort_transaction()
+                        flash(trans_function('duplicate_error', default='Username or email already exists'), 'danger')
+                        return render_template('users/signup.html', form=form)
                     except errors.PyMongoError as e:
                         logger.error(f"MongoDB error during signup transaction for {username}: {str(e)}")
-                        session.abort_transaction()  # Explicitly abort transaction
+                        session.abort_transaction()
                         flash(trans_function('database_error', default='An error occurred while creating your account. Please try again later.'), 'danger')
                         return render_template('users/signup.html', form=form), 500
-            
-            # If transaction succeeds, log in the user
+
+            # Login user after successful transaction
             from app import User
             login_user(User(username, email, username, role), remember=True)
             session['lang'] = language
             logger.info(f"New user created and logged in: {username} (role: {role})")
             return redirect(url_for('users.setup_wizard'))
-        
+
         except Exception as e:
             logger.error(f"Unexpected error during signup for {username}: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
@@ -331,7 +336,7 @@ def signup():
     return render_template('users/signup.html', form=form)
 
 @users_bp.route('/forgot_password', methods=['GET', 'POST'])
-@limiter.limit("50 per hour")
+@get_limiter().limit("50 per hour")
 def forgot_password():
     """Handle forgot password request."""
     if current_user.is_authenticated:
@@ -371,7 +376,7 @@ def forgot_password():
     return render_template('users/forgot_password.html', form=form)
 
 @users_bp.route('/reset_password', methods=['GET', 'POST'])
-@limiter.limit("50 per hour")
+@get_limiter().limit("50 per hour")
 def reset_password():
     """Handle password reset."""
     if current_user.is_authenticated:
@@ -410,7 +415,7 @@ def reset_password():
 
 @users_bp.route('/profile', methods=['GET', 'POST'])
 @login_required
-@limiter.limit("50 per hour")
+@get_limiter().limit("50 per hour")
 def profile():
     """Manage user profile."""
     try:
@@ -481,7 +486,7 @@ def profile():
 
 @users_bp.route('/setup_wizard', methods=['GET', 'POST'])
 @login_required
-@limiter.limit("50 per hour")
+@get_limiter().limit("50 per hour")
 def setup_wizard():
     """Handle business setup wizard."""
     db = get_mongo_db()
@@ -521,7 +526,7 @@ def setup_wizard():
 
 @users_bp.route('/logout')
 @login_required
-@limiter.limit("100 per hour")
+@get_limiter().limit("100 per hour")
 def logout():
     """Handle user logout."""
     user_id = current_user.id
