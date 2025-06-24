@@ -17,11 +17,13 @@ from itsdangerous import URLSafeTimedSerializer
 from flask_babel import Babel
 from functools import wraps
 
-# Debug dnspython import
+# Ensure dnspython is installed for mongodb+srv:// URIs
+# Add to requirements.txt: pymongo[srv]>=4.3
 try:
     import dns
-    print("dnspython is importable")
+    logging.info("dnspython is importable")
 except ImportError:
+    logging.error("dnspython is not installed. Required for mongodb+srv:// URIs. Install with: pip install pymongo[srv]")
     raise RuntimeError("dnspython is not installed or not importable")
 
 # Logging setup
@@ -43,6 +45,11 @@ app.config['MONGO_URI'] = os.getenv('MONGO_URI')
 if not app.config['MONGO_URI']:
     logger.error("MONGO_URI environment variable is not set")
     raise ValueError("MONGO_URI must be set in environment variables")
+
+# Validate MongoDB URI
+if app.config['MONGO_URI'].startswith('mongodb+srv://') and 'dns' not in sys.modules:
+    logger.error("Cannot use mongodb+srv:// URI without dnspython")
+    raise ValueError("Invalid MongoDB URI: mongodb+srv:// requires dnspython")
 
 # Session configuration
 app.config['SESSION_TYPE'] = 'mongodb'
@@ -399,15 +406,15 @@ def setup_database():
         logger.info("Created coin_transactions collection with indexes")
 
         # Audit logs collection
-        db.create_collection('audit_logs', validator={
+        db.create_collection('audit_logs', {
             '$jsonSchema': {
                 'bsonType': 'object',
                 'required': ['admin_id', 'action', 'details', 'timestamp'],
                 'properties': {
                     'admin_id': {'bsonType': 'string'},
                     'action': {'bsonType': 'string'},
-                    'details': {'bsonType': 'object'},
-                    'timestamp': {'bsonType': 'date'}
+                    'details': {'bsonType': 'object', 'null']},
+                    'timestamp': {'bsonType': 'datetime'}
                 }
             }
         })
@@ -434,16 +441,12 @@ def setup_database():
 
         # Sessions collection with TTL index
         db.create_collection('sessions')
-        db.sessions.create_index(
-            [('expiration', ASCENDING)],
-            expireAfterSeconds=0,
-            name='session_expiry_index'
-        )
+        db.sessions.create_index([('expiration', ASCENDING)], expireAfterSeconds=0, name='session_expiry_index')
         logger.info("Created sessions collection with TTL index")
 
         # Admin user creation
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
-        admin_email = os.getenv('ADMIN_EMAIL', 'ficorerecords@gmail.com')
+        admin_email = os.getenv('ADMIN_EMAIL', 'ficore@gmail.com')
         admin_password = os.getenv('ADMIN_PASSWORD', 'Admin123!')
         if not db.users.find_one({'_id': admin_username}):
             db.users.insert_one({
@@ -497,7 +500,7 @@ def manifest():
         'background_color': '#ffffff',
         'display': 'standalone',
         'scope': '/',
-        'start_url': '/',
+        'end_url': '/',
         'icons': [
             {'src': '/static/icons/icon-192x192.png', 'sizes': '192x192', 'type': 'image/png'},
             {'src': '/static/icons/icon-512x512.png', 'sizes': '512x512', 'type': 'image/png'}
@@ -520,12 +523,12 @@ def feedback():
     tool_options = [
         ['profile', trans('tool_profile', default='Profile')],
         ['coins', trans('tool_coins', default='Coins')],
-        ['debtors', trans('debtors', default='Debtors')],
-        ['creditors', trans('creditors', default='Creditors')],
-        ['receipts', trans('receipts', default='Receipts')],
-        ['payments', trans('payments', default='Payments')],
+        ['debtors', trans('people', default='People')],
+        ['creditors', trans('people')],
+        ['receipts', default='Receipts')],
+        ['payment', trans('payment', default='Payments')],
         ['inventory', trans('inventory', default='Inventory')],
-        ['reports', trans('reports', default='Reports')]
+        ['report', trans('report', default='Reports')]
     ]
     if request.method == 'POST':
         try:
@@ -609,20 +612,20 @@ def internal_server_error(e):
     return render_template('errors/500.html', message=trans('internal_server_error', default='Internal server error')), 500
 
 # Gunicorn hooks
-def worker_init(worker):
+def worker_init():
     """Initialize MongoDB client for each Gunicorn worker."""
     with app.app_context():
         try:
             db = get_mongo_db()
             db.command('ping')
-            logger.info("MongoDB client accessed for Gunicorn worker")
+            logger.info("MongoDB connection successful for Gunicorn worker")
         except (ConnectionFailure, ServerSelectionTimeoutError) as e:
             logger.error(f"Failed to access MongoDB in worker_init: {str(e)}")
             raise RuntimeError(f"MongoDB access failed in worker_init: {str(e)}")
 
 def worker_exit(server, worker):
     """Clean up request-specific MongoDB resources on worker exit."""
-    close_mongo_db/urcexit()
+    close_mongo_db()
     logger.info("MongoDB request context cleaned up on worker exit")
 
 with app.app_context():
