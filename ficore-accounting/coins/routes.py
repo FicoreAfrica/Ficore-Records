@@ -8,7 +8,6 @@ from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from gridfs import GridFS
 from wtforms import FloatField, StringField, SelectField, SubmitField, validators
-
 from app import limiter
 from utils import trans_function, requires_role, check_coin_balance, get_mongo_db, is_admin
 
@@ -45,20 +44,27 @@ class ReceiptUploadForm(FlaskForm):
     )
     submit = SubmitField(trans_function('upload_receipt', default='Upload Receipt'))
 
-def credit_coins(user_id: str, amount: int, ref: str, type: str = 'purchase') -> None:
-    """Credit coins to a user and log transaction.
+def get_user_query(user_id: str) -> dict:
+    """Generate MongoDB query for user by ID, supporting both ObjectId and string."""
+    try:
+        # Try ObjectId first
+        return {'_id': ObjectId(user_id)}
+    except InvalidId:
+        # Fall back to string
+        logger.warning(f"User ID {user_id} is not a valid ObjectId, falling back to string query")
+        return {'_id': user_id}
 
-    Args:
-        user_id: The ID of the user (string).
-        amount: The number of coins to credit.
-        ref: Reference for the transaction.
-        type: Type of transaction (default: 'purchase').
-    """
+def credit_coins(user_id: str, amount: int, ref: str, type: str = 'purchase') -> None:
+    """Credit coins to a user and log transaction."""
     db = get_mongo_db()
-    db.users.update_one(
-        {'_id': user_id},
+    query = get_user_query(user_id)
+    result = db.users.update_one(
+        query,
         {'$inc': {'coin_balance': amount}}
     )
+    if result.matched_count == 0:
+        logger.error(f"No user found for ID {user_id} to credit coins")
+        raise ValueError(f"No user found for ID {user_id}")
     db.coin_transactions.insert_one({
         'user_id': user_id,
         'amount': amount,
@@ -66,7 +72,6 @@ def credit_coins(user_id: str, amount: int, ref: str, type: str = 'purchase') ->
         'ref': ref,
         'date': datetime.utcnow()
     })
-    # Log audit action
     try:
         db.audit_logs.insert_one({
             'admin_id': 'system' if type == 'purchase' else str(current_user.id),
@@ -93,6 +98,10 @@ def purchase():
             flash(trans_function('purchase_success', default='Coins purchased successfully'), 'success')
             logger.info(f"User {current_user.id} purchased {amount} coins via {payment_method}")
             return redirect(url_for('coins_blueprint.history'))
+        except ValueError as e:
+            logger.error(f"User not found for coin purchase: {str(e)}")
+            flash(trans_function('user_not_found', default='User not found'), 'danger')
+            return render_template('coins/purchase.html', form=form), 404
         except Exception as e:
             logger.error(f"Error purchasing coins for user {current_user.id}: {str(e)}")
             flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
@@ -106,7 +115,8 @@ def history():
     """View coin transaction history."""
     try:
         db = get_mongo_db()
-        user = db.users.find_one({'_id': str(current_user.id)})
+        user_query = get_user_query(str(current_user.id))
+        user = db.users.find_one(user_query)
         # TEMPORARY: Allow admin to view all transactions during testing
         # TODO: Restore original query {'user_id': str(current_user.id)} for production
         query = {} if is_admin() else {'user_id': str(current_user.id)}
@@ -141,7 +151,7 @@ def receipt_upload():
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
-            fs = GridFS(db)  # Initialize GridFS with the MongoDB database
+            fs = GridFS(db)
             receipt_file = form.receipt.data
             file_id = fs.put(
                 receipt_file,
@@ -152,10 +162,14 @@ def receipt_upload():
             # TEMPORARY: Skip coin deduction for admin during testing
             # TODO: Restore original coin deduction for production
             if not is_admin():
-                db.users.update_one(
-                    {'_id': str(current_user.id)},
+                user_query = get_user_query(str(current_user.id))
+                result = db.users.update_one(
+                    user_query,
                     {'$inc': {'coin_balance': -1}}
                 )
+                if result.matched_count == 0:
+                    logger.error(f"No user found for ID {current_user.id} to deduct coins")
+                    raise ValueError(f"No user found for ID {current_user.id}")
                 db.coin_transactions.insert_one({
                     'user_id': str(current_user.id),
                     'amount': -1,
@@ -173,6 +187,10 @@ def receipt_upload():
             flash(trans_function('receipt_uploaded', default='Receipt uploaded successfully'), 'success')
             logger.info(f"User {current_user.id} uploaded receipt {file_id}")
             return redirect(url_for('coins_blueprint.history'))
+        except ValueError as e:
+            logger.error(f"User not found for receipt upload: {str(e)}")
+            flash(trans_function('user_not_found', default='User not found'), 'danger')
+            return render_template('coins/receipt_upload.html', form=form), 404
         except Exception as e:
             logger.error(f"Error uploading receipt for user {current_user.id}: {str(e)}")
             flash(trans_function('core_something_went_wrong', default='An error occurred'), 'danger')
@@ -185,28 +203,19 @@ def receipt_upload():
 def get_balance():
     """API endpoint to fetch current coin balance."""
     try:
-        # Verify user ID from current_user
         if not current_user.is_authenticated or not current_user.id:
             logger.warning("Unauthorized access attempt to /coins/balance")
             return jsonify({'error': trans_function('unauthorized', default='Unauthorized access')}), 401
-
-        user_id = str(current_user.id)  # Ensure user_id is a string
+        user_id = str(current_user.id)
         db = get_mongo_db()
-
-        # Query user by _id (string, not ObjectId)
-        user = db.users.find_one({'_id': user_id})
+        user_query = get_user_query(user_id)
+        user = db.users.find_one(user_query)
         if not user:
             logger.error(f"User not found: {user_id}")
             return jsonify({'error': trans_function('user_not_found', default='User not found')}), 404
-
-        # Return coin balance
         coin_balance = user.get('coin_balance', 0)
         logger.info(f"Fetched coin balance for user {user_id}: {coin_balance}")
         return jsonify({'coin_balance': coin_balance}), 200
-
-    except InvalidId:
-        logger.error(f"Invalid user ID format: {user_id}")
-        return jsonify({'error': trans_function('invalid_user_id', default='Invalid user ID format')}), 400
     except Exception as e:
         logger.error(f"Error fetching coin balance for user {user_id}: {str(e)}")
         return jsonify({'error': trans_function('core_something_went_wrong', default='An error occurred')}), 500
