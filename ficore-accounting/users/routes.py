@@ -68,7 +68,7 @@ class SignupForm(FlaskForm):
     language = SelectField(trans_function('language', default='Language'), choices=[
         ('en', trans_function('english', default='English')),
         ('ha', trans_function('hausa', default='Hausa'))
-    ], validators=[validators.DataRequired(message=trans_function('language_required', default='Language is required'))], render_kw={'class': 'form-select'})
+    ], validators=[validators.DataRequired(message=trans_function('language_required', default='Language is required'))], render_kw={'class': ' Gform-select'})
     submit = SubmitField(trans_function('signup', default='Sign Up'), render_kw={'class': 'btn btn-primary w-100'})
 
 class ForgotPasswordForm(FlaskForm):
@@ -185,18 +185,22 @@ def login():
                 except Exception as e:
                     logger.warning(f"Email delivery failed for OTP: {str(e)}. Allowing login without 2FA.")
                     from app import User
-                    login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
+                    user_obj = User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal'))
+                    login_user(user_obj, remember=True)
                     session['lang'] = user.get('language', 'en')
+                    session['user_id'] = user['_id']  # Explicitly set user_id in session
                     log_audit_action('login_without_2fa', {'user_id': username, 'reason': 'email_failure'})
-                    logger.info(f"User {username} logged in without 2FA due to email failure")
+                    logger.info(f"User {username} logged in without 2FA due to email failure. Session: {session}")
                     if not user.get('setup_complete', False):
                         return redirect(url_for('users_blueprint.setup_wizard'))
                     return redirect(url_for('users_blueprint.profile'))
             from app import User
-            login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
+            user_obj = User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal'))
+            login_user(user_obj, remember=True)
             session['lang'] = user.get('language', 'en')
+            session['user_id'] = user['_id']  # Explicitly set user_id in session
             log_audit_action('login', {'user_id': username})
-            logger.info(f"User {username} logged in successfully")
+            logger.info(f"User {username} logged in successfully. Session: {session}")
             if not user.get('setup_complete', False):
                 return redirect(url_for('users_blueprint.setup_wizard'))
             return redirect(url_for('users_blueprint.profile'))
@@ -229,14 +233,16 @@ def verify_2fa():
                 return redirect(url_for('users_blueprint.login'))
             if user.get('otp') == form.otp.data and user.get('otp_expiry') > datetime.utcnow():
                 from app import User
-                login_user(User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal')), remember=True)
+                user_obj = User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal'))
+                login_user(user_obj, remember=True)
                 session['lang'] = user.get('language', 'en')
+                session['user_id'] = user['_id']  # Explicitly set user_id in session
                 db.users.update_one(
                     {'_id': username},
                     {'$unset': {'otp': '', 'otp_expiry': ''}}
                 )
                 log_audit_action('verify_2fa', {'user_id': username})
-                logger.info(f"User {username} verified 2FA successfully")
+                logger.info(f"User {username} verified 2FA successfully. Session: {session}")
                 session.pop('pending_user_id', None)
                 if not user.get('setup_complete', False):
                     return redirect(url_for('users_blueprint.setup_wizard'))
@@ -328,9 +334,11 @@ def signup():
 
             # Login user after successful transaction
             from app import User
-            login_user(User(username, email, username, role), remember=True)
+            user_obj = User(username, email, username, role)
+            login_user(user_obj, remember=True)
             session['lang'] = language
-            logger.info(f"New user created and logged in: {username} (role: {role})")
+            session['user_id'] = username  # Explicitly set user_id in session
+            logger.info(f"New user created and logged in: {username} (role: {role}). Session: {session}")
             return redirect(url_for('users_blueprint.setup_wizard'))
 
         except Exception as e:
