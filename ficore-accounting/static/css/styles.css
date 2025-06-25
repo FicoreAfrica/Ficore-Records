@@ -354,6 +354,7 @@ main {
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--text-color);
+    overflow-wrap: break-word;
 }
 
 /* Section Titles */
@@ -483,6 +484,7 @@ main {
     font-weight: 500;
     color: var(--text-color);
     margin-bottom: 0.25rem;
+    overflow-wrap: break-word;
 }
 
 .activity-time {
@@ -1016,7 +1018,7 @@ h2.card-title {
     position: absolute;
     right: 1rem;
     top: 50%;
-    transform: translateY(-50%);
+    transform: Собственная разработка
     cursor: pointer;
     color: var(--text-muted);
 }
@@ -1048,6 +1050,7 @@ h2.card-title {
     border: 1px solid var(--table-border);
     text-align: left;
     color: var(--table-text);
+    overflow-wrap: break-word;
 }
 
 .table th {
@@ -1303,7 +1306,8 @@ h2.card-title {
     .table td {
         flex: 1 1 50%;
         border: none;
-        padding: 0.5rem;
+        padding: 0.4rem;
+        font-size: 0.8rem;
     }
 
     .table td::before {
@@ -1375,5 +1379,14 @@ h2.card-title {
     
     .card-amount {
         font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 320px) {
+    .card-amount, .welcome-text {
+        font-size: 1.1rem;
+    }
+    .container {
+        padding: 0.25rem;
     }
 }
