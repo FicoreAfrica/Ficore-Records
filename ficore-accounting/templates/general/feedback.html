@@ -12,7 +12,7 @@
                     <select name="tool_name" id="tool_name" class="form-select" required>
                         <option value="">{{ trans('choose_option') | default('Choose...') }}</option>
                         {% for tool in tool_options %}
-                            <option value="{{ tool }}">{{ trans(tool) | default(tool | capitalize) }}</option>
+                            <option value="{{ tool[0] }}">{{ tool[1] }}</option>
                         {% endfor %}
                     </select>
                     <div class="invalid-feedback">{{ trans('invalid_tool') | default('Please select a valid tool') }}</div>
