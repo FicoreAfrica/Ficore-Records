@@ -338,7 +338,8 @@ def setup_database(initialize=False):
                             'type': {'enum': ['debtor', 'creditor']},
                             'created_at': {'bsonType': 'date'},
                             'contact': {'bsonType': ['string', 'null']},
-                            'description': {'bsonType': ['string', 'null']}
+                            'description': {'bsonType': ['string', 'null']},
+                            'reminder_count': {'bsonType': ['int', 'null'], 'minimum': 0}
                         }
                     }
                 },
@@ -448,6 +449,28 @@ def setup_database(initialize=False):
                     {'key': [('timestamp', DESCENDING)]}
                 ]
             },
+            'reminder_logs': {
+                'validator': {
+                    '$jsonSchema': {
+                        'bsonType': 'object',
+                        'required': ['user_id', 'debt_id', 'recipient', 'message', 'type', 'sent_at'],
+                        'properties': {
+                            'user_id': {'bsonType': 'string'},
+                            'debt_id': {'bsonType': 'string'},
+                            'recipient': {'bsonType': 'string'},
+                            'message': {'bsonType': 'string'},
+                            'type': {'enum': ['sms', 'whatsapp']},
+                            'sent_at': {'bsonType': 'date'},
+                            'api_response': {'bsonType': ['object', 'null']}
+                        }
+                    }
+                },
+                'indexes': [
+                    {'key': [('user_id', ASCENDING)]},
+                    {'key': [('debt_id', ASCENDING)]},
+                    {'key': [('sent_at', DESCENDING)]}
+                ]
+            },
             'sessions': {
                 'validator': {},
                 'indexes': [
@@ -481,10 +504,6 @@ def setup_database(initialize=False):
                             index_exists = True
                         else:
                             logger.warning(f"Index conflict on {collection_name}: {keys}. Existing options: {existing_options}, Requested: {options}")
-                            # Optionally drop and recreate index if options differ (be cautious with this in production)
-                            # db[collection_name].drop_index(existing_index_name)
-                            # db[collection_name].create_index(keys, **options)
-                            # logger.info(f"Recreated index on {collection_name}: {keys} with options {options}")
                         break
                 
                 if not index_exists:
