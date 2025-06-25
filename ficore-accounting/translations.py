@@ -961,16 +961,23 @@ TRANSLATIONS = {
     }
 }
 
-def trans_function(key, default=None):
+def trans_function(key, lang=None, default=None):
     """
-    Translate a key with optional arguments, handling context safely.
+    Translate a key with optional language override and context-safe handling.
     """
-    lang = 'en'
-    if has_request_context():
+    if isinstance(key, list):
+        key = key[0] if key else ''
+
+    if not lang and has_request_context():
         lang = session.get('lang', 'en')
-        if os.getenv('FLASK_ENV', 'development') == 'development':
-            logger.debug(f"Requested translation: key='{key}', lang='{lang}'")
+    lang = lang or 'en'
+
+    if os.getenv('FLASK_ENV') == 'development':
+        logger.debug(f"Requested translation: key='{key}', lang='{lang}'")
+
     translation = TRANSLATIONS.get(lang, TRANSLATIONS.get('en', {})).get(key, default or key)
-    if translation == (default or key) and os.getenv('FLASK_ENV', 'development') == 'development':
+
+    if translation == (default or key) and os.getenv('FLASK_ENV') == 'development':
         logger.debug(f"Missing translation for key '{key}' in language '{lang}'")
+
     return translation
