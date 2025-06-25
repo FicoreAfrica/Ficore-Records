@@ -16,6 +16,7 @@
                         <th>{{ trans('amount', default='Amount') }}</th>
                         <th>{{ trans('contact', default='Contact') }}</th>
                         <th>{{ trans('created_at', default='Created At') }}</th>
+                        <th>{{ trans('reminders', default='Reminders') }}</th>
                         <th>{{ trans('actions', default='Actions') }}</th>
                     </tr>
                 </thead>
@@ -26,12 +27,43 @@
                             <td data-label="{{ trans('amount', default='Amount') }}">{{ format_currency(debtor.amount_owed) }}</td>
                             <td data-label="{{ trans('contact', default='Contact') }}">{{ debtor.contact or '-' }}</td>
                             <td data-label="{{ trans('created_at', default='Created At') }}">{{ format_date(debtor.created_at) }}</td>
+                            <td data-label="{{ trans('reminders', default='Reminders') }}">{{ debtor.get('reminder_count', 0) }}</td>
                             <td data-label="{{ trans('actions', default='Actions') }}">
-                                <a href="{{ url_for('debtors_blueprint.edit', id=debtor._id) }}" class="btn btn-primary btn-sm">{{ trans('edit', default='Edit') }}</a>
-                                <form action="{{ url_for('debtors_blueprint.delete', id=debtor._id) }}" method="POST" class="d-inline">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
-                                </form>
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-info btn-sm view-btn" 
+                                            data-id="{{ debtor._id }}"
+                                            data-bs-toggle="tooltip" 
+                                            title="{{ trans('view_details', default='View Details') }}">
+                                        {{ trans('view', default='View') }}
+                                    </button>
+                                    {% if debtor.contact %}
+                                    <button type="button" class="btn btn-warning btn-sm reminder-btn" 
+                                            data-id="{{ debtor._id }}"
+                                            data-name="{{ debtor.name }}"
+                                            data-amount="{{ debtor.amount_owed }}"
+                                            data-contact="{{ debtor.contact }}"
+                                            data-date="{{ format_date(debtor.created_at) }}"
+                                            data-bs-toggle="tooltip" 
+                                            title="{{ trans('send_reminder', default='Send Reminder') }}">
+                                        {{ trans('reminder', default='Reminder') }}
+                                    </button>
+                                    {% endif %}
+                                    <a href="{{ url_for('debtors_blueprint.edit', id=debtor._id) }}" 
+                                       class="btn btn-primary btn-sm"
+                                       data-bs-toggle="tooltip" 
+                                       title="{{ trans('edit', default='Edit') }}">
+                                        {{ trans('edit', default='Edit') }}
+                                    </a>
+                                    <form action="{{ url_for('debtors_blueprint.delete', id=debtor._id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-danger btn-sm" 
+                                                onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')"
+                                                data-bs-toggle="tooltip" 
+                                                title="{{ trans('delete', default='Delete') }}">
+                                            {{ trans('delete', default='Delete') }}
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     {% endfor %}
@@ -45,4 +77,220 @@
         </div>
     {% endif %}
 </div>
+
+<!-- Debt Details Modal -->
+<div class="modal fade" id="debtDetailsModal" tabindex="-1" aria-labelledby="debtDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="debtDetailsModalLabel">{{ trans('debt_details', default='Debt Details') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ trans('close', default='Close') }}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>{{ trans('name', default='Name') }}:</strong> <span id="detailName"></span></p>
+                        <p><strong>{{ trans('amount_owed', default='Amount Owed') }}:</strong> <span id="detailAmount"></span></p>
+                        <p><strong>{{ trans('contact', default='Contact') }}:</strong> <span id="detailContact"></span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>{{ trans('description', default='Description') }}:</strong> <span id="detailDescription"></span></p>
+                        <p><strong>{{ trans('date_recorded', default='Date Recorded') }}:</strong> <span id="detailDate"></span></p>
+                        <p><strong>{{ trans('reminders_sent', default='Reminders Sent') }}:</strong> <span id="detailReminderCount"></span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="downloadReceiptBtn">
+                    {{ trans('download_receipt', default='Download Receipt') }}
+                </button>
+                <button type="button" class="btn btn-info" id="shareReminderBtn">
+                    {{ trans('share_reminder', default='Share Reminder') }}
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ trans('close', default='Close') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reminder Modal -->
+<div class="modal fade" id="reminderModal" tabindex="-1" aria-labelledby="reminderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reminderModalLabel">{{ trans('send_reminder', default='Send Reminder') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ trans('close', default='Close') }}"></button>
+            </div>
+            <div class="modal-body">
+                <form id="reminderForm">
+                    <div class="mb-3">
+                        <label for="reminderType" class="form-label">{{ trans('reminder_type', default='Reminder Type') }}</label>
+                        <select class="form-select" id="reminderType" required>
+                            <option value="sms">{{ trans('sms', default='SMS') }}</option>
+                            <option value="whatsapp">{{ trans('whatsapp', default='WhatsApp') }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="reminderMessage" class="form-label">{{ trans('message', default='Message') }}</label>
+                        <textarea class="form-control" id="reminderMessage" rows="4" required></textarea>
+                        <div class="form-text">{{ trans('reminder_cost', default='Cost: 2 coins per reminder') }}</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="sendReminderBtn">
+                    {{ trans('send_reminder', default='Send Reminder') }}
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ trans('cancel', default='Cancel') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    let currentDebtData = null;
+
+    // View button functionality
+    document.querySelectorAll('.view-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const debtId = this.dataset.id;
+            
+            fetch(`/debtors/view/${debtId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    
+                    currentDebtData = data;
+                    
+                    document.getElementById('detailName').textContent = data.name;
+                    document.getElementById('detailAmount').textContent = `{{ trans('currency_symbol', default='₦') }}${parseFloat(data.amount_owed).toLocaleString()}`;
+                    document.getElementById('detailContact').textContent = data.contact || '{{ trans('not_provided', default='Not provided') }}';
+                    document.getElementById('detailDescription').textContent = data.description || '{{ trans('no_description', default='No description provided') }}';
+                    document.getElementById('detailDate').textContent = new Date(data.created_at).toLocaleDateString();
+                    document.getElementById('detailReminderCount').textContent = data.reminder_count || 0;
+                    
+                    new bootstrap.Modal(document.getElementById('debtDetailsModal')).show();
+                })
+                .catch(error => {
+                    console.error('Error fetching debt details:', error);
+                    alert('{{ trans('error_loading_details', default='Error loading details') }}');
+                });
+        });
+    });
+
+    // Download receipt functionality
+    document.getElementById('downloadReceiptBtn').addEventListener('click', function() {
+        if (currentDebtData) {
+            window.location.href = `/debtors/generate_receipt/${currentDebtData._id}`;
+        }
+    });
+
+    // Share reminder functionality
+    document.getElementById('shareReminderBtn').addEventListener('click', function() {
+        if (currentDebtData && currentDebtData.contact) {
+            const message = `Hi ${currentDebtData.name}, you owe {{ trans('currency_symbol', default='₦') }}${parseFloat(currentDebtData.amount_owed).toLocaleString()} recorded on FiCore Records (from ${new Date(currentDebtData.created_at).toLocaleDateString()}). Kindly settle soon.`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: '{{ trans('ficore_debt_reminder', default='FiCore Debt Reminder') }}',
+                    text: message,
+                    url: window.location.href
+                })
+                .then(() => console.log('Successfully shared'))
+                .catch((error) => console.error('Error sharing:', error));
+            } else {
+                // WhatsApp fallback
+                const contact = currentDebtData.contact.replace(/\D/g, '');
+                const whatsappLink = `https://wa.me/${contact}?text=${encodeURIComponent(message)}`;
+                window.open(whatsappLink, '_blank');
+            }
+        }
+    });
+
+    // Reminder button functionality
+    document.querySelectorAll('.reminder-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const name = this.dataset.name;
+            const amount = parseFloat(this.dataset.amount).toLocaleString();
+            const date = this.dataset.date;
+            const contact = this.dataset.contact;
+            
+            currentDebtData = {
+                _id: this.dataset.id,
+                name: name,
+                amount_owed: this.dataset.amount,
+                contact: contact,
+                created_at: this.dataset.date
+            };
+            
+            const defaultMessage = `Hi ${name}, just a quick reminder you have {{ trans('currency_symbol', default='₦') }}${amount} recorded on FiCore Records (${date}). Please settle when you can. Thank you.`;
+            document.getElementById('reminderMessage').value = defaultMessage;
+            
+            new bootstrap.Modal(document.getElementById('reminderModal')).show();
+        });
+    });
+
+    // Send reminder functionality
+    document.getElementById('sendReminderBtn').addEventListener('click', function() {
+        if (!currentDebtData) return;
+        
+        const reminderType = document.getElementById('reminderType').value;
+        const message = document.getElementById('reminderMessage').value;
+        
+        if (!message.trim()) {
+            alert('{{ trans('message_required', default='Message is required') }}');
+            return;
+        }
+        
+        this.disabled = true;
+        this.textContent = '{{ trans('sending', default='Sending...') }}';
+        
+        fetch('/debtors/send_reminder', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                debtId: currentDebtData._id,
+                recipient: currentDebtData.contact,
+                message: message,
+                type: reminderType
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('{{ trans('reminder_sent_successfully', default='Reminder sent successfully!') }}');
+                bootstrap.Modal.getInstance(document.getElementById('reminderModal')).hide();
+                location.reload(); // Refresh to update reminder count
+            } else {
+                alert('{{ trans('failed_to_send_reminder', default='Failed to send reminder') }}: ' + (data.message || '{{ trans('unknown_error', default='Unknown error') }}'));
+            }
+        })
+        .catch(error => {
+            console.error('Error sending reminder:', error);
+            alert('{{ trans('error_sending_reminder', default='An error occurred while sending the reminder') }}');
+        })
+        .finally(() => {
+            this.disabled = false;
+            this.textContent = '{{ trans('send_reminder', default='Send Reminder') }}';
+        });
+    });
+});
+</script>
 {% endblock %}
