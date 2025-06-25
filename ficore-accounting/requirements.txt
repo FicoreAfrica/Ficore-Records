@@ -18,3 +18,4 @@ itsdangerous==2.2.0
 dnspython==2.6.1
 certifi>=2024.2.2
 WTForms>=3.0.0
+requests==2.32.3
