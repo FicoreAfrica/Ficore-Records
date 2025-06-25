@@ -127,7 +127,7 @@
                                 {{ current_user.display_name | default(trans('profile', default='Profile')) }}
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('users_blueprint.profile') }}">{{ trans('profile', default='Profile') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('settings_blueprint.profile') }}">{{ trans('profile', default='Profile') }}</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('feedback') }}">{{ trans('feedback', default='Send Feedback') }}</a></li>
                                 {% if current_user.get('is_admin', False) %}
                                     <li><a class="dropdown-item" href="{{ url_for('admin_blueprint.dashboard') }}">{{ trans('admin_panel', default='Admin Panel') }}</a></li>
