@@ -10,6 +10,8 @@ import logging
 import io
 import os
 import requests
+import re
+import urllib.parse
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +94,7 @@ def share(id):
         if not is_admin() and not check_coin_balance(1):
             return jsonify({'success': False, 'message': trans_function('insufficient_coins', default='Insufficient coins to share IOU')}), 400
         
-        contact = debtor['contact'].replace(/\D/g, '')
+        contact = re.sub(r'\D', '', debtor['contact'])
         if contact.startswith('0'):
             contact = '234' + contact[1:]
         elif not contact.startswith('+'):
