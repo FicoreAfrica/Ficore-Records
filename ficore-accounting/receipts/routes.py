@@ -156,6 +156,8 @@ def add():
     if form.validate_on_submit():
         try:
             db = get_mongo_db()
+            # Convert datetime.date to datetime.datetime
+            receipt_date = datetime(form.date.data.year, form.date.data.month, form.date.data.day)
             cashflow = {
                 'user_id': str(current_user.id),
                 'type': 'receipt',
@@ -163,7 +165,7 @@ def add():
                 'amount': form.amount.data,
                 'method': form.method.data,
                 'category': form.category.data,
-                'created_at': form.date.data,
+                'created_at': receipt_date,
                 'updated_at': datetime.utcnow()
             }
             db.cashflows.insert_one(cashflow)
@@ -205,19 +207,21 @@ def edit(id):
             return redirect(url_for('receipts_blueprint.index'))
         form = ReceiptForm(data={
             'party_name': receipt['party_name'],
-            'date': receipt['created_at'],
+            'date': receipt['created_at'],  # This is already a datetime.datetime object from MongoDB
             'amount': receipt['amount'],
             'method': receipt.get('method'),
             'category': receipt.get('category')
         })
         if form.validate_on_submit():
             try:
+                # Convert datetime.date to datetime.datetime
+                receipt_date = datetime(form.date.data.year, form.date.data.month, form.date.data.day)
                 updated_cashflow = {
                     'party_name': form.party_name.data,
                     'amount': form.amount.data,
                     'method': form.method.data,
                     'category': form.category.data,
-                    'created_at': form.date.data,
+                    'created_at': receipt_date,
                     'updated_at': datetime.utcnow()
                 }
                 db.cashflows.update_one(
