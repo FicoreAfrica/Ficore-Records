@@ -10,6 +10,8 @@ import logging
 import io
 import os
 import requests
+import re
+import urllib.parse
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +94,7 @@ def share(id):
         if not is_admin() and not check_coin_balance(1):
             return jsonify({'success': False, 'message': trans_function('insufficient_coins', default='Insufficient coins to share IOU')}), 400
         
-        contact = creditor['contact'].replace(/\D/g, '')
+        contact = re.sub(r'\D', '', creditor['contact'])
         if contact.startswith('0'):
             contact = '234' + contact[1:]
         elif not contact.startswith('+'):
@@ -176,18 +178,18 @@ def send_reminder():
                 'debt_id': debt_id,
                 'recipient': recipient or 'N/A',
                 'message': message or 'Snooze',
-                'type': send_type if recipient else '',
+                'type': send_type if recipient else 'snooze',
                 'sent_at': datetime.utcnow(),
                 'api_response': api_response if recipient else {'status': f'Snoozed for {snooze_days} days'}
             })
             
-            return jsonify({'success': True, 'message': trans_function('reminder_sent' if recipient else 'snooze_set', 'success')})
+            return jsonify({'success': True, 'message': trans_function('reminder_sent' if recipient else 'snooze_set', default='Reminder sent successfully' if recipient else 'Snooze set successfully')})
         else:
             return jsonify({'success': False, 'message': trans_function('reminder_failed', default='Failed to send reminder'), 'details': api_response}), 500
             
     except Exception as e:
         logger.error(f"Error sending reminder: {str(e)}")
-        return jsonify({'success': False, 'error': trans_function('something_went_wrong', default='An error occurred')}), 500
+        return jsonify({'success': False, 'message': trans_function('something_went_wrong', default='An error occurred')}), 500
 
 @creditors_bp.route('/generate_iou/<id>')
 @login_required
@@ -226,7 +228,7 @@ def generate_iou(id):
         y_position -= 0.3 * inch
         p.drawString(inch, y_position, f"Contact: {creditor.get('contact', 'N/A')}")
         y_position -= 0.3 * inch
-        p.drawString(inch, y_position, f"Description: {creditor.get('description', '')}")
+        p.drawString(inch, y_position, f"Description: {creditor.get('description', 'No description provided')}")
         y_position -= 0.3 * inch
         p.drawString(inch, y_position, f"Date Recorded: {format_date(creditor['created_at'])}")
         y_position -= 0.3 * inch
@@ -326,14 +328,13 @@ def edit(id):
         })
         if form.validate_on_submit():
             try:
-                updated_record = (
-                    'name'
-                    'contact'
-                    'amount_owed'
-                    'description'
-                    'updated_at'
-                    datetime.utcnow()
-                )
+                updated_record = {
+                    'name': form.name.data,
+                    'contact': form.contact.data,
+                    'amount_owed': form.amount_owed.data,
+                    'description': form.description.data,
+                    'updated_at': datetime.utcnow()
+                }
                 db.records.update_one(
                     {'_id': ObjectId(id)},
                     {'$set': updated_record}
