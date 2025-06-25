@@ -90,21 +90,6 @@ class ResetPasswordForm(FlaskForm):
     ], render_kw={'class': 'form-control'})
     submit = SubmitField(trans_function('reset_password', default='Reset Password'), render_kw={'class': 'btn btn-primary w-100'})
 
-class ProfileForm(FlaskForm):
-    email = StringField(trans_function('email', default='Email'), [
-        validators.DataRequired(message=trans_function('email_required', default='Email is required')),
-        validators.Email(message=trans_function('email_invalid', default='Invalid email address'))
-    ], render_kw={'class': 'form-control'})
-    display_name = StringField(trans_function('display_name', default='Display Name'), [
-        validators.DataRequired(message=trans_function('display_name_required', default='Display Name is required')),
-        validators.Length(min=3, max=50, message=trans_function('display_name_length', default='Display Name must be between 3 and 50 characters'))
-    ], render_kw={'class': 'form-control'})
-    language = SelectField(trans_function('language', default='Language'), choices=[
-        ('en', trans_function('english', default='English')),
-        ('ha', trans_function('hausa', default='Hausa'))
-    ], validators=[validators.DataRequired(message=trans_function('language_required', default='Language is required'))], render_kw={'class': 'form-select'})
-    submit = SubmitField(trans_function('update_profile', default='Update Profile'), render_kw={'class': 'btn btn-primary w-100'})
-
 class BusinessSetupForm(FlaskForm):
     business_name = StringField(trans_function('business_name', default='Business Name'),
                                validators=[validators.DataRequired(message=trans_function('business_name_required', default='Business name is required')),
@@ -193,7 +178,7 @@ def login():
                     logger.info(f"User {username} logged in without 2FA due to email failure. Session: {session}")
                     if not user.get('setup_complete', False):
                         return redirect(url_for('users_blueprint.setup_wizard'))
-                    return redirect(url_for('users_blueprint.profile'))
+                    return redirect(url_for('settings_blueprint.profile'))
             from app import User
             user_obj = User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal'))
             login_user(user_obj, remember=True)
@@ -203,7 +188,7 @@ def login():
             logger.info(f"User {username} logged in successfully. Session: {session}")
             if not user.get('setup_complete', False):
                 return redirect(url_for('users_blueprint.setup_wizard'))
-            return redirect(url_for('users_blueprint.profile'))
+            return redirect(url_for('settings_blueprint.profile'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during login: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
@@ -246,7 +231,7 @@ def verify_2fa():
                 session.pop('pending_user_id', None)
                 if not user.get('setup_complete', False):
                     return redirect(url_for('users_blueprint.setup_wizard'))
-                return redirect(url_for('users_blueprint.profile'))
+                return redirect(url_for('settings_blueprint.profile'))
             flash(trans_function('invalid_otp', default='Invalid or expired OTP'), 'danger')
             logger.warning(f"Failed 2FA attempt for username: {username}")
         except errors.PyMongoError as e:
@@ -426,77 +411,6 @@ def reset_password():
             return render_template('users/reset_password.html', form=form, token=token), 500
     return render_template('users/reset_password.html', form=form, token=token)
 
-@users_bp.route('/profile', methods=['GET', 'POST'])
-@login_required
-@limiter.limit("50/hour")
-def profile():
-    """Manage user profile."""
-    try:
-        db = get_mongo_db()
-        user_id = request.args.get('user_id', current_user.id) if is_admin() and request.args.get('user_id') else current_user.id
-        user = db.users.find_one({'_id': user_id})
-        if not user:
-            flash(trans_function('user_not_found', default='User not found'), 'error')
-            logger.warning(f"Profile access failed: User {user_id} not found")
-            return redirect(url_for('index'))
-        form = ProfileForm(data={
-            'email': user['email'],
-            'display_name': user['display_name'],
-            'language': user.get('language', 'en')
-        })
-        if form.validate_on_submit():
-            try:
-                if not is_admin() and not check_coin_balance(1):
-                    flash(trans_function('insufficient_coins', default='Insufficient coins to update profile'), 'danger')
-                    logger.warning(f"Profile update failed for {user_id}: Insufficient coins")
-                    return redirect(url_for('coins_blueprint.purchase'))
-                new_email = form.email.data.strip().lower()
-                new_display_name = form.display_name.data.strip()
-                new_language = form.language.data
-                if new_email != user['email'] and db.users.find_one({'email': new_email}):
-                    flash(trans_function('email_exists', default='Email already exists'), 'danger')
-                    logger.warning(f"Profile update failed for {user_id}: Email {new_email} already exists")
-                    return render_template('users/profile.html', form=form, user=user)
-                update_data = {
-                    'email': new_email,
-                    'display_name': new_display_name,
-                    'language': new_language,
-                    'updated_at': datetime.utcnow()
-                }
-                if not is_admin():
-                    update_data['coin_balance'] = user.get('coin_balance', 0) - 1
-                db.users.update_one(
-                    {'_id': user_id},
-                    {'$set': update_data}
-                )
-                if not is_admin():
-                    db.coin_transactions.insert_one({
-                        'user_id': user_id,
-                        'amount': -1,
-                        'type': 'spend',
-                        'ref': f"PROFILE_UPDATE_{datetime.utcnow().isoformat()}",
-                        'date': datetime.utcnow()
-                    })
-                log_audit_action('update_profile', {'user_id': user_id, 'updated_by': current_user.id})
-                if user_id == current_user.id:
-                    current_user.email = new_email
-                    current_user.display_name = new_display_name
-                    session['lang'] = new_language
-                flash(trans_function('profile_updated', default='Profile updated successfully'), 'success')
-                logger.info(f"Profile updated for user: {user_id} by {current_user.id}")
-                return redirect(url_for('users_blueprint.profile', user_id=user_id) if is_admin() else url_for('users_blueprint.profile'))
-            except errors.PyMongoError as e:
-                logger.error(f"MongoDB error updating profile for {user_id}: {str(e)}")
-                flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
-                return render_template('users/profile.html', form=form, user=user), 500
-        user['_id'] = str(user['_id'])
-        user['coin_balance'] = format_currency(user.get('coin_balance', 0))
-        return render_template('users/profile.html', form=form, user=user)
-    except errors.PyMongoError as e:
-        logger.error(f"MongoDB error fetching profile for {user_id}: {str(e)}")
-        flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
-        return redirect(url_for('index')), 500
-
 @users_bp.route('/setup_wizard', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("50/hour")
@@ -513,7 +427,7 @@ def setup_wizard():
             if form.back.data:
                 flash(trans('setup_completed', default='Business setup completed'), 'info')
                 logger.info(f"Business setup completed for user: {user_id}")
-                return redirect(url_for('users_blueprint.profile', user_id=user_id) if is_admin() else url_for('users_blueprint.profile'))
+                return redirect(url_for('settings_blueprint.profile', user_id=user_id) if is_admin() else url_for('settings_blueprint.profile'))
             db.users.update_one(
                 {'_id': user_id},
                 {
@@ -530,7 +444,7 @@ def setup_wizard():
             log_audit_action('complete_setup_wizard', {'user_id': user_id, 'updated_by': current_user.id})
             logger.info(f"Business setup completed for user: {user_id} by {current_user.id}")
             flash(trans('business_setup_success', default='Business setup completed'), 'success')
-            return redirect(url_for('users_blueprint.profile', user_id=user_id) if is_admin() else url_for('users_blueprint.profile'))
+            return redirect(url_for('settings_blueprint.profile', user_id=user_id) if is_admin() else url_for('settings_blueprint.profile'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during business setup for {user_id}: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'error')
@@ -590,7 +504,7 @@ def check_wizard_completion():
         db = get_mongo_db()
         user = db.users.find_one({'_id': current_user.id})
         if user and not user.get('setup_complete', False):
-            if request.endpoint not in ['users_blueprint.setup_wizard', 'users_blueprint.logout', 'users_blueprint.profile',
+            if request.endpoint not in ['users_blueprint.setup_wizard', 'users_blueprint.logout', 'settings_blueprint.profile',
                                        'users_blueprint', 'coins_blueprint.purchase', 'coins_blueprint.get_balance', 'set_language',
                                        'set_dark_mode']:
                 return redirect(url_for('users_blueprint.setup_wizard'))
