@@ -282,6 +282,162 @@ def set_dark_mode():
 def favicon():
     return send_from_directory(app.static_folder, 'favicon.ico')
 
+# API Routes for Homepage Data
+@app.route('/api/debt-summary')
+@login_required
+def debt_summary():
+    """Get debt summary for current user."""
+    try:
+        db = get_mongo_db()
+        user_id = current_user.id
+        
+        # Calculate total I owe (creditors)
+        creditors_pipeline = [
+            {'$match': {'user_id': user_id, 'type': 'creditor'}},
+            {'$group': {'_id': None, 'total': {'$sum': '$amount_owed'}}}
+        ]
+        creditors_result = list(db.records.aggregate(creditors_pipeline))
+        total_i_owe = creditors_result[0]['total'] if creditors_result else 0
+        
+        # Calculate total I am owed (debtors)
+        debtors_pipeline = [
+            {'$match': {'user_id': user_id, 'type': 'debtor'}},
+            {'$group': {'_id': None, 'total': {'$sum': '$amount_owed'}}}
+        ]
+        debtors_result = list(db.records.aggregate(debtors_pipeline))
+        total_i_am_owed = debtors_result[0]['total'] if debtors_result else 0
+        
+        return jsonify({
+            'totalIOwe': total_i_owe,
+            'totalIAmOwed': total_i_am_owed
+        })
+    except Exception as e:
+        logger.error(f"Error fetching debt summary: {str(e)}")
+        return jsonify({'error': 'Failed to fetch debt summary'}), 500
+
+@app.route('/api/cashflow-summary')
+@login_required
+def cashflow_summary():
+    """Get cashflow summary for current month."""
+    try:
+        db = get_mongo_db()
+        user_id = current_user.id
+        
+        # Get current month start and end
+        now = datetime.utcnow()
+        month_start = datetime(now.year, now.month, 1)
+        next_month = month_start.replace(month=month_start.month + 1) if month_start.month < 12 else month_start.replace(year=month_start.year + 1, month=1)
+        
+        # Calculate net cashflow for current month
+        receipts_pipeline = [
+            {'$match': {'user_id': user_id, 'type': 'receipt', 'created_at': {'$gte': month_start, '$lt': next_month}}},
+            {'$group': {'_id': None, 'total': {'$sum': '$amount'}}}
+        ]
+        receipts_result = list(db.cashflows.aggregate(receipts_pipeline))
+        total_receipts = receipts_result[0]['total'] if receipts_result else 0
+        
+        payments_pipeline = [
+            {'$match': {'user_id': user_id, 'type': 'payment', 'created_at': {'$gte': month_start, '$lt': next_month}}},
+            {'$group': {'_id': None, 'total': {'$sum': '$amount'}}}
+        ]
+        payments_result = list(db.cashflows.aggregate(payments_pipeline))
+        total_payments = payments_result[0]['total'] if payments_result else 0
+        
+        net_cashflow = total_receipts - total_payments
+        
+        return jsonify({
+            'netCashflow': net_cashflow,
+            'totalReceipts': total_receipts,
+            'totalPayments': total_payments
+        })
+    except Exception as e:
+        logger.error(f"Error fetching cashflow summary: {str(e)}")
+        return jsonify({'error': 'Failed to fetch cashflow summary'}), 500
+
+@app.route('/api/inventory-summary')
+@login_required
+def inventory_summary():
+    """Get inventory value summary."""
+    try:
+        db = get_mongo_db()
+        user_id = current_user.id
+        
+        # Calculate total inventory value
+        pipeline = [
+            {'$match': {'user_id': user_id}},
+            {'$addFields': {
+                'item_value': {
+                    '$multiply': [
+                        '$qty',
+                        {'$ifNull': ['$buying_price', 0]}
+                    ]
+                }
+            }},
+            {'$group': {'_id': None, 'totalValue': {'$sum': '$item_value'}}}
+        ]
+        
+        result = list(db.inventory.aggregate(pipeline))
+        total_value = result[0]['totalValue'] if result else 0
+        
+        return jsonify({
+            'totalValue': total_value
+        })
+    except Exception as e:
+        logger.error(f"Error fetching inventory summary: {str(e)}")
+        return jsonify({'error': 'Failed to fetch inventory summary'}), 500
+
+@app.route('/api/recent-activity')
+@login_required
+def recent_activity():
+    """Get recent activity for current user."""
+    try:
+        db = get_mongo_db()
+        user_id = current_user.id
+        activities = []
+        
+        # Get recent debts/credits
+        recent_records = list(db.records.find(
+            {'user_id': user_id}
+        ).sort('created_at', -1).limit(3))
+        
+        for record in recent_records:
+            activity_type = 'debt_added'
+            description = f"Added {record['type']}: {record['name']}"
+            activities.append({
+                'type': activity_type,
+                'description': description,
+                'amount': record['amount_owed'],
+                'timestamp': record['created_at']
+            })
+        
+        # Get recent cashflows
+        recent_cashflows = list(db.cashflows.find(
+            {'user_id': user_id}
+        ).sort('created_at', -1).limit(3))
+        
+        for cashflow in recent_cashflows:
+            activity_type = 'money_in' if cashflow['type'] == 'receipt' else 'money_out'
+            description = f"{'Received' if cashflow['type'] == 'receipt' else 'Paid'} {cashflow['party_name']}"
+            activities.append({
+                'type': activity_type,
+                'description': description,
+                'amount': cashflow['amount'],
+                'timestamp': cashflow['created_at']
+            })
+        
+        # Sort all activities by timestamp and limit to 5
+        activities.sort(key=lambda x: x['timestamp'], reverse=True)
+        activities = activities[:5]
+        
+        # Convert datetime objects to ISO strings for JSON serialization
+        for activity in activities:
+            activity['timestamp'] = activity['timestamp'].isoformat()
+        
+        return jsonify(activities)
+    except Exception as e:
+        logger.error(f"Error fetching recent activity: {str(e)}")
+        return jsonify({'error': 'Failed to fetch recent activity'}), 500
+
 def setup_database(initialize=False):
     try:
         db = get_mongo_db()
