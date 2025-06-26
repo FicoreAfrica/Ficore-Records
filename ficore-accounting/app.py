@@ -16,6 +16,7 @@ from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from itsdangerous import URLSafeTimedSerializer
 from flask_babel import Babel
 from functools import wraps
+import uuid
 
 # Ensure dnspython is installed for mongodb+srv:// URIs
 try:
@@ -438,6 +439,60 @@ def recent_activity():
         logger.error(f"Error fetching recent activity: {str(e)}")
         return jsonify({'error': 'Failed to fetch recent activity'}), 500
 
+@app.route('/api/notifications/count')
+@login_required
+def notification_count():
+    """Get the total number of unread notifications for the current user."""
+    try:
+        db = get_mongo_db()
+        user_id = current_user.id
+        
+        # Count unread notifications from reminder_logs
+        count = db.reminder_logs.count_documents({
+            'user_id': user_id,
+            'read_status': False
+        })
+        
+        return jsonify({'count': count})
+    except Exception as e:
+        logger.error(f"Error fetching notification count: {str(e)}")
+        return jsonify({'error': 'Failed to fetch notification count'}), 500
+
+@app.route('/api/notifications')
+@login_required
+def notifications():
+    """Get recent notifications for the current user."""
+    try:
+        db = get_mongo_db()
+        user_id = current_user.id
+        
+        # Fetch recent notifications (limit to 10)
+        notifications = list(db.reminder_logs.find({
+            'user_id': user_id
+        }).sort('sent_at', DESCENDING).limit(10))
+        
+        # Mark notifications as read
+        notification_ids = [n['notification_id'] for n in notifications if not n.get('read_status', False)]
+        if notification_ids:
+            db.reminder_logs.update_many(
+                {'notification_id': {'$in': notification_ids}},
+                {'$set': {'read_status': True}}
+            )
+        
+        # Format response
+        result = [{
+            'id': str(n['notification_id']),
+            'message': n['message'],
+            'type': n['type'],
+            'timestamp': n['sent_at'].isoformat(),
+            'read': n.get('read_status', False)
+        } for n in notifications]
+        
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error fetching notifications: {str(e)}")
+        return jsonify({'error': 'Failed to fetch notifications'}), 500
+
 def setup_database(initialize=False):
     try:
         db = get_mongo_db()
@@ -609,7 +664,7 @@ def setup_database(initialize=False):
                 'validator': {
                     '$jsonSchema': {
                         'bsonType': 'object',
-                        'required': ['user_id', 'debt_id', 'recipient', 'message', 'type', 'sent_at'],
+                        'required': ['user_id', 'debt_id', 'recipient', 'message', 'type', 'sent_at', 'notification_id', 'read_status'],
                         'properties': {
                             'user_id': {'bsonType': 'string'},
                             'debt_id': {'bsonType': 'string'},
@@ -617,14 +672,17 @@ def setup_database(initialize=False):
                             'message': {'bsonType': 'string'},
                             'type': {'enum': ['sms', 'whatsapp']},
                             'sent_at': {'bsonType': 'date'},
-                            'api_response': {'bsonType': ['object', 'null']}
+                            'api_response': {'bsonType': ['object', 'null']},
+                            'notification_id': {'bsonType': 'string'},
+                            'read_status': {'bsonType': 'bool'}
                         }
                     }
                 },
                 'indexes': [
                     {'key': [('user_id', ASCENDING)]},
                     {'key': [('debt_id', ASCENDING)]},
-                    {'key': [('sent_at', DESCENDING)]}
+                    {'key': [('sent_at', DESCENDING)]},
+                    {'key': [('notification_id', ASCENDING)], 'unique': True}
                 ]
             },
             'sessions': {
