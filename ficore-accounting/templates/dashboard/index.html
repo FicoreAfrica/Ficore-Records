@@ -45,7 +45,7 @@
                                             <td>{{ creditor.name }}</td>
                                             <td>{{ creditor.amount_owed | format_currency }}</td>
                                             <td>
-                                                <div class="btn-group" role="group">
+                                                <div class="responsive-btn-group" role="group">
                                                     <a href="{{ url_for('creditors_blueprint.view_page', id=creditor._id) }}"
                                                        class="btn btn-info btn-sm"
                                                        data-bs-toggle="tooltip"
@@ -123,7 +123,7 @@
                                             <td>{{ debtor.name }}</td>
                                             <td>{{ debtor.amount_owed | format_currency }}</td>
                                             <td>
-                                                <div class="btn-group" role="group">
+                                                <div class="responsive-btn-group" role="group">
                                                     <a href="{{ url_for('debtors_blueprint.view_page', id=debtor._id) }}"
                                                        class="btn btn-info btn-sm"
                                                        data-bs-toggle="tooltip"
@@ -185,12 +185,12 @@
                 <div class="card">
                     <div class="card-body">
                         <h3>{{ trans('money_out', default='Money Out') }}</h3>
-                        <small class="subtext">{{ trans('money_out_subtext', default='Kuɗin Da Ka Biya Wasu') }}</small>
+                        <small class="subtext">{{ trans('money_out_subtext', default='Track your expenses and payments') }}</small>
                         {% if recent_payments %}
                             <table class="table table-striped mt-3">
                                 <thead>
                                     <tr>
-                                        <th>{{ trans('party_name', default='Party Name') }}</th>
+                                        <th>{{ trans('recipient', default='Recipient') }}</th>
                                         <th>{{ trans('amount', default='Amount') }}</th>
                                         <th>{{ trans('actions', default='Actions') }}</th>
                                     </tr>
@@ -198,14 +198,30 @@
                                 <tbody>
                                     {% for payment in recent_payments %}
                                         <tr>
-                                            <td>{{ payment.party_name }}</td>
+                                            <td>{{ payment.recipient }}</td>
                                             <td>{{ payment.amount | format_currency }}</td>
                                             <td>
-                                                <div class="btn-group" role="group">
-                                                    <a href="{{ url_for('payments_blueprint.edit', id=payment._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                                <div class="responsive-btn-group" role="group">
+                                                    <a href="{{ url_for('payments_blueprint.view_page', id=payment._id) }}"
+                                                       class="btn btn-info btn-sm"
+                                                       data-bs-toggle="tooltip"
+                                                       title="{{ trans('view_details', default='View Details') }}">
+                                                        {{ trans('view', default='View') }}
+                                                    </a>
+                                                    <a href="{{ url_for('payments_blueprint.edit', id=payment._id) }}"
+                                                       class="btn btn-primary btn-sm"
+                                                       data-bs-toggle="tooltip"
+                                                       title="{{ trans('edit', default='Edit') }}">
+                                                        {{ trans('edit', default='Edit') }}
+                                                    </a>
                                                     <form action="{{ url_for('payments_blueprint.delete', id=payment._id) }}" method="POST" style="display:inline;">
                                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
+                                                        <button type="submit" class="btn btn-danger btn-sm"
+                                                                onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')"
+                                                                data-bs-toggle="tooltip"
+                                                                title="{{ trans('delete', default='Delete') }}">
+                                                            {{ trans('delete', default='Delete') }}
+                                                        </button>
                                                     </form>
                                                 </div>
                                             </td>
@@ -214,7 +230,7 @@
                                 </tbody>
                             </table>
                         {% else %}
-                            <p>{{ trans('no_money_out', default='No money out recorded.') }}</p>
+                            <p>{{ trans('no_money_out', default='No money out recorded yet.') }}</p>
                         {% endif %}
                     </div>
                 </div>
@@ -224,12 +240,12 @@
                 <div class="card">
                     <div class="card-body">
                         <h3>{{ trans('money_in', default='Money In') }}</h3>
-                        <small class="subtext">{{ trans('money_in_subtext', default='Kuɗin Da Aka Biyaka') }}</small>
+                        <small class="subtext">{{ trans('money_in_subtext', default='Track your income and receipts') }}</small>
                         {% if recent_receipts %}
                             <table class="table table-striped mt-3">
                                 <thead>
                                     <tr>
-                                        <th>{{ trans('party_name', default='Party Name') }}</th>
+                                        <th>{{ trans('payer', default='Payer') }}</th>
                                         <th>{{ trans('amount', default='Amount') }}</th>
                                         <th>{{ trans('actions', default='Actions') }}</th>
                                     </tr>
@@ -237,14 +253,30 @@
                                 <tbody>
                                     {% for receipt in recent_receipts %}
                                         <tr>
-                                            <td>{{ receipt.party_name }}</td>
+                                            <td>{{ receipt.payer }}</td>
                                             <td>{{ receipt.amount | format_currency }}</td>
                                             <td>
-                                                <div class="btn-group" role="group">
-                                                    <a href="{{ url_for('receipts_blueprint.edit', id=receipt._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                                <div class="responsive-btn-group" role="group">
+                                                    <a href="{{ url_for('receipts_blueprint.view_page', id=receipt._id) }}"
+                                                       class="btn btn-info btn-sm"
+                                                       data-bs-toggle="tooltip"
+                                                       title="{{ trans('view_details', default='View Details') }}">
+                                                        {{ trans('view', default='View') }}
+                                                    </a>
+                                                    <a href="{{ url_for('receipts_blueprint.edit', id=receipt._id) }}"
+                                                       class="btn btn-primary btn-sm"
+                                                       data-bs-toggle="tooltip"
+                                                       title="{{ trans('edit', default='Edit') }}">
+                                                        {{ trans('edit', default='Edit') }}
+                                                    </a>
                                                     <form action="{{ url_for('receipts_blueprint.delete', id=receipt._id) }}" method="POST" style="display:inline;">
                                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
+                                                        <button type="submit" class="btn btn-danger btn-sm"
+                                                                onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')"
+                                                                data-bs-toggle="tooltip"
+                                                                title="{{ trans('delete', default='Delete') }}">
+                                                            {{ trans('delete', default='Delete') }}
+                                                        </button>
                                                     </form>
                                                 </div>
                                             </td>
@@ -253,41 +285,53 @@
                                 </tbody>
                             </table>
                         {% else %}
-                            <p>{{ trans('no_money_in', default='No money in recorded.') }}</p>
+                            <p>{{ trans('no_money_in', default='No money in recorded yet.') }}</p>
                         {% endif %}
                     </div>
                 </div>
             </div>
 
-            <div class="col-12">
+            <div class="col-md-6">
                 <div class="card">
                     <div class="card-body">
-                        <h3>{{ trans('your_goods_stock', default='Your Goods & Stock') }} - {{ trans('low_stock', default='Low Stock') }}</h3>
-                        <small class="subtext">{{ trans('goods_stock_subtext', default='Kayanka da Hajojinka') }}</small>
-                        {% if low_stock_items %}
+                        <h3>{{ trans('goods_stock', default='Goods & Stock') }}</h3>
+                        <small class="subtext">{{ trans('goods_stock_subtext', default='Track your inventory') }}</small>
+                        {% if recent_inventory %}
                             <table class="table table-striped mt-3">
                                 <thead>
                                     <tr>
                                         <th>{{ trans('item_name', default='Item Name') }}</th>
                                         <th>{{ trans('quantity', default='Quantity') }}</th>
-                                        <th>{{ trans('unit', default='Unit') }}</th>
-                                        <th>{{ trans('selling_price', default='Selling Price') }}</th>
                                         <th>{{ trans('actions', default='Actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for item in low_stock_items %}
+                                    {% for item in recent_inventory %}
                                         <tr>
-                                            <td>{{ item.item_name }}</td>
-                                            <td>{{ item.qty }}</td>
-                                            <td>{{ item.unit or '-' }}</td>
-                                            <td>{{ item.selling_price | format_currency if item.selling_price else '-' }}</td>
+                                            <td>{{ item.name }}</td>
+                                            <td>{{ item.quantity }}</td>
                                             <td>
-                                                <div class="btn-group" role="group">
-                                                    <a href="{{ url_for('inventory_blueprint.edit', id=item._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                                <div class="responsive-btn-group" role="group">
+                                                    <a href="{{ url_for('inventory_blueprint.view_page', id=item._id) }}"
+                                                       class="btn btn-info btn-sm"
+                                                       data-bs-toggle="tooltip"
+                                                       title="{{ trans('view_details', default='View Details') }}">
+                                                        {{ trans('view', default='View') }}
+                                                    </a>
+                                                    <a href="{{ url_for('inventory_blueprint.edit', id=item._id) }}"
+                                                       class="btn btn-primary btn-sm"
+                                                       data-bs-toggle="tooltip"
+                                                       title="{{ trans('edit', default='Edit') }}">
+                                                        {{ trans('edit', default='Edit') }}
+                                                    </a>
                                                     <form action="{{ url_for('inventory_blueprint.delete', id=item._id) }}" method="POST" style="display:inline;">
                                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
+                                                        <button type="submit" class="btn btn-danger btn-sm"
+                                                                onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')"
+                                                                data-bs-toggle="tooltip"
+                                                                title="{{ trans('delete', default='Delete') }}">
+                                                            {{ trans('delete', default='Delete') }}
+                                                        </button>
                                                     </form>
                                                 </div>
                                             </td>
@@ -296,45 +340,47 @@
                                 </tbody>
                             </table>
                         {% else %}
-                            <p>{{ trans('no_low_stock', default='No low stock items found.') }}</p>
+                            <p>{{ trans('no_inventory', default='No inventory recorded yet.') }}</p>
                         {% endif %}
                     </div>
                 </div>
             </div>
         </div>
-
     {% else %}
-        <p class="alert alert-warning">{{ trans('login_required', default='Please log in to view your dashboard.') }}</p>
-        <a href="{{ url_for('users_blueprint.login') }}" class="btn btn-primary">{{ trans('login', default='Log In') }}</a>
+        <div class="text-center py-5">
+            <h3>{{ trans('welcome_to_ficore', default='Welcome to FiCore') }}</h3>
+            <p class="text-muted">{{ trans('please_login', default='Please log in to view your dashboard.') }}</p>
+            <a href="{{ url_for('auth.login') }}" class="btn btn-primary">{{ trans('login', default='Log In') }}</a>
+        </div>
     {% endif %}
 </div>
 
-<!-- Reminder Modal (shared for dashboard, unique id) -->
-<div class="modal fade" id="dashboardReminderModal" tabindex="-1" aria-labelledby="dashboardReminderModalLabel" aria-hidden="true">
+<!-- Reminder Modal -->
+<div class="modal fade" id="reminderModal" tabindex="-1" aria-labelledby="reminderModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="dashboardReminderModalLabel">{{ trans('send_reminder', default='Send Reminder') }}</h5>
+                <h5 class="modal-title" id="reminderModalLabel">{{ trans('send_reminder', default='Send Reminder') }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ trans('close', default='Close') }}"></button>
             </div>
             <div class="modal-body">
-                <form id="dashboardReminderForm">
+                <form id="reminderForm">
                     <div class="mb-3">
-                        <label for="dashboardReminderType" class="form-label">{{ trans('reminder_type', default='Reminder Type') }}</label>
-                        <select class="form-select" id="dashboardReminderType" required>
+                        <label for="reminderType" class="form-label">{{ trans('reminder_type', default='Reminder Type') }}</label>
+                        <select class="form-select" id="reminderType" required>
                             <option value="sms">{{ trans('sms', default='SMS') }}</option>
                             <option value="whatsapp">{{ trans('whatsapp', default='WhatsApp') }}</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label for="dashboardReminderMessage" class="form-label">{{ trans('message', default='Message') }}</label>
-                        <textarea class="form-control" id="dashboardReminderMessage" rows="4" required></textarea>
+                        <label for="reminderMessage" class="form-label">{{ trans('message', default='Message') }}</label>
+                        <textarea class="form-control" id="reminderMessage" rows="4" required></textarea>
                         <div class="form-text">{{ trans('reminder_cost', default='Cost: 2 coins per reminder') }}</div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="dashboardSendReminderBtn">
+                <button type="button" class="btn btn-primary" id="sendReminderBtn">
                     {{ trans('send_reminder', default='Send Reminder') }}
                 </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
@@ -345,19 +391,19 @@
     </div>
 </div>
 
-<!-- Snooze Modal (shared for dashboard, unique id) -->
-<div class="modal fade" id="dashboardSnoozeModal" tabindex="-1" aria-labelledby="dashboardSnoozeModalLabel" aria-hidden="true">
+<!-- Snooze Modal -->
+<div class="modal fade" id="snoozeModal" tabindex="-1" aria-labelledby="snoozeModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="dashboardSnoozeModalLabel">{{ trans('snooze_reminder', default='Snooze Reminder') }}</h5>
+                <h5 class="modal-title" id="snoozeModalLabel">{{ trans('snooze_reminder', default='Snooze Reminder') }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ trans('close', default='Close') }}"></button>
             </div>
             <div class="modal-body">
-                <form id="dashboardSnoozeForm">
+                <form id="snoozeForm">
                     <div class="mb-3">
-                        <label for="dashboardSnoozeDays" class="form-label">{{ trans('snooze_duration', default='Snooze Duration') }}</label>
-                        <select class="form-select" id="dashboardSnoozeDays" required>
+                        <label for="snoozeDays" class="form-label">{{ trans('snooze_duration', default='Snooze Duration') }}</label>
+                        <select class="form-select" id="snoozeDays" required>
                             <option value="1">{{ trans('1_day', default='1 Day') }}</option>
                             <option value="3">{{ trans('3_days', default='3 Days') }}</option>
                             <option value="7">{{ trans('7_days', default='7 Days') }}</option>
@@ -368,7 +414,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="dashboardSnoozeReminderBtn">
+                <button type="button" class="btn btn-primary" id="snoozeReminderBtn">
                     {{ trans('snooze', default='Snooze') }}
                 </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
@@ -385,44 +431,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
 
-    // Shared debt/creditor data object for dashboard modals
-    let dashboardCurrentData = null;
-    let dashboardCurrentType = null; // "debtor" or "creditor"
+    let currentData = null;
 
-    // Reminder button for debtors and creditors
+    // Reminder button functionality
     document.querySelectorAll('.dashboard-reminder-btn').forEach(button => {
         button.addEventListener('click', () => {
             const name = button.dataset.name;
             const amount = parseFloat(button.dataset.amount).toLocaleString();
             const date = button.dataset.date;
             const contact = button.dataset.contact;
-            dashboardCurrentData = {
-                _id: button.dataset.id,
+            const id = button.dataset.id;
+
+            currentData = {
+                _id: id,
                 name,
                 amount_owed: button.dataset.amount,
                 contact,
                 created_at: date
             };
-            dashboardCurrentType = button.closest('tr').closest('table').closest('.card-body').querySelector('h3').innerText.includes("They Owe") ? "debtor" : "creditor";
 
-            let message = "";
-            if (dashboardCurrentType === "debtor") {
-                message = `Hi ${name}, just a reminder you owe {{ trans('currency_symbol', default='₦') }}${amount} recorded on FiCore Records (${date}). Please settle soon.`;
-            } else {
-                message = `Hi ${name}, this is a reminder about the {{ trans('currency_symbol', default='₦') }}${amount} delivery/service recorded on FiCore Records (${date}). Please provide update.`;
-            }
-            document.getElementById('dashboardReminderMessage').value = message;
-
-            new bootstrap.Modal(document.getElementById('dashboardReminderModal')).show();
+            const defaultMessage = button.classList.contains('dashboard-reminder-btn') && button.closest('.card').querySelector('h3').textContent.includes('What You Owe') ?
+                `Hi ${name}, this is a reminder about the {{ trans('currency_symbol', default='₦') }}${amount} delivery/service recorded on FiCore Records (${date}). Please provide update on delivery status.` :
+                `Hi ${name}, just a reminder you owe {{ trans('currency_symbol', default='₦') }}${amount} recorded on FiCore Records (${date}). Please settle soon.`;
+            
+            document.getElementById('reminderMessage').value = defaultMessage;
+            new bootstrap.Modal(document.getElementById('reminderModal')).show();
         });
     });
 
-    // Send reminder
-    document.getElementById('dashboardSendReminderBtn').addEventListener('click', function() {
-        if (!dashboardCurrentData || !dashboardCurrentType) return;
+    // Send reminder functionality
+    document.getElementById('sendReminderBtn').addEventListener('click', function() {
+        if (!currentData) return;
 
-        const reminderType = document.getElementById('dashboardReminderType').value;
-        const message = document.getElementById('dashboardReminderMessage').value;
+        const reminderType = document.getElementById('reminderType').value;
+        const message = document.getElementById('reminderMessage').value;
 
         if (!message.trim()) {
             alert('{{ trans('message_required', default='Message is required') }}');
@@ -432,18 +474,18 @@ document.addEventListener('DOMContentLoaded', () => {
         this.disabled = true;
         this.textContent = '{{ trans('sending', default='Sending...') }}';
 
-        const url = dashboardCurrentType === "debtor" ? '/debtors/send_reminder' : '/creditors/send_reminder';
+        const endpoint = currentData._id.includes('creditor') ? '/creditors/send_reminder' : '/debtors/send_reminder';
 
-        fetch(url, {
+        fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': '{{ csrf_token() }}'
             },
             body: JSON.stringify({
-                debtId: dashboardCurrentData._id,
-                recipient: dashboardCurrentData.contact,
-                message: message,
+                debtId: currentData._id,
+                recipient: currentData.contact,
+                message,
                 type: reminderType
             })
         })
@@ -451,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             if (data.success) {
                 alert('{{ trans('reminder_sent_successfully', default='Reminder sent successfully') }}');
-                bootstrap.Modal.getInstance(document.getElementById('dashboardReminderModal')).hide();
+                bootstrap.Modal.getInstance(document.getElementById('reminderModal')).hide();
                 location.reload();
             } else {
                 alert('{{ trans('failed_to_send_reminder', default='Failed to send reminder') }}: ' + (data.message || 'Unknown error'));
@@ -467,38 +509,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Snooze button for debtors and creditors
+    // Snooze button functionality
     document.querySelectorAll('.dashboard-snooze-btn').forEach(button => {
         button.addEventListener('click', () => {
-            dashboardCurrentData = {
+            currentData = {
                 _id: button.dataset.id,
                 name: button.dataset.name
             };
-            dashboardCurrentType = button.closest('tr').closest('table').closest('.card-body').querySelector('h3').innerText.includes("They Owe") ? "debtor" : "creditor";
-
-            new bootstrap.Modal(document.getElementById('dashboardSnoozeModal')).show();
+            new bootstrap.Modal(document.getElementById('snoozeModal')).show();
         });
     });
 
-    // Snooze reminder
-    document.getElementById('dashboardSnoozeReminderBtn').addEventListener('click', function() {
-        if (!dashboardCurrentData || !dashboardCurrentType) return;
+    // Snooze reminder functionality
+    document.getElementById('snoozeReminderBtn').addEventListener('click', function() {
+        if (!currentData) return;
 
-        const snoozeDays = parseInt(document.getElementById('dashboardSnoozeDays').value);
+        const snoozeDays = parseInt(document.getElementById('snoozeDays').value);
 
         this.disabled = true;
         this.textContent = '{{ trans('snoozing', default='Snoozing...') }}';
 
-        const url = dashboardCurrentType === "debtor" ? '/debtors/send_reminder' : '/creditors/send_reminder';
+        const endpoint = currentData._id.includes('creditor') ? '/creditors/send_reminder' : '/debtors/send_reminder';
 
-        fetch(url, {
+        fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': '{{ csrf_token() }}'
             },
             body: JSON.stringify({
-                debtId: dashboardCurrentData._id,
+                debtId: currentData._id,
                 snooze_days: snoozeDays
             })
         })
@@ -506,7 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             if (data.success) {
                 alert('{{ trans('snooze_set_successfully', default='Snooze set successfully') }}');
-                bootstrap.Modal.getInstance(document.getElementById('dashboardSnoozeModal')).hide();
+                bootstrap.Modal.getInstance(document.getElementById('snoozeModal')).hide();
                 location.reload();
             } else {
                 alert('{{ trans('failed_to_set_snooze', default='Failed to set snooze') }}: ' + (data.message || 'Unknown error'));
@@ -522,23 +562,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Share button for debtors and creditors
+    // Share IOU functionality
     document.querySelectorAll('.dashboard-share-btn').forEach(button => {
         button.addEventListener('click', () => {
             const debtId = button.dataset.id;
             const contact = button.dataset.contact;
-            dashboardCurrentType = button.closest('tr').closest('table').closest('.card-body').querySelector('h3').innerText.includes("They Owe") ? "debtor" : "creditor";
 
             if (!contact) {
                 alert('{{ trans('no_contact', default='No contact provided for sharing') }}');
                 return;
             }
 
-            const url = dashboardCurrentType === "debtor"
-                ? `/debtors/share/${debtId}`
-                : `/creditors/share/${debtId}`;
+            const endpoint = debtId.includes('creditor') ? `/creditors/share/${debtId}` : `/debtors/share/${debtId}`;
 
-            fetch(url)
+            fetch(endpoint)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -553,7 +590,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
         });
     });
-
 });
 </script>
 {% endblock %}
