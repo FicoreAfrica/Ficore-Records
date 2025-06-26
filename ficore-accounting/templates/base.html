@@ -152,7 +152,7 @@
                                 <a class="nav-link" href="{{ url_for('users_blueprint.login') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('login_tooltip', default='Log in to your account') }}">{{ trans('login', default='Login') }}</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('users_blueprint.signup') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('signup_tooltip', default='Create a new account') }}">{{ trans('signup', default='Sign Up') }}</a></li>
+                                <a class="nav-link" href="{{ url_for('users_blueprint.signup') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('signup_tooltip', default='Create a new account') }}">{{ trans('signup', default='Sign Up') }}</a>
                             </li>
                         {% endif %}
                         <li class="nav-item dropdown">
@@ -194,7 +194,6 @@
         </div>
     </main>
 
-    <!-- Notification Modal -->
     <div class="modal fade" id="notificationModal" tabindex="-1" aria-labelledby="notificationModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
