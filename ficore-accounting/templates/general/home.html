@@ -10,10 +10,6 @@
                 <small class="text-muted">{{ trans('welcome_back', default='Welcome back to Ficore Records') }}</small>
             </div>
             <div class="header-actions d-flex align-items-center gap-3">
-                <button class="notification-bell position-relative" onclick="showNotifications()">
-                    <i class="bi bi-bell"></i>
-                    <span class="notification-badge" id="notificationCount">3</span>
-                </button>
                 <a href="{{ url_for('settings_blueprint.profile') }}" class="profile-icon">
                     <i class="bi bi-person-circle"></i>
                 </a>
@@ -337,7 +333,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load financial data and notifications
     loadFinancialSummary();
     loadRecentActivity();
-    loadNotificationCount();
     
     function loadFinancialSummary() {
         Promise.all([
@@ -428,21 +423,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
     
-    function loadNotificationCount() {
-        fetch('/api/notifications/count')
-            .then(response => response.json())
-            .then(data => {
-                const count = data.count || 0;
-                const badge = document.getElementById('notificationCount');
-                badge.textContent = count > 0 ? count : '';
-                badge.classList.toggle('d-none', count === 0);
-            })
-            .catch(error => {
-                console.error('Error loading notification count:', error);
-                document.getElementById('notificationCount').textContent = '';
-            });
-    }
-    
     function getActivityIcon(type) {
         const icons = {
             'debt_added': 'bi-plus-circle',
@@ -509,52 +489,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         icon.className = amountsVisible ? 'bi bi-eye' : 'bi bi-eye-slash';
-    };
-    
-    window.showNotifications = function() {
-        // Simple modal implementation (replace with your preferred method, e.g., Bootstrap modal)
-        const modal = document.createElement('div');
-        modal.className = 'modal fade';
-        modal.innerHTML = `
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Notifications</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body" id="notificationBody">
-                        <p>Loading notifications...</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-
-        // Fetch notifications (example endpoint)
-        fetch('/api/notifications')
-            .then(response => response.json())
-            .then(notifications => {
-                const body = document.getElementById('notificationBody');
-                if (notifications.length > 0) {
-                    body.innerHTML = notifications.map(n => `<p>${n.message} (${formatTimeAgo(n.timestamp)})</p>`).join('');
-                } else {
-                    body.innerHTML = '<p>No new notifications</p>';
-                }
-            })
-            .catch(error => {
-                console.error('Error loading notifications:', error);
-                document.getElementById('notificationBody').innerHTML = '<p>Failed to load notifications</p>';
-            });
-
-        // Initialize Bootstrap modal (assuming Bootstrap JS is included)
-        const modalInstance = new bootstrap.Modal(modal);
-        modalInstance.show();
-
-        // Cleanup
-        modal.addEventListener('hidden.bs.modal', () => modal.remove());
     };
     
     window.toggleDarkMode = function() {
