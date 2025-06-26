@@ -98,7 +98,7 @@ TRANSLATIONS = {
         'trader_account_info': 'Your trader account gives you access to all business features.',
         'app_settings': 'App Settings',
         'show_kobo': 'Show kobo (Amounts in the format 00.00)',
-       回来了: 'incognito_mode': 'Incognito mode (Hide balance)',
+        'incognito_mode': 'Incognito mode (Hide balance)',
         'app_sounds': 'App sounds',
         'use_fingerprint_password': 'Use Fingerprint ID (For password)',
         'use_fingerprint_pin': 'Use Fingerprint ID (For transaction PIN)',
