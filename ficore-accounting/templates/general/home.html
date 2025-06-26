@@ -131,35 +131,28 @@
             <h3 class="section-title">{{ trans('quick_actions', default='Quick Actions') }}</h3>
             <div class="actions-grid">
                 <!-- NEW: Two side-by-side CTA cards for Creditors and Debtors -->
-                <div class="cta-action-cards" style="grid-column: 1 / span 2; display: flex; gap: 1rem;">
-                    <!-- Add New Creditor (RED) -->
-                    <a href="{{ url_for('creditors_blueprint.add') }}"
-                       class="action-card cta-creditor-card"
-                       style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #ef4444 60%, #dc2626 100%); color: #fff; border: none;">
-                        <div class="action-icon" style="background: rgba(255,255,255,0.08); color: #fff;">
+                <div class="cta-action-cards">
+                    <a href="{{ url_for('creditors_blueprint.add') }}" class="action-card cta-creditor-card">
+                        <div class="action-icon">
                             <i class="bi bi-person-dash"></i>
                         </div>
-                        <div class="action-label" style="font-size: 1.05rem;">{{ trans('add_new_creditor', default='Add New I Owe') }}</div>
+                        <div class="action-label">{{ trans('add_new_creditor', default='Add New I Owe') }}</div>
                     </a>
-                    <!-- Add New Debtor (GREEN) -->
-                    <a href="{{ url_for('debtors_blueprint.add') }}"
-                       class="action-card cta-debtor-card"
-                       style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #10b981 60%, #059669 100%); color: #fff; border: none;">
-                        <div class="action-icon" style="background: rgba(255,255,255,0.08); color: #fff;">
+                    <a href="{{ url_for('debtors_blueprint.add') }}" class="action-card cta-debtor-card">
+                        <div class="action-icon">
                             <i class="bi bi-person-plus"></i>
                         </div>
-                        <div class="action-label" style="font-size: 1.05rem;">{{ trans('add_new_debtor', default='Add New They Owe') }}</div>
+                        <div class="action-label">{{ trans('add_new_debtor', default='Add New They Owe') }}</div>
                     </a>
                 </div>
 
-                <!-- Existing Quick Actions below (unchanged) -->
+                <!-- Existing Quick Actions -->
                 <a href="{{ url_for('receipts_blueprint.add') }}" class="action-card">
                     <div class="action-icon">
                         <i class="bi bi-arrow-down-circle"></i>
-                    </ ninja
+                    </div>
                     <div class="action-label">{{ trans('money_in', default='Money In') }}</div>
                 </a>
-                < N/A
                 <a href="{{ url_for('payments_blueprint.add') }}" class="action-card">
                     <div class="action-icon">
                         <i class="bi bi-arrow-up-circle"></i>
@@ -341,12 +334,12 @@ document.addEventListener('DOMContentLoaded', function() {
         start_by_adding_debt: '{{ trans("start_by_adding_debt", default="Start by adding a debt or transaction") }}'
     };
     
-    // Load financial data
+    // Load financial data and notifications
     loadFinancialSummary();
     loadRecentActivity();
+    loadNotificationCount();
     
     function loadFinancialSummary() {
-        // Fetch debt summary
         Promise.all([
             fetch('/api/debt-summary').then(r => r.json()).catch(() => ({totalIOwe: 0, totalIAmOwed: 0})),
             fetch('/coins/balance').then(r => r.json()).catch(() => ({coin_balance: 0})),
@@ -435,6 +428,21 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
     
+    function loadNotificationCount() {
+        fetch('/api/notifications/count')
+            .then(response => response.json())
+            .then(data => {
+                const count = data.count || 0;
+                const badge = document.getElementById('notificationCount');
+                badge.textContent = count > 0 ? count : '';
+                badge.classList.toggle('d-none', count === 0);
+            })
+            .catch(error => {
+                console.error('Error loading notification count:', error);
+                document.getElementById('notificationCount').textContent = '';
+            });
+    }
+    
     function getActivityIcon(type) {
         const icons = {
             'debt_added': 'bi-plus-circle',
@@ -504,9 +512,74 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     window.showNotifications = function() {
-        // Implement notification modal or navigate to notifications page
-        alert(translations.notifications_feature_coming_soon);
+        // Simple modal implementation (replace with your preferred method, e.g., Bootstrap modal)
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Notifications</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="notificationBody">
+                        <p>Loading notifications...</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Fetch notifications (example endpoint)
+        fetch('/api/notifications')
+            .then(response => response.json())
+            .then(notifications => {
+                const body = document.getElementById('notificationBody');
+                if (notifications.length > 0) {
+                    body.innerHTML = notifications.map(n => `<p>${n.message} (${formatTimeAgo(n.timestamp)})</p>`).join('');
+                } else {
+                    body.innerHTML = '<p>No new notifications</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading notifications:', error);
+                document.getElementById('notificationBody').innerHTML = '<p>Failed to load notifications</p>';
+            });
+
+        // Initialize Bootstrap modal (assuming Bootstrap JS is included)
+        const modalInstance = new bootstrap.Modal(modal);
+        modalInstance.show();
+
+        // Cleanup
+        modal.addEventListener('hidden.bs.modal', () => modal.remove());
     };
+    
+    window.toggleDarkMode = function() {
+        const body = document.body;
+        const isDarkMode = body.classList.toggle('dark-mode');
+        const toggleBtn = document.getElementById('quickDarkModeToggle');
+        toggleBtn.innerHTML = isDarkMode ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon-stars"></i>';
+        
+        // Persist in session (server-side) or localStorage (client-side)
+        fetch('/set-dark-mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dark_mode: isDarkMode })
+        }).catch(error => console.error('Error saving dark mode:', error));
+        
+        // Alternatively, use localStorage for client-side persistence
+        localStorage.setItem('dark_mode', isDarkMode);
+    };
+
+    // Initialize dark mode from session or localStorage
+    const savedDarkMode = '{{ session.get("dark_mode", localStorage.getItem("dark_mode") == "true") | tojson }}';
+    if (savedDarkMode === 'true') {
+        document.body.classList.add('dark-mode');
+        document.getElementById('quickDarkModeToggle').innerHTML = '<i class="bi bi-sun"></i>';
+    }
 });
 </script>
 {% endblock %}
