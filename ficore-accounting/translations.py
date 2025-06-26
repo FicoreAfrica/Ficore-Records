@@ -739,7 +739,7 @@ TRANSLATIONS = {
         'Email': 'Imel',
         'email': 'Imel',
         'Email is required': 'Ana buƙatar Imel',
-        'Invalid email address': “Adireshin Imel mara inganci',
+        'Invalid email address': 'Adireshin Imel mara inganci',
         'Confirm Password': 'Tabbatar da Kalmar Sirri',
         'confirm_password': 'Tabbatar da Kalmar Sirri',
         'Confirm password is required': 'Ana buƙatar Tabbatar da Kalmar Sirri',
