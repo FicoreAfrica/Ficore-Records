@@ -51,6 +51,7 @@
     --table-row-bg-overdue: #fefcbf;
     --table-row-bg-pending: #fef9c3;
     --table-row-bg-settled: #d1fae5;
+    --bs-btn-close-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath d='M2.146 2.146a.5.5 0 0 1 .708 0L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
 }
 
 /* --- Dark Mode Variables --- */
@@ -106,6 +107,7 @@
     --table-row-bg-overdue: #3f2f0a;
     --table-row-bg-pending: #2d2a0e;
     --table-row-bg-settled: #0a2d1f;
+    --bs-btn-close-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23f1f5f9'%3e%3cpath d='M2.146 2.146a.5.5 0 0 1 .708 0L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
 }
 
 /* --- Reset and Base Styles --- */
@@ -375,7 +377,7 @@ h3 { font-size: 1.25rem; }
 }
 
 .stat-card .snapshot-label {
-    font-size: 0.7sat;
+    font-size: 0.7rem;
     color: var(--text-muted);
     font-weight: 500;
     margin-bottom: 0.2rem;
@@ -803,10 +805,18 @@ h3 { font-size: 1.25rem; }
 }
 
 .btn-close {
-    background: none;
+    background: transparent;
     color: inherit;
     opacity: 0.8;
     padding: 0.25rem;
+    border: none;
+    background-image: var(--bs-btn-close-bg);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 1em 1em;
+    width: 1.5em;
+    height: 1.5em;
+    cursor: pointer;
 }
 
 .btn-close:hover {
@@ -1236,7 +1246,7 @@ h2.card-title {
 
     .stat-card .snapshot-label, .stat-card-value {
         font-size: 0.65rem;
-    }
+    %
 
     .table th, .table td {
         font-size: 0.75rem;
