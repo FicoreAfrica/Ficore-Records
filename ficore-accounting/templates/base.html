@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ session.get('lang', 'en') }}" {% if session.get('dark_mode', False) %}class="dark-mode"{% endif %}>
+<html lang="{{ session.get('lang', 'en') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -120,64 +120,59 @@
                                 <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.receipt_upload') }}">{{ trans('receipt_upload', default='Upload Receipt') }}</a></li>
                             </ul>
                         </li>
-                    {% endif %}
-                </ul>
-                <ul class="navbar-nav ms-auto align-items-center header-actions">
-                    {% if current_user.is_authenticated %}
-                        <li class="nav-item">
-                            <button class="notification-bell" id="notificationBell" data-bs-toggle="modal" data-bs-target="#notificationModal" data-bs-title="{{ trans('notifications_tooltip', default='View notifications') }}" aria-label="{{ trans('notifications', default='Notifications') }}">
-                                <i class="bi bi-bell"></i>
-                                <span class="notification-badge" id="notificationBadge"></span>
-                            </button>
-                        </li>
-                        <li class="nav-item">
-                            <a class="profile-icon" href="{{ url_for('settings_blueprint.profile') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('profile_tooltip', default='Manage your account') }}" aria-label="{{ trans('profile', default='Profile') }}">
-                                <i class="bi bi-person-dash"></i>
-                            </a>
-                        </li>
+                    </ul>
+                    <ul class="navbar-nav ms-auto align-items-center header-actions">
+                        {% if current_user.is_authenticated %}
+                            <li class="nav-item">
+                                <button class="notification-bell" id="notificationBell" data-bs-toggle="modal" data-bs-target="#notificationModal" data-bs-title="{{ trans('notifications_tooltip', default='View notifications') }}" aria-label="{{ trans('notifications', default='Notifications') }}">
+                                    <i class="bi bi-bell"></i>
+                                    <span class="notification-badge" id="notificationBadge"></span>
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <a class="profile-icon" href="{{ url_for('settings_blueprint.profile') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('profile_tooltip', default='Manage your account') }}" aria-label="{{ trans('profile', default='Profile') }}">
+                                    <i class="bi bi-person-dash"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('profile_tooltip', default='Manage your account') }}" aria-label="{{ trans('profile', default='Profile') }}">
+                                    {{ current_user.display_name | default(trans('profile', default='Profile')) }}
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
+                                    <li><a class="dropdown-item" href="{{ url_for('settings_blueprint.profile') }}">{{ trans('profile', default='Profile') }}</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('feedback') }}">{{ trans('feedback', default='Send Feedback') }}</a></li>
+                                    {% if current_user.get('is_admin', False) %}
+                                        <li><a class="dropdown-item" href="{{ url_for('admin_blueprint.dashboard') }}">{{ trans('admin_panel', default='Admin Panel') }}</a></li>
+                                    {% endif %}
+                                    <li><a class="dropdown-item" href="{{ url_for('users_blueprint.logout') }}">{{ trans('logout', default='Logout') }}</a></li>
+                                </ul>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('users_blueprint.login') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('login_tooltip', default='Log in to your account') }}">{{ trans('login', default='Login') }}</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('users_blueprint.signup') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('signup_tooltip', default='Create a new account') }}">{{ trans('signup', default='Sign Up') }}</a>
+                            </li>
+                        {% endif %}
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('profile_tooltip', default='Manage your account') }}" aria-label="{{ trans('profile', default='Profile') }}">
-                                {{ current_user.display_name | default(trans('profile', default='Profile')) }}
+                            <a class="nav-link dropdown-toggle" href="#" id="languageDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('language_tooltip', default='Change language') }}" aria-label="{{ trans('language', default='Language') }}">
+                                {{ session.get('lang', 'en').upper() }}
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('settings_blueprint.profile') }}">{{ trans('profile', default='Profile') }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('feedback') }}">{{ trans('feedback', default='Send Feedback') }}</a></li>
-                                {% if current_user.get('is_admin', False) %}
-                                    <li><a class="dropdown-item" href="{{ url_for('admin_blueprint.dashboard') }}">{{ trans('admin_panel', default='Admin Panel') }}</a></li>
-                                {% endif %}
-                                <li><a class="dropdown-item" href="{{ url_for('users_blueprint.logout') }}">{{ trans('logout', default='Logout') }}</a></li>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('set_language', lang='en') }}">{{ trans('english', default='English') }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('set_language', lang='ha') }}">{{ trans('hausa', default='Hausa') }}</a></li>
                             </ul>
                         </li>
-                    {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('users_blueprint.login') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('login_tooltip', default='Log in to your account') }}">{{ trans('login', default='Login') }}</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('users_blueprint.signup') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('signup_tooltip', default='Create a new account') }}">{{ trans('signup', default='Sign Up') }}</a>
-                        </li>
-                    {% endif %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="languageDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('language_tooltip', default='Change language') }}" aria-label="{{ trans('language', default='Language') }}">
-                            {{ session.get('lang', 'en').upper() }}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
-                            <li><a class="dropdown-item" href="{{ url_for('set_language', lang='en') }}">{{ trans('english', default='English') }}</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('set_language', lang='ha') }}">{{ trans('hausa', default='Hausa') }}</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link btn btn-link" id="darkModeToggle" onclick="toggleDarkMode()" data-bs-toggle="tooltip" data-bs-title="{{ trans('mode_toggle_tooltip', default='Switch to ' + ('dark mode' if not session.get('dark_mode', False) else 'light mode')) }}" aria-label="{{ trans('mode_toggle', default='Toggle dark mode') }}">
-                            {% if session.get('dark_mode', False) %}
-                                <i class="bi bi-sun"></i>
-                            {% else %}
+                            <button class="nav-link btn btn-link" id="darkModeToggle" onclick="toggleDarkMode()" data-bs-toggle="tooltip" data-bs-title="{{ trans('mode_toggle_tooltip_switch_to_dark', default='Switch to dark mode') }}" aria-label="{{ trans('mode_toggle_dark', default='Toggle dark mode') }}">
                                 <i class="bi bi-moon-stars"></i>
-                            {% endif %}
-                        </button>
-                    </li>
-                </ul>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
             </div>
-        </div>
-    </nav>
+        </nav>
     {% endif %}
 
     <div class="container alert-container">
@@ -232,22 +227,31 @@
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Initialize tooltips and dark mode
+        // Initialize dark mode and tooltips
         document.addEventListener('DOMContentLoaded', function () {
+            // Initialize dark mode from localStorage or system preference
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const storedDarkMode = localStorage.getItem('dark_mode');
+            const isDark = storedDarkMode === null ? prefersDark : storedDarkMode === 'true';
+            if (isDark) {
+                document.documentElement.classList.add('dark-mode');
+            } else {
+                document.documentElement.classList.remove('dark-mode');
+            }
+
+            // Set initial dark mode toggle icon
+            const darkModeToggle = document.getElementById('darkModeToggle');
+            if (darkModeToggle) {
+                darkModeToggle.querySelector('i').className = isDark ? 'bi bi-sun' : 'bi bi-moon-stars';
+                darkModeToggle.setAttribute('data-bs-title', isDark ? '{{ trans("mode_toggle_tooltip_switch_to_light", default="Switch to light mode") }}' : '{{ trans("mode_toggle_tooltip_switch_to_dark", default="Switch to dark mode") }}');
+                darkModeToggle.setAttribute('aria-label', isDark ? '{{ trans("mode_toggle_light", default="Toggle light mode") }}' : '{{ trans("mode_toggle_dark", default="Toggle dark mode") }}');
+            }
+
             // Initialize tooltips
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipTriggerList.forEach(function (tooltipTriggerEl) {
                 new bootstrap.Tooltip(tooltipTriggerEl);
             });
-
-            // Initialize dark mode from localStorage or server
-            const serverDarkMode = {{ session.get('dark_mode', False) | tojson }};
-            const storedDarkMode = localStorage.getItem('dark_mode');
-            const initialDarkMode = storedDarkMode !== null ? storedDarkMode === 'true' : serverDarkMode;
-            localStorage.setItem('dark_mode', initialDarkMode);
-            if (initialDarkMode) {
-                document.documentElement.classList.add('dark-mode');
-            }
 
             // Load notification count for authenticated users
             {% if current_user.is_authenticated %}
@@ -255,57 +259,24 @@
             {% endif %}
         });
 
-        // Dark mode toggle
-        async function toggleDarkMode() {
-            const button = document.querySelector('#darkModeToggle');
-            const currentMode = localStorage.getItem('dark_mode') === 'true';
-            const newMode = !currentMode;
-
-            // Disable button to prevent multiple clicks
-            button.disabled = true;
-
-            // Update UI immediately
-            document.documentElement.classList.toggle('dark-mode');
-            localStorage.setItem('dark_mode', newMode);
-            button.querySelector('i').classList.toggle('bi-sun', newMode);
-            button.querySelector('i').classList.toggle('bi-moon-stars', !newMode);
-            button.setAttribute('data-bs-title', newMode ? '{{ trans("mode_toggle_tooltip_switch_to_light", default="Switch to light mode") }}' : '{{ trans("mode_toggle_tooltip_switch_to_dark", default="Switch to dark mode") }}');
-            button.setAttribute('aria-label', newMode ? '{{ trans("mode_toggle_light", default="Toggle light mode") }}' : '{{ trans("mode_toggle_dark", default="Toggle dark mode") }}');
-
-            // Reinitialize tooltip
-            const tooltip = bootstrap.Tooltip.getInstance(button);
-            if (tooltip) tooltip.dispose();
-            new bootstrap.Tooltip(button);
-
-            try {
-                // Sync with server
-                const response = await fetch('{{ url_for("set_dark_mode") }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    },
-                    body: JSON.stringify({ dark_mode: newMode })
-                });
-
-                if (!response.ok) {
-                    throw new Error('Server sync failed');
-                }
-            } catch (error) {
-                // Revert UI changes on error
-                document.documentElement.classList.toggle('dark-mode');
-                localStorage.setItem('dark_mode', currentMode);
-                button.querySelector('i').classList.toggle('bi-sun', currentMode);
-                button.querySelector('i').classList.toggle('bi-moon-stars', !currentMode);
-                button.setAttribute('data-bs-title', currentMode ? '{{ trans("mode_toggle_tooltip_switch_to_light", default="Switch to light mode") }}' : '{{ trans("mode_toggle_tooltip_switch_to_dark", default="Switch to dark mode") }}');
-                button.setAttribute('aria-label', currentMode ? '{{ trans("mode_toggle_light", default="Toggle light mode") }}' : '{{ trans("mode_toggle_dark", default="Toggle dark mode") }}');
-                new bootstrap.Tooltip(button);
-                console.error('Failed to sync dark mode:', error);
-            } finally {
-                // Re-enable button
-                button.disabled = false;
+        // Dark mode toggle function
+        window.toggleDarkMode = function () {
+            const isDark = !document.documentElement.classList.contains('dark-mode');
+            document.documentElement.classList.toggle('dark-mode', isDark);
+            localStorage.setItem('dark_mode', isDark);
+            
+            const darkModeToggle = document.getElementById('darkModeToggle');
+            if (darkModeToggle) {
+                darkModeToggle.querySelector('i').className = isDark ? 'bi bi-sun' : 'bi bi-moon-stars';
+                darkModeToggle.setAttribute('data-bs-title', isDark ? '{{ trans("mode_toggle_tooltip_switch_to_light", default="Switch to light mode") }}' : '{{ trans("mode_toggle_tooltip_switch_to_dark", default="Switch to dark mode") }}');
+                darkModeToggle.setAttribute('aria-label', isDark ? '{{ trans("mode_toggle_light", default="Toggle light mode") }}' : '{{ trans("mode_toggle_dark", default="Toggle dark mode") }}');
+                
+                // Reinitialize tooltip
+                const tooltip = bootstrap.Tooltip.getInstance(darkModeToggle);
+                if (tooltip) tooltip.dispose();
+                new bootstrap.Tooltip(darkModeToggle);
             }
-        }
+        };
 
         // Load notification count
         async function loadNotificationCount() {
