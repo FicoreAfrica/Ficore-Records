@@ -130,18 +130,36 @@
         <div class="quick-actions mb-4">
             <h3 class="section-title">{{ trans('quick_actions', default='Quick Actions') }}</h3>
             <div class="actions-grid">
-                <a href="{{ url_for('debtors_blueprint.add') }}" class="action-card primary-action">
-                    <div class="action-icon">
-                        <i class="bi bi-plus-circle"></i>
-                    </div>
-                    <div class="action-label">{{ trans('add_new_debt', default='Add New Debt') }}</div>
-                </a>
+                <!-- NEW: Two side-by-side CTA cards for Creditors and Debtors -->
+                <div class="cta-action-cards" style="grid-column: 1 / span 2; display: flex; gap: 1rem;">
+                    <!-- Add New Creditor (RED) -->
+                    <a href="{{ url_for('creditors_blueprint.add') }}"
+                       class="action-card cta-creditor-card"
+                       style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #ef4444 60%, #dc2626 100%); color: #fff; border: none;">
+                        <div class="action-icon" style="background: rgba(255,255,255,0.08); color: #fff;">
+                            <i class="bi bi-person-dash"></i>
+                        </div>
+                        <div class="action-label" style="font-size: 1.05rem;">{{ trans('add_new_creditor', default='Add New I Owe') }}</div>
+                    </a>
+                    <!-- Add New Debtor (GREEN) -->
+                    <a href="{{ url_for('debtors_blueprint.add') }}"
+                       class="action-card cta-debtor-card"
+                       style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #10b981 60%, #059669 100%); color: #fff; border: none;">
+                        <div class="action-icon" style="background: rgba(255,255,255,0.08); color: #fff;">
+                            <i class="bi bi-person-plus"></i>
+                        </div>
+                        <div class="action-label" style="font-size: 1.05rem;">{{ trans('add_new_debtor', default='Add New They Owe') }}</div>
+                    </a>
+                </div>
+
+                <!-- Existing Quick Actions below (unchanged) -->
                 <a href="{{ url_for('receipts_blueprint.add') }}" class="action-card">
                     <div class="action-icon">
                         <i class="bi bi-arrow-down-circle"></i>
-                    </div>
+                    </ ninja
                     <div class="action-label">{{ trans('money_in', default='Money In') }}</div>
                 </a>
+                < N/A
                 <a href="{{ url_for('payments_blueprint.add') }}" class="action-card">
                     <div class="action-icon">
                         <i class="bi bi-arrow-up-circle"></i>
@@ -309,6 +327,20 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let amountsVisible = true;
     
+    // Define translation strings as JavaScript variables
+    const translations = {
+        just_now: '{{ trans("just_now", default="Just now") }}',
+        minutes_ago: '{{ trans("minutes_ago", default="m ago") }}',
+        hours_ago: '{{ trans("hours_ago", default="h ago") }}',
+        days_ago: '{{ trans("days_ago", default="d ago") }}',
+        owed_to_you: '{{ trans("owed_to_you", default="Owed to you") }}',
+        you_owe: '{{ trans("you_owe", default="You owe") }}',
+        balanced: '{{ trans("balanced", default="Balanced") }}',
+        notifications_feature_coming_soon: '{{ trans("notifications_feature_coming_soon", default="Notifications feature coming soon!") }}',
+        no_recent_activity: '{{ trans("no_recent_activity", default="No recent activity") }}',
+        start_by_adding_debt: '{{ trans("start_by_adding_debt", default="Start by adding a debt or transaction") }}'
+    };
+    
     // Load financial data
     loadFinancialSummary();
     loadRecentActivity();
@@ -347,15 +379,15 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (netPosition > 0) {
             netPositionEl.className = 'net-amount text-success';
-            netStatusEl.textContent = '({{ trans("owed_to_you", default="Owed to you") }})';
+            netStatusEl.textContent = `(${translations.owed_to_you})`;
             netStatusEl.className = 'net-status text-success';
         } else if (netPosition < 0) {
             netPositionEl.className = 'net-amount text-danger';
-            netStatusEl.textContent = '({{ trans("you_owe", default="You owe") }})';
+            netStatusEl.textContent = `(${translations.you_owe})`;
             netStatusEl.className = 'net-status text-danger';
         } else {
             netPositionEl.className = 'net-amount text-muted';
-            netStatusEl.textContent = '({{ trans("balanced", default="Balanced") }})';
+            netStatusEl.textContent = `(${translations.balanced})`;
             netStatusEl.className = 'net-status text-muted';
         }
     }
@@ -391,8 +423,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <i class="bi bi-info-circle text-muted"></i>
                             </div>
                             <div class="activity-content">
-                                <div class="activity-description">{{ trans("no_recent_activity", default="No recent activity") }}</div>
-                                <div class="activity-time text-muted">{{ trans("start_by_adding_debt", default="Start by adding a debt or transaction") }}</div>
+                                <div class="activity-description">${translations.no_recent_activity}</div>
+                                <div class="activity-time text-muted">${translations.start_by_adding_debt}</div>
                             </div>
                         </div>
                     `;
@@ -439,10 +471,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const time = new Date(timestamp);
         const diffInSeconds = Math.floor((now - time) / 1000);
         
-        if (diffInSeconds < 60) return '{{ trans("just_now", default="Just now") }}';
-        if (diffInSeconds < 3600) return Math.floor(diffInSeconds / 60) + '{{ trans("minutes_ago", default="m ago") }}';
-        if (diffInSeconds < 86400) return Math.floor(diffInSeconds / 3600) + '{{ trans("hours_ago", default="h ago") }}';
-        return Math.floor(diffInSeconds / 86400) + '{{ trans("days_ago", default="d ago") }}';
+        if (diffInSeconds < 60) return translations.just_now;
+        if (diffInSeconds < 3600) return Math.floor(diffInSeconds / 60) + translations.minutes_ago;
+        if (diffInSeconds < 86400) return Math.floor(diffInSeconds / 3600) + translations.hours_ago;
+        return Math.floor(diffInSeconds / 86400) + translations.days_ago;
     }
     
     // Global functions
@@ -473,7 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     window.showNotifications = function() {
         // Implement notification modal or navigate to notifications page
-        alert('{{ trans("notifications_feature_coming_soon", default="Notifications feature coming soon!") }}');
+        alert(translations.notifications_feature_coming_soon);
     };
 });
 </script>
