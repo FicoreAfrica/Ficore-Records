@@ -45,13 +45,52 @@
                                             <td>{{ creditor.name }}</td>
                                             <td>{{ creditor.amount_owed | format_currency }}</td>
                                             <td>
-                                                {% if current_user.role != 'admin' or creditor.user_id == current_user.id %}
-                                                    <a href="{{ url_for('creditors_blueprint.edit', id=creditor._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                                <div class="btn-group" role="group">
+                                                    <a href="{{ url_for('creditors_blueprint.view_page', id=creditor._id) }}"
+                                                       class="btn btn-info btn-sm"
+                                                       data-bs-toggle="tooltip"
+                                                       title="{{ trans('view_details', default='View Details') }}">
+                                                        {{ trans('view', default='View') }}
+                                                    </a>
+                                                    {% if creditor.contact %}
+                                                    <button type="button" class="btn btn-warning btn-sm dashboard-reminder-btn"
+                                                            data-id="{{ creditor._id }}"
+                                                            data-name="{{ creditor.name }}"
+                                                            data-amount="{{ creditor.amount_owed }}"
+                                                            data-contact="{{ creditor.contact }}"
+                                                            data-date="{{ format_date(creditor.created_at) }}"
+                                                            data-bs-toggle="tooltip"
+                                                            title="{{ trans('send_delivery_reminder', default='Send Delivery Reminder') }}">
+                                                        {{ trans('reminder', default='Reminder') }}
+                                                    </button>
+                                                    <button type="button" class="btn btn-primary btn-sm dashboard-snooze-btn"
+                                                            data-id="{{ creditor._id }}"
+                                                            data-name="{{ creditor.name }}"
+                                                            data-bs-toggle="tooltip"
+                                                            title="{{ trans('snooze_reminder', default='Snooze Reminder') }}">
+                                                        {{ trans('snooze', default='Snooze') }}
+                                                    </button>
+                                                    <button type="button" class="btn btn-success btn-sm dashboard-share-btn"
+                                                            data-id="{{ creditor._id }}"
+                                                            data-contact="{{ creditor.contact }}"
+                                                            data-bs-toggle="tooltip"
+                                                            title="{{ trans('share_iou', default='Share IOU') }}">
+                                                        {{ trans('share', default='Share') }}
+                                                    </button>
+                                                    {% endif %}
+                                                    <a href="{{ url_for('creditors_blueprint.edit', id=creditor._id) }}" class="btn btn-primary btn-sm"
+                                                       data-bs-toggle="tooltip" title="{{ trans('edit', default='Edit') }}">
+                                                        {{ trans('edit', default='Edit') }}
+                                                    </a>
                                                     <form action="{{ url_for('creditors_blueprint.delete', id=creditor._id) }}" method="POST" style="display:inline;">
                                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
+                                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')"
+                                                                data-bs-toggle="tooltip"
+                                                                title="{{ trans('delete', default='Delete') }}">
+                                                            {{ trans('delete', default='Delete') }}
+                                                        </button>
                                                     </form>
-                                                {% endif %}
+                                                </div>
                                             </td>
                                         </tr>
                                     {% endfor %}
@@ -84,13 +123,52 @@
                                             <td>{{ debtor.name }}</td>
                                             <td>{{ debtor.amount_owed | format_currency }}</td>
                                             <td>
-                                                {% if current_user.role != 'admin' or debtor.user_id == current_user.id %}
-                                                    <a href="{{ url_for('debtors_blueprint.edit', id=debtor._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
+                                                <div class="btn-group" role="group">
+                                                    <a href="{{ url_for('debtors_blueprint.view_page', id=debtor._id) }}"
+                                                       class="btn btn-info btn-sm"
+                                                       data-bs-toggle="tooltip"
+                                                       title="{{ trans('view_details', default='View Details') }}">
+                                                        {{ trans('view', default='View') }}
+                                                    </a>
+                                                    {% if debtor.contact %}
+                                                    <button type="button" class="btn btn-warning btn-sm dashboard-reminder-btn"
+                                                            data-id="{{ debtor._id }}"
+                                                            data-name="{{ debtor.name }}"
+                                                            data-amount="{{ debtor.amount_owed }}"
+                                                            data-contact="{{ debtor.contact }}"
+                                                            data-date="{{ format_date(debtor.created_at) }}"
+                                                            data-bs-toggle="tooltip"
+                                                            title="{{ trans('send_reminder', default='Send Reminder') }}">
+                                                        {{ trans('reminder', default='Reminder') }}
+                                                    </button>
+                                                    <button type="button" class="btn btn-primary btn-sm dashboard-snooze-btn"
+                                                            data-id="{{ debtor._id }}"
+                                                            data-name="{{ debtor.name }}"
+                                                            data-bs-toggle="tooltip"
+                                                            title="{{ trans('snooze_reminder', default='Snooze Reminder') }}">
+                                                        {{ trans('snooze', default='Snooze') }}
+                                                    </button>
+                                                    <button type="button" class="btn btn-success btn-sm dashboard-share-btn"
+                                                            data-id="{{ debtor._id }}"
+                                                            data-contact="{{ debtor.contact }}"
+                                                            data-bs-toggle="tooltip"
+                                                            title="{{ trans('share_iou', default='Share IOU') }}">
+                                                        {{ trans('share', default='Share') }}
+                                                    </button>
+                                                    {% endif %}
+                                                    <a href="{{ url_for('debtors_blueprint.edit', id=debtor._id) }}" class="btn btn-primary btn-sm"
+                                                       data-bs-toggle="tooltip" title="{{ trans('edit', default='Edit') }}">
+                                                        {{ trans('edit', default='Edit') }}
+                                                    </a>
                                                     <form action="{{ url_for('debtors_blueprint.delete', id=debtor._id) }}" method="POST" style="display:inline;">
                                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
+                                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')"
+                                                                data-bs-toggle="tooltip"
+                                                                title="{{ trans('delete', default='Delete') }}">
+                                                            {{ trans('delete', default='Delete') }}
+                                                        </button>
                                                     </form>
-                                                {% endif %}
+                                                </div>
                                             </td>
                                         </tr>
                                     {% endfor %}
@@ -123,13 +201,13 @@
                                             <td>{{ payment.party_name }}</td>
                                             <td>{{ payment.amount | format_currency }}</td>
                                             <td>
-                                                {% if current_user.role != 'admin' or payment.user_id == current_user.id %}
+                                                <div class="btn-group" role="group">
                                                     <a href="{{ url_for('payments_blueprint.edit', id=payment._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
                                                     <form action="{{ url_for('payments_blueprint.delete', id=payment._id) }}" method="POST" style="display:inline;">
                                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
                                                     </form>
-                                                {% endif %}
+                                                </div>
                                             </td>
                                         </tr>
                                     {% endfor %}
@@ -162,13 +240,13 @@
                                             <td>{{ receipt.party_name }}</td>
                                             <td>{{ receipt.amount | format_currency }}</td>
                                             <td>
-                                                {% if current_user.role != 'admin' or receipt.user_id == current_user.id %}
+                                                <div class="btn-group" role="group">
                                                     <a href="{{ url_for('receipts_blueprint.edit', id=receipt._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
                                                     <form action="{{ url_for('receipts_blueprint.delete', id=receipt._id) }}" method="POST" style="display:inline;">
                                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
                                                     </form>
-                                                {% endif %}
+                                                </div>
                                             </td>
                                         </tr>
                                     {% endfor %}
@@ -205,13 +283,13 @@
                                             <td>{{ item.unit or '-' }}</td>
                                             <td>{{ item.selling_price | format_currency if item.selling_price else '-' }}</td>
                                             <td>
-                                                {% if current_user.role != 'admin' or item.user_id == current_user.id %}
+                                                <div class="btn-group" role="group">
                                                     <a href="{{ url_for('inventory_blueprint.edit', id=item._id) }}" class="btn btn-sm btn-primary">{{ trans('edit', default='Edit') }}</a>
                                                     <form action="{{ url_for('inventory_blueprint.delete', id=item._id) }}" method="POST" style="display:inline;">
                                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('{{ trans('confirm_delete', default='Are you sure?') }}')">{{ trans('delete', default='Delete') }}</button>
                                                     </form>
-                                                {% endif %}
+                                                </div>
                                             </td>
                                         </tr>
                                     {% endfor %}
@@ -230,4 +308,252 @@
         <a href="{{ url_for('users_blueprint.login') }}" class="btn btn-primary">{{ trans('login', default='Log In') }}</a>
     {% endif %}
 </div>
+
+<!-- Reminder Modal (shared for dashboard, unique id) -->
+<div class="modal fade" id="dashboardReminderModal" tabindex="-1" aria-labelledby="dashboardReminderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dashboardReminderModalLabel">{{ trans('send_reminder', default='Send Reminder') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ trans('close', default='Close') }}"></button>
+            </div>
+            <div class="modal-body">
+                <form id="dashboardReminderForm">
+                    <div class="mb-3">
+                        <label for="dashboardReminderType" class="form-label">{{ trans('reminder_type', default='Reminder Type') }}</label>
+                        <select class="form-select" id="dashboardReminderType" required>
+                            <option value="sms">{{ trans('sms', default='SMS') }}</option>
+                            <option value="whatsapp">{{ trans('whatsapp', default='WhatsApp') }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="dashboardReminderMessage" class="form-label">{{ trans('message', default='Message') }}</label>
+                        <textarea class="form-control" id="dashboardReminderMessage" rows="4" required></textarea>
+                        <div class="form-text">{{ trans('reminder_cost', default='Cost: 2 coins per reminder') }}</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="dashboardSendReminderBtn">
+                    {{ trans('send_reminder', default='Send Reminder') }}
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ trans('cancel', default='Cancel') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Snooze Modal (shared for dashboard, unique id) -->
+<div class="modal fade" id="dashboardSnoozeModal" tabindex="-1" aria-labelledby="dashboardSnoozeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dashboardSnoozeModalLabel">{{ trans('snooze_reminder', default='Snooze Reminder') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ trans('close', default='Close') }}"></button>
+            </div>
+            <div class="modal-body">
+                <form id="dashboardSnoozeForm">
+                    <div class="mb-3">
+                        <label for="dashboardSnoozeDays" class="form-label">{{ trans('snooze_duration', default='Snooze Duration') }}</label>
+                        <select class="form-select" id="dashboardSnoozeDays" required>
+                            <option value="1">{{ trans('1_day', default='1 Day') }}</option>
+                            <option value="3">{{ trans('3_days', default='3 Days') }}</option>
+                            <option value="7">{{ trans('7_days', default='7 Days') }}</option>
+                            <option value="14">{{ trans('14_days', default='14 Days') }}</option>
+                        </select>
+                        <div class="form-text">{{ trans('snooze_cost', default='Cost: 1 coin per snooze') }}</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="dashboardSnoozeReminderBtn">
+                    {{ trans('snooze', default='Snooze') }}
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ trans('cancel', default='Cancel') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize tooltips
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+
+    // Shared debt/creditor data object for dashboard modals
+    let dashboardCurrentData = null;
+    let dashboardCurrentType = null; // "debtor" or "creditor"
+
+    // Reminder button for debtors and creditors
+    document.querySelectorAll('.dashboard-reminder-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const name = button.dataset.name;
+            const amount = parseFloat(button.dataset.amount).toLocaleString();
+            const date = button.dataset.date;
+            const contact = button.dataset.contact;
+            dashboardCurrentData = {
+                _id: button.dataset.id,
+                name,
+                amount_owed: button.dataset.amount,
+                contact,
+                created_at: date
+            };
+            dashboardCurrentType = button.closest('tr').closest('table').closest('.card-body').querySelector('h3').innerText.includes("They Owe") ? "debtor" : "creditor";
+
+            let message = "";
+            if (dashboardCurrentType === "debtor") {
+                message = `Hi ${name}, just a reminder you owe {{ trans('currency_symbol', default='₦') }}${amount} recorded on FiCore Records (${date}). Please settle soon.`;
+            } else {
+                message = `Hi ${name}, this is a reminder about the {{ trans('currency_symbol', default='₦') }}${amount} delivery/service recorded on FiCore Records (${date}). Please provide update.`;
+            }
+            document.getElementById('dashboardReminderMessage').value = message;
+
+            new bootstrap.Modal(document.getElementById('dashboardReminderModal')).show();
+        });
+    });
+
+    // Send reminder
+    document.getElementById('dashboardSendReminderBtn').addEventListener('click', function() {
+        if (!dashboardCurrentData || !dashboardCurrentType) return;
+
+        const reminderType = document.getElementById('dashboardReminderType').value;
+        const message = document.getElementById('dashboardReminderMessage').value;
+
+        if (!message.trim()) {
+            alert('{{ trans('message_required', default='Message is required') }}');
+            return;
+        }
+
+        this.disabled = true;
+        this.textContent = '{{ trans('sending', default='Sending...') }}';
+
+        const url = dashboardCurrentType === "debtor" ? '/debtors/send_reminder' : '/creditors/send_reminder';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                debtId: dashboardCurrentData._id,
+                recipient: dashboardCurrentData.contact,
+                message: message,
+                type: reminderType
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('{{ trans('reminder_sent_successfully', default='Reminder sent successfully') }}');
+                bootstrap.Modal.getInstance(document.getElementById('dashboardReminderModal')).hide();
+                location.reload();
+            } else {
+                alert('{{ trans('failed_to_send_reminder', default='Failed to send reminder') }}: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error sending reminder:', error);
+            alert('{{ trans('error_sending_reminder', default='Error sending reminder') }}');
+        })
+        .finally(() => {
+            this.disabled = false;
+            this.textContent = '{{ trans('send_reminder', default='Send Reminder') }}';
+        });
+    });
+
+    // Snooze button for debtors and creditors
+    document.querySelectorAll('.dashboard-snooze-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            dashboardCurrentData = {
+                _id: button.dataset.id,
+                name: button.dataset.name
+            };
+            dashboardCurrentType = button.closest('tr').closest('table').closest('.card-body').querySelector('h3').innerText.includes("They Owe") ? "debtor" : "creditor";
+
+            new bootstrap.Modal(document.getElementById('dashboardSnoozeModal')).show();
+        });
+    });
+
+    // Snooze reminder
+    document.getElementById('dashboardSnoozeReminderBtn').addEventListener('click', function() {
+        if (!dashboardCurrentData || !dashboardCurrentType) return;
+
+        const snoozeDays = parseInt(document.getElementById('dashboardSnoozeDays').value);
+
+        this.disabled = true;
+        this.textContent = '{{ trans('snoozing', default='Snoozing...') }}';
+
+        const url = dashboardCurrentType === "debtor" ? '/debtors/send_reminder' : '/creditors/send_reminder';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                debtId: dashboardCurrentData._id,
+                snooze_days: snoozeDays
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('{{ trans('snooze_set_successfully', default='Snooze set successfully') }}');
+                bootstrap.Modal.getInstance(document.getElementById('dashboardSnoozeModal')).hide();
+                location.reload();
+            } else {
+                alert('{{ trans('failed_to_set_snooze', default='Failed to set snooze') }}: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error setting snooze:', error);
+            alert('{{ trans('error_setting_snooze', default='Error setting snooze') }}');
+        })
+        .finally(() => {
+            this.disabled = false;
+            this.textContent = '{{ trans('snooze', default='Snooze') }}';
+        });
+    });
+
+    // Share button for debtors and creditors
+    document.querySelectorAll('.dashboard-share-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const debtId = button.dataset.id;
+            const contact = button.dataset.contact;
+            dashboardCurrentType = button.closest('tr').closest('table').closest('.card-body').querySelector('h3').innerText.includes("They Owe") ? "debtor" : "creditor";
+
+            if (!contact) {
+                alert('{{ trans('no_contact', default='No contact provided for sharing') }}');
+                return;
+            }
+
+            const url = dashboardCurrentType === "debtor"
+                ? `/debtors/share/${debtId}`
+                : `/creditors/share/${debtId}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.open(data.whatsapp_link, '_blank');
+                    } else {
+                        alert('{{ trans('failed_to_share_iou', default='Failed to share IOU') }}: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error sharing IOU:', error);
+                    alert('{{ trans('error_sharing_iou', default='Error sharing IOU') }}');
+                });
+        });
+    });
+
+});
+</script>
 {% endblock %}
