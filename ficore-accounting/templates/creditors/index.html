@@ -29,7 +29,7 @@
                             <td data-label="{{ trans('created_at', default='Created At') }}">{{ format_date(creditor.created_at) }}</td>
                             <td data-label="{{ trans('reminders', default='Reminders') }}">{{ creditor.get('reminder_count', 0) }}</td>
                             <td data-label="{{ trans('actions', default='Actions') }}">
-                                <div class="btn-group" role="group">
+                                <div class="responsive-btn-group" role="group">
                                     <a href="{{ url_for('creditors_blueprint.view_page', id=creditor._id) }}" 
                                        class="btn btn-info btn-sm"
                                        data-bs-toggle="tooltip" 
