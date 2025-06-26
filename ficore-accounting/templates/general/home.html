@@ -26,12 +26,8 @@
                         </ul>
                     </div>
                     <!-- Dark Mode Toggle -->
-                    <button class="btn btn-outline-secondary btn-sm" id="quickDarkModeToggle" onclick="toggleDarkMode()" aria-label="Toggle dark mode">
-                        {% if session.get('dark_mode', False) %}
-                            <i class="bi bi-sun"></i>
-                        {% else %}
-                            <i class="bi bi-moon-stars"></i>
-                        {% endif %}
+                    <button class="btn btn-outline-secondary btn-sm" id="quickDarkModeToggle" onclick="toggleDarkMode()" aria-label="{{ trans('mode_toggle_dark', default='Toggle dark mode') }}">
+                        <i class="bi bi-moon-stars"></i>
                     </button>
                 </div>
             </div>
@@ -490,30 +486,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         icon.className = amountsVisible ? 'bi bi-eye' : 'bi bi-eye-slash';
     };
-    
-    window.toggleDarkMode = function() {
-        const body = document.body;
-        const isDarkMode = body.classList.toggle('dark-mode');
-        const toggleBtn = document.getElementById('quickDarkModeToggle');
-        toggleBtn.innerHTML = isDarkMode ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon-stars"></i>';
-        
-        // Persist in session (server-side) or localStorage (client-side)
-        fetch('/set-dark-mode', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dark_mode: isDarkMode })
-        }).catch(error => console.error('Error saving dark mode:', error));
-        
-        // Alternatively, use localStorage for client-side persistence
-        localStorage.setItem('dark_mode', isDarkMode);
-    };
-
-    // Initialize dark mode from session or localStorage
-    const savedDarkMode = '{{ session.get("dark_mode", localStorage.getItem("dark_mode") == "true") | tojson }}';
-    if (savedDarkMode === 'true') {
-        document.body.classList.add('dark-mode');
-        document.getElementById('quickDarkModeToggle').innerHTML = '<i class="bi bi-sun"></i>';
-    }
 });
 </script>
 {% endblock %}
