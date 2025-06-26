@@ -22,53 +22,55 @@
             </div>
         </div>
         <div class="card-footer">
-            <a href="{{ url_for('debtors_blueprint.generate_iou', id=debtor._id) }}" 
-               class="btn btn-success btn-sm"
-               data-bs-toggle="tooltip" 
-               title="{{ trans('download_iou', default='Download IOU') }}">
-                {{ trans('download_iou', default='Download IOU') }}
-            </a>
-            {% if debtor.contact %}
-            <button type="button" 
-                    class="btn btn-info btn-sm share-btn" 
-                    data-id="{{ debtor._id }}" 
-                    data-contact="{{ debtor.contact }}"
-                    data-bs-toggle="tooltip" 
-                    title="{{ trans('share_iou', default='Share IOU') }}">
-                {{ trans('share_iou', default='Share IOU') }}
-            </button>
-            <button type="button" 
-                    class="btn btn-warning btn-sm reminder-btn" 
-                    data-id="{{ debtor._id }}" 
-                    data-name="{{ debtor.name }}" 
-                    data-amount="{{ debtor.amount_owed }}" 
-                    data-contact="{{ debtor.contact }}" 
-                    data-date="{{ format_date(debtor.created_at) }}"
-                    data-bs-toggle="tooltip" 
-                    title="{{ trans('send_reminder', default='Send Reminder') }}">
-                {{ trans('reminder', default='Reminder') }}
-            </button>
-            <button type="button" 
-                    class="btn btn-primary btn-sm snooze-btn" 
-                    data-id="{{ debtor._id }}" 
-                    data-name="{{ debtor.name }}"
-                    data-bs-toggle="tooltip" 
-                    title="{{ trans('snooze_reminder', default='Snooze Reminder') }}">
-                {{ trans('snooze', default='Snooze') }}
-            </button>
-            {% endif %}
-            <a href="{{ url_for('debtors_blueprint.edit', id=debtor._id) }}" 
-               class="btn btn-primary btn-sm"
-               data-bs-toggle="tooltip" 
-               title="{{ trans('edit', default='Edit') }}">
-                {{ trans('edit', default='Edit') }}
-            </a>
-            <a href="{{ url_for('debtors_blueprint.index') }}" 
-               class="btn btn-secondary btn-sm"
-               data-bs-toggle="tooltip" 
-               title="{{ trans('back', default='Back') }}">
-                {{ trans('back', default='Back') }}
-            </a>
+            <div class="responsive-btn-group" role="group">
+                <a href="{{ url_for('debtors_blueprint.generate_iou', id=debtor._id) }}" 
+                   class="btn btn-success btn-sm"
+                   data-bs-toggle="tooltip" 
+                   title="{{ trans('download_iou', default='Download IOU') }}">
+                    {{ trans('download_iou', default='Download IOU') }}
+                </a>
+                {% if debtor.contact %}
+                <button type="button" 
+                        class="btn btn-info btn-sm share-btn" 
+                        data-id="{{ debtor._id }}" 
+                        data-contact="{{ debtor.contact }}"
+                        data-bs-toggle="tooltip" 
+                        title="{{ trans('share_iou', default='Share IOU') }}">
+                    {{ trans('share_iou', default='Share IOU') }}
+                </button>
+                <button type="button" 
+                        class="btn btn-warning btn-sm reminder-btn" 
+                        data-id="{{ debtor._id }}" 
+                        data-name="{{ debtor.name }}" 
+                        data-amount="{{ debtor.amount_owed }}" 
+                        data-contact="{{ debtor.contact }}" 
+                        data-date="{{ format_date(debtor.created_at) }}"
+                        data-bs-toggle="tooltip" 
+                        title="{{ trans('send_reminder', default='Send Reminder') }}">
+                    {{ trans('reminder', default='Reminder') }}
+                </button>
+                <button type="button" 
+                        class="btn btn-primary btn-sm snooze-btn" 
+                        data-id="{{ debtor._id }}" 
+                        data-name="{{ debtor.name }}"
+                        data-bs-toggle="tooltip" 
+                        title="{{ trans('snooze_reminder', default='Snooze Reminder') }}">
+                    {{ trans('snooze', default='Snooze') }}
+                </button>
+                {% endif %}
+                <a href="{{ url_for('debtors_blueprint.edit', id=debtor._id) }}" 
+                   class="btn btn-primary btn-sm"
+                   data-bs-toggle="tooltip" 
+                   title="{{ trans('edit', default='Edit') }}">
+                    {{ trans('edit', default='Edit') }}
+                </a>
+                <a href="{{ url_for('debtors_blueprint.index') }}" 
+                   class="btn btn-secondary btn-sm"
+                   data-bs-toggle="tooltip" 
+                   title="{{ trans('back', default='Back') }}">
+                    {{ trans('back', default='Back') }}
+                </a>
+            </div>
         </div>
     </div>
 </div>
