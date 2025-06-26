@@ -37,7 +37,7 @@
                         <a class="nav-link" href="{{ url_for('index') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('home_tooltip', default='Go to homepage') }}">{{ trans('home', default='Home') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('about') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('about_tooltip', default='Learn more about FiCore') }}">{{ trans('about', default='About') }}</a>
+                        <a class="nav-link" href="{{ url_for('about') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('about_tags', default='Learn more about FiCore') }}">{{ trans('about', default='About') }}</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('contact') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('contact_tooltip', default='Get in touch') }}">{{ trans('contact', default='Contact') }}</a>
@@ -152,7 +152,7 @@
                                 <a class="nav-link" href="{{ url_for('users_blueprint.login') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('login_tooltip', default='Log in to your account') }}">{{ trans('login', default='Login') }}</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('users_blueprint.signup') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('signup_tooltip', default='Create a new account') }}">{{ trans('signup', default='Sign Up') }}</a>
+                                <a class="nav-link" href="{{ url_for('users_blueprint.signup') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('signup_tooltip', default='Create a new account') }}">{{ trans('signup', default='Sign Up') }}</a></li>
                             </li>
                         {% endif %}
                         <li class="nav-item dropdown">
