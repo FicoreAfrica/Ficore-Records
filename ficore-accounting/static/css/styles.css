@@ -39,6 +39,7 @@
     --card-shadow-hover: 0 8px 24px rgba(0, 15, 40, 0.15);
     --table-border: #e2e8f0;
     --table-header-bg: #0F3D57;
+    --table-header-text: #ffffff;
     --table-text: #1e293b;
     --table-light-bg: #f8fafc;
     --table-striped-bg: #f1f5f9;
@@ -93,6 +94,7 @@
     --card-shadow-hover: 0 12px 32px rgba(0, 0, 0, 0.4);
     --table-border: #475569;
     --table-header-bg: #1e3a8a;
+    --table-header-text: #f1f5f9;
     --table-text: #f1f5f9;
     --table-light-bg: #334155;
     --table-striped-bg: #2a3447;
@@ -373,7 +375,7 @@ h3 { font-size: 1.25rem; }
 }
 
 .stat-card .snapshot-label {
-    font-size: 0.7rem;
+    font-size: 0.7sat;
     color: var(--text-muted);
     font-weight: 500;
     margin-bottom: 0.2rem;
@@ -1075,7 +1077,7 @@ h2.card-title {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    background: var(--card-bg);
+    background: var(--table-light-bg);
     border: 1px solid var(--table-border);
     border-radius: 0.75rem;
     overflow: hidden;
@@ -1087,11 +1089,12 @@ h2.card-title {
     text-align: left;
     font-size: 0.875rem;
     vertical-align: middle;
+    color: var(--table-text);
 }
 
 .table th {
     background: var(--table-header-bg);
-    color: var(--navbar-text-color);
+    color: var(--table-header-text, var(--table-text));
     font-weight: 600;
 }
 
@@ -1315,6 +1318,7 @@ h2.card-title {
         display: none;
     }
 }
+
 /* Responsive vertical button group for action buttons */
 .responsive-btn-group {
   display: flex;
