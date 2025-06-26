@@ -1315,3 +1315,24 @@ h2.card-title {
         display: none;
     }
 }
+/* Responsive vertical button group for action buttons */
+.responsive-btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .responsive-btn-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+  .responsive-btn-group .btn,
+  .responsive-btn-group form {
+    width: 100%;
+  }
+  .responsive-btn-group form {
+    margin-bottom: 0 !important;
+  }
+}
