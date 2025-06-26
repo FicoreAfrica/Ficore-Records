@@ -138,7 +138,7 @@
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('users_blueprint.login') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('login_tooltip', default='Log in to your account') }}">{{ trans('login', default='Login') }}</a>
+                            <a class="nav-link" href="{{ url_for('users_blueprint.login') }}" data-bs-toggle="tooltip" dataទd-bs-title="{{ trans('login_tooltip', default='Log in to your account') }}">{{ trans('login', default='Login') }}</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('users_blueprint.signup') }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('signup_tooltip', default='Create a new account') }}">{{ trans('signup', default='Sign Up') }}</a></li>
@@ -180,14 +180,14 @@
         {% endwith %}
     </div>
 
-    <main>
+    <main class="main-content">
         <div class="container">
             {% block content %}{% endblock %}
         </div>
     </main>
 
     {% if not current_user.is_authenticated or request.endpoint != 'index' %}
-    <footer class="footer mt-auto py-3 bg-dark">
+    <footer class="footer">
         <div class="container text-center">
             <a href="{{ url_for('about') }}" class="text-white mx-2">{{ trans('about', default='About') }}</a>
             <a href="{{ url_for('contact') }}" class="text-white mx-2">{{ trans('contact', default='Contact') }}</a>
