@@ -260,25 +260,6 @@ def privacy():
 def terms():
     return render_template('general/terms.html')
 
-@app.route('/set_dark_mode', methods=['POST'])
-def set_dark_mode():
-    try:
-        validate_csrf(request.headers.get('X-CSRF-Token'))
-        data = request.get_json()
-        if not data or 'dark_mode' not in data:
-            return jsonify({'status': 'error', 'message': 'Invalid request data'}), 400
-        dark_mode = bool(data.get('dark_mode', False))
-        session['dark_mode'] = dark_mode
-        if current_user.is_authenticated:
-            get_mongo_db().users.update_one({'_id': current_user.id}, {'$set': {'dark_mode': dark_mode}})
-        return Response(status=204)
-    except CSRFError:
-        logger.error("CSRF validation failed for /set_dark_mode")
-        return jsonify({'status': 'error', 'message': 'CSRF token invalid'}), 403
-    except Exception as e:
-        logger.error(f"Error in set_dark_mode: {str(e)}")
-        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
-
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(app.static_folder, 'favicon.ico')
@@ -524,7 +505,6 @@ def setup_database(initialize=False):
                             'language': {'enum': ['en', 'ha']},
                             'created_at': {'bsonType': 'date'},
                             'display_name': {'bsonType': ['string', 'null']},
-                            'dark_mode': {'bsonType': 'bool'},
                             'is_admin': {'bsonType': 'bool'},
                             'setup_complete': {'bsonType': 'bool'},
                             'reset_token': {'bsonType': ['string', 'null']}
@@ -736,7 +716,6 @@ def setup_database(initialize=False):
                 'role': 'admin',
                 'coin_balance': 0,
                 'language': 'en',
-                'dark_mode': False,
                 'is_admin': True,
                 'setup_complete': True,
                 'display_name': admin_username,
