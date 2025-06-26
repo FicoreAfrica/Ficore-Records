@@ -17,6 +17,27 @@
                 <a href="{{ url_for('settings_blueprint.profile') }}" class="profile-icon">
                     <i class="bi bi-person-circle"></i>
                 </a>
+                <!-- Language and Dark Mode Toggles -->
+                <div class="header-toggles d-flex align-items-center gap-2">
+                    <!-- Language Toggle -->
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="langDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            {{ session.get('lang', 'EN').upper() }}
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="langDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('set_language', lang='en') }}">English</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('set_language', lang='ha') }}">Hausa</a></li>
+                        </ul>
+                    </div>
+                    <!-- Dark Mode Toggle -->
+                    <button class="btn btn-outline-secondary btn-sm" id="quickDarkModeToggle" onclick="toggleDarkMode()" aria-label="Toggle dark mode">
+                        {% if session.get('dark_mode', False) %}
+                            <i class="bi bi-sun"></i>
+                        {% else %}
+                            <i class="bi bi-moon-stars"></i>
+                        {% endif %}
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -74,38 +95,32 @@
 
         <!-- General Financial Snapshots -->
         <div class="financial-snapshots mb-4">
-            <div class="row g-2">
-                <div class="col-4">
-                    <div class="snapshot-card">
-                        <div class="snapshot-icon">
-                            <i class="bi bi-wallet2"></i>
-                        </div>
-                        <div class="snapshot-info">
-                            <div class="snapshot-label">{{ trans('wallet_balance', default='Wallet') }}</div>
-                            <div class="snapshot-value" id="walletBalance">₦0</div>
-                        </div>
+            <div class="stat-cards-container">
+                <div class="stat-card">
+                    <div class="snapshot-icon">
+                        <i class="bi bi-wallet2"></i>
+                    </div>
+                    <div class="snapshot-info">
+                        <div class="snapshot-label">{{ trans('wallet_balance', default='Wallet') }}</div>
+                        <div class="stat-card-value" id="walletBalance">₦0</div>
                     </div>
                 </div>
-                <div class="col-4">
-                    <div class="snapshot-card">
-                        <div class="snapshot-icon">
-                            <i class="bi bi-graph-up"></i>
-                        </div>
-                        <div class="snapshot-info">
-                            <div class="snapshot-label">{{ trans('net_cashflow_mtd', default='Net Flow') }}</div>
-                            <div class="snapshot-value" id="netCashflow">₦0</div>
-                        </div>
+                <div class="stat-card">
+                    <div class="snapshot-icon">
+                        <i class="bi bi-graph-up"></i>
+                    </div>
+                    <div class="snapshot-info">
+                        <div class="snapshot-label">{{ trans('net_cashflow_mtd', default='Net Flow') }}</div>
+                        <div class="stat-card-value" id="netCashflow">₦0</div>
                     </div>
                 </div>
-                <div class="col-4">
-                    <div class="snapshot-card">
-                        <div class="snapshot-icon">
-                            <i class="bi bi-box-seam"></i>
-                        </div>
-                        <div class="snapshot-info">
-                            <div class="snapshot-label">{{ trans('inventory_value', default='Inventory') }}</div>
-                            <div class="snapshot-value" id="inventoryValue">₦0</div>
-                        </div>
+                <div class="stat-card">
+                    <div class="snapshot-icon">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    <div class="snapshot-info">
+                        <div class="snapshot-label">{{ trans('inventory_value', default='Inventory') }}</div>
+                        <div class="stat-card-value" id="inventoryValue">₦0</div>
                     </div>
                 </div>
             </div>
@@ -434,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.toggleAmountVisibility = function() {
         amountsVisible = !amountsVisible;
         const icon = document.getElementById('visibilityIcon');
-        const amounts = document.querySelectorAll('.amount-value, .net-amount, .snapshot-value');
+        const amounts = document.querySelectorAll('.amount-value, .net-amount, .stat-card-value');
         
         amounts.forEach(el => {
             if (amountsVisible) {
@@ -442,7 +457,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     el.textContent = formatCurrency(el.dataset.amount);
                 } else if (el.classList.contains('net-amount')) {
                     el.textContent = '₦' + formatCurrency(Math.abs(el.dataset.amount));
-                } else {
+                } else if (el.classList.contains('stat-card-value')) {
                     el.textContent = el.dataset.originalText || el.textContent;
                 }
             } else {
