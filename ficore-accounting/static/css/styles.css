@@ -211,6 +211,16 @@ main {
     color: var(--accent-blue);
 }
 
+/* Header Toggles */
+.header-toggles .btn, .header-toggles .dropdown-toggle {
+    min-width: 42px;
+    font-size: 1rem;
+}
+
+.header-toggles {
+    gap: 0.5rem;
+}
+
 /* Financial Summary */
 .financial-summary {
     background: var(--card-bg);
@@ -310,27 +320,37 @@ main {
     margin-bottom: 1.5rem;
 }
 
-.snapshot-card {
+.stat-cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+}
+
+.stat-card {
     background: var(--card-bg);
-    border-radius: 0.75rem;
-    padding: 1rem;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
     border: 1px solid var(--card-border);
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    flex: 1;
+    min-width: 150px;
+    max-width: 200px;
 }
 
-.snapshot-card:hover {
+.stat-card:hover {
     transform: translateY(-2px);
     box-shadow: var(--card-shadow);
 }
 
-.snapshot-icon {
-    font-size: 1.5rem;
+.stat-card .snapshot-icon {
+    font-size: 1.25rem;
     color: var(--accent-blue);
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2rem;
+    height: 2rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -338,23 +358,24 @@ main {
     border-radius: 50%;
 }
 
-.snapshot-info {
+.stat-card .snapshot-info {
     flex: 1;
     min-width: 0;
 }
 
-.snapshot-label {
-    font-size: 0.75rem;
+.stat-card .snapshot-label {
+    font-size: 0.7rem;
     color: var(--text-muted);
     font-weight: 500;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.2rem;
 }
 
-.snapshot-value {
-    font-size: 0.875rem;
+.stat-card-value {
+    font-size: 0.8rem;
     font-weight: 600;
     color: var(--text-color);
     overflow-wrap: break-word;
+    word-break: break-all;
 }
 
 /* Section Titles */
@@ -731,8 +752,13 @@ main {
 }
 
 /* --- Alerts --- */
+.alert-container {
+    margin-top: calc(var(--navbar-height) + 1rem);
+}
+
 .alert {
-    padding: 1rem;
+    padding: 1.25rem 1.5rem;
+    font-size: 1rem;
     border-radius: 0.5rem;
     border: 1px solid;
     margin-bottom: 1rem;
@@ -1018,7 +1044,7 @@ h2.card-title {
     position: absolute;
     right: 1rem;
     top: 50%;
-    transform: Собственная разработка
+    transform: translateY(-50%);
     cursor: pointer;
     color: var(--text-muted);
 }
@@ -1040,55 +1066,60 @@ h2.card-title {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    border-radius: 0.5rem;
+    background: var(--card-bg);
+    border: 1px solid var(--table-border);
+    border-radius: 0.75rem;
     overflow: hidden;
-    box-shadow: var(--card-shadow);
 }
 
 .table th, .table td {
-    padding: 1rem;
-    border: 1px solid var(--table-border);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--table-border);
     text-align: left;
-    color: var(--table-text);
-    overflow-wrap: break-word;
+    font-size: 0.875rem;
+    vertical-align: middle;
 }
 
 .table th {
     background: var(--table-header-bg);
     color: var(--navbar-text-color);
-    font-weight: 700;
-    text-transform: uppercase;
-    font-size: 0.85rem;
+    font-weight: 600;
 }
 
-.table-striped tbody tr:nth-child(odd) {
+.table td {
+    color: var(--table-text);
+}
+
+.table-striped tbody tr:nth-of-type(even) {
     background: var(--table-striped-bg);
 }
 
-.table-light thead {
-    background: var(--table-light-bg);
-    color: var(--text-color);
+.table-hover tbody tr:hover {
+    background: var(--button-secondary-hover);
 }
 
-.table-warning tbody tr {
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+.table .status-overdue {
     background: var(--table-row-bg-overdue);
 }
 
-.table tbody tr:hover {
-    background: rgba(58, 134, 255, 0.05);
+.table .status-pending {
+    background: var(--table-row-bg-pending);
 }
 
-.dark-mode .table tbody tr:hover {
-    background: rgba(147, 197, 253, 0.1);
+.table .status-settled {
+    background: var(--table-row-bg-settled);
 }
 
 /* --- Footer --- */
 .footer {
     background: var(--footer-bg);
     color: var(--navbar-text-color);
-    padding: 1rem;
-    border-top: 1px solid var(--card-border);
-    margin-top: auto;
+    padding: 1.5rem 0;
+    text-align: center;
 }
 
 .footer a {
@@ -1102,90 +1133,142 @@ h2.card-title {
     text-decoration: underline;
 }
 
-/* --- Text Utilities --- */
-.text-color {
-    color: var(--text-color);
+/* --- Media Queries --- */
+@media (max-width: 768px) {
+    .container {
+        padding: 0.5rem;
+    }
+
+    .navbar-brand {
+        font-size: 1rem;
+    }
+
+    .logo {
+        height: 32px;
+    }
+
+    .nav-item {
+        font-size: 0.65rem;
+    }
+
+    .nav-item i {
+        font-size: 1rem;
+    }
+
+    .actions-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .financial-summary, .stat-card, .action-card, .nav-card {
+        padding: 1rem;
+    }
+
+    .card-amount {
+        font-size: 1.25rem;
+    }
+
+    .net-amount {
+        font-size: 1rem;
+    }
+
+    .section-title {
+        font-size: 1rem;
+    }
+
+    .welcome-text {
+        font-size: 1.25rem;
+    }
+
+    .header-actions {
+        gap: 0.5rem;
+    }
+
+    .notification-bell, .profile-icon {
+        font-size: 1.25rem;
+    }
+
+    .header-toggles .btn, .header-toggles .dropdown-toggle {
+        font-size: 0.875rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .stat-cards-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .stat-card {
+        max-width: 100%;
+        min-width: 0;
+    }
 }
 
-.text-muted {
-    color: var(--text-muted);
+@media (max-width: 576px) {
+    .stat-cards-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .stat-card {
+        max-width: 100%;
+        min-width: 0;
+        padding: 0.5rem;
+    }
+
+    .stat-card .snapshot-icon {
+        width: 1.75rem;
+        height: 1.75rem;
+        font-size: 1rem;
+    }
+
+    .stat-card .snapshot-label, .stat-card-value {
+        font-size: 0.65rem;
+    }
+
+    .table th, .table td {
+        font-size: 0.75rem;
+        padding: 0.5rem;
+    }
+
+    .form-container {
+        padding: 1rem;
+    }
+
+    .form-control, .form-select {
+        font-size: 0.85rem;
+        padding: 0.5rem;
+    }
 }
 
-.text-danger {
-    color: var(--error-highlight);
+/* --- Accessibility --- */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
 }
 
-.text-warning {
-    color: var(--alert-warning-text);
+:focus-visible {
+    outline: 3px solid var(--accent-blue);
+    outline-offset: 2px;
 }
 
-.text-success {
-    color: var(--success-color);
-}
-
-.text-center {
-    text-align: center;
-}
-
-/* --- Layout Utilities --- */
-.d-grid.gap-2 {
-    display: grid;
-    gap: 0.5rem;
-}
-
-.d-flex.gap-2 {
-    gap: 0.5rem;
-}
-
-.d-flex.flex-column.gap-2 {
-    gap: 0.5rem;
-}
-
-.me-2 {
-    margin-right: 0.5rem;
-}
-
-.mt-1 {
-    margin-top: 0.25rem;
-}
-
-.mt-2 {
-    margin-top: 0.5rem;
-}
-
-.mt-3 {
-    margin-top: 1rem;
-}
-
-.mt-5 {
-    margin-top: 3rem;
-}
-
-.my-5 {
-    margin-top: 3rem;
-    margin-bottom: 3rem;
-}
-
-.mb-4 {
-    margin-bottom: 1.5rem;
-}
-
-.py-5 {
-    padding-top: 3rem;
-    padding-bottom: 3rem;
-}
-
-/* --- Scrollbar --- */
+/* --- Custom Scrollbar --- */
 ::-webkit-scrollbar {
     width: 8px;
+    height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--background-main);
+    background: var(--card-bg);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--card-border);
+    background: var(--text-muted);
     border-radius: 4px;
 }
 
@@ -1193,200 +1276,32 @@ h2.card-title {
     background: var(--accent-blue);
 }
 
-/* --- Media Queries --- */
-@media (min-width: 768px) {
-    .container {
-        padding: 1.5rem;
-    }
-
-    h1 { font-size: 2.5rem; }
-    h2 { font-size: 1.75rem; }
-    .card { padding: 1.5rem; }
-    .form-control, .form-select { font-size: 1rem; }
-    .table th, .table td { padding: 1.25rem; }
-    
-    .actions-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-    
-    .welcome-text {
-        font-size: 1.75rem;
-    }
-    
-    .card-amount {
-        font-size: 1.75rem;
-    }
-    
-    .net-amount {
-        font-size: 1.5rem;
-    }
-}
-
-@media (min-width: 992px) {
-    .navbar-collapse {
-        display: flex !important;
-        flex-grow: 1;
-    }
-
-    .navbar-nav {
-        gap: 0.5rem;
-    }
-
-    .dropdown-menu {
-        position: absolute;
-    }
-
-    .toolcard {
-        min-height: 200px;
-    }
-}
-
-@media (min-width: 1200px) {
-    .container {
-        max-width: 1400px;
-        padding: 2rem;
-    }
-
-    .navbar .container-fluid {
-        max-width: 1400px;
-    }
-
-    .toolcard {
-        min-height: 220px;
-    }
-}
-
-@media (max-width: 991.98px) {
-    .navbar-collapse {
-        position: absolute;
-        top: var(--navbar-height);
-        left: 0;
-        width: 100%;
-        background: var(--navbar-bg);
-        padding: 1rem;
-        box-shadow: var(--card-shadow);
-    }
-
-    .navbar-nav {
-        flex-direction: column;
-    }
-
-    .nav-link, .dropdown-toggle {
-        padding: 0.5rem 0;
-    }
-
-    .dropdown-menu {
-        position: static;
-        width: 100%;
-        border: none;
-        box-shadow: none;
-    }
-
-    .toolcard {
-        min-height: 200px;
-    }
-}
-
-@media (max-width: 767.98px) {
-    .table-responsive .table {
-        display: block;
-    }
-
-    .table thead {
+/* --- Print Styles --- */
+@media print {
+    .navbar, .bottom-navigation, .footer, .alert-container, .visibility-toggle, .header-actions {
         display: none;
     }
 
-    .table tbody tr {
-        display: flex;
-        flex-wrap: wrap;
-        border-bottom: 1px solid var(--table-border);
-        padding: 0.5rem;
+    body {
+        background: #ffffff;
+        color: #000000;
+        padding-bottom: 0;
     }
 
-    .table td {
-        flex: 1 1 50%;
-        border: none;
-        padding: 0.4rem;
-        font-size: 0.8rem;
+    .card, .summary-card, .stat-card, .action-card, .nav-card {
+        border: 1px solid #000000;
+        box-shadow: none;
     }
 
-    .table td::before {
-        content: attr(data-label);
-        font-weight: 600;
-        display: block;
-        color: var(--text-secondary);
+    .table {
+        border: 1px solid #000000;
     }
 
-    .table td:last-child {
-        flex: 1 1 100%;
-        text-align: right;
-    }
-    
-    .welcome-text {
-        font-size: 1.25rem;
-    }
-    
-    .header-actions {
-        gap: 0.5rem;
-    }
-    
-    .notification-bell {
-        font-size: 1.25rem;
-    }
-    
-    .profile-icon {
-        font-size: 1.5rem;
-    }
-}
-
-@media (max-width: 360px) {
-    .container {
-        padding: 0.5rem;
+    .table th, .table td {
+        border: 1px solid #000000;
     }
 
-    .btn, .btn-primary {
-        padding: 0.5rem 1rem;
-        font-size: 0.85rem;
-    }
-
-    .form-control, .form-select {
-        font-size: 0.85rem;
-    }
-
-    .logo {
-        height: 32px;
-    }
-
-    .card-title, h2.card-title {
-        font-size: 1.25rem;
-    }
-
-    .card-icon {
-        font-size: 1.25rem;
-    }
-    
-    .actions-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .financial-summary {
-        padding: 1rem;
-    }
-    
-    .summary-card {
-        padding: 0.75rem;
-    }
-    
-    .card-amount {
-        font-size: 1.25rem;
-    }
-}
-
-@media (max-width: 320px) {
-    .card-amount, .welcome-text {
-        font-size: 1.1rem;
-    }
-    .container {
-        padding: 0.25rem;
+    .btn, .btn-primary, .btn-secondary {
+        display: none;
     }
 }
