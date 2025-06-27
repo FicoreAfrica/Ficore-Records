@@ -21,7 +21,7 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    {% if current_user.is_authenticated and request.endpoint != 'index' %}
+    {% if current_user.is_authenticated %} {# <--- MODIFIED LINE: Removed 'and request.endpoint != 'index'' #}
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="{{ url_for('index') | e }}" aria-label="{{ trans('home', default='Home') | e }}">
@@ -195,7 +195,6 @@
         </div>
     </main>
 
-    <!-- Notification Modal -->
     <div class="modal fade" id="notificationModal" tabindex="-1" aria-labelledby="notificationModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
