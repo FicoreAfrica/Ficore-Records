@@ -420,7 +420,7 @@ h3 { font-size: 1.25rem; }
 }
 
 .cta-creditor-card, .cta-debtor-card {
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.8) 60%, rgba(220, 38, 38, 0.9) 100%);
+    background: linear-gradient(135deg, rgba(184, 138, 68, 0.8) 60%, rgba(145, 114, 67, 0.9) 100%);
     color: #fff;
     border: none;
     display: flex;
@@ -438,21 +438,20 @@ h3 { font-size: 1.25rem; }
 }
 
 .cta-debtor-card {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.8) 60%, rgba(5, 150, 105, 0.9) 100%);
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.8) 60%, rgba(75, 85, 99, 0.9) 100%);
 }
 
 .cta-creditor-card:hover {
     transform: translateY(-2px) scale(1.04);
-    box-shadow: 0 12px 36px rgba(239, 68, 68, 0.25);
+    box-shadow: 0 12px 36px rgba(184, 138, 68, 0.25);
     filter: brightness(1.08);
 }
 
 .cta-debtor-card:hover {
     transform: translateY(-2px) scale(1.04);
-    box-shadow: 0 12px 36px rgba(16, 185, 129, 0.25);
+    box-shadow: 0 12px 36px rgba(107, 114, 128, 0.25);
     filter: brightness(1.08);
 }
-
 .action-icon {
     font-size: 2.2rem;
     margin-bottom: 0.5rem;
