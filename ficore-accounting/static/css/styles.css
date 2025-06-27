@@ -407,17 +407,20 @@ h3 { font-size: 1.25rem; }
 }
 
 .actions-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    display: flex;
+    flex-direction: row;
     gap: 1rem;
 }
 
 .cta-action-cards {
-    display: contents;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: 1;
 }
 
 .cta-creditor-card, .cta-debtor-card {
-    background: linear-gradient(135deg, var(--button-danger-bg) 60%, var(--button-danger-hover) 100%);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.8) 60%, rgba(220, 38, 38, 0.9) 100%);
     color: #fff;
     border: none;
     display: flex;
@@ -431,10 +434,11 @@ h3 { font-size: 1.25rem; }
     font-weight: 600;
     letter-spacing: 0.01em;
     filter: brightness(1);
+    padding: 1rem;
 }
 
 .cta-debtor-card {
-    background: linear-gradient(135deg, var(--button-success-bg) 60%, var(--button-success-hover) 100%);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.8) 60%, rgba(5, 150, 105, 0.9) 100%);
 }
 
 .cta-creditor-card:hover {
@@ -1178,7 +1182,11 @@ h2.card-title {
     }
 
     .actions-grid {
-        grid-template-columns: 1fr;
+        flex-direction: column;
+    }
+
+    .cta-action-cards {
+        width: 100%;
     }
 
     .financial-summary, .stat-card, .action-card, .nav-card {
