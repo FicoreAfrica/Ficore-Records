@@ -120,59 +120,60 @@
                                 <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.receipt_upload') | e }}">{{ trans('receipt_upload', default='Upload Receipt') | e }}</a></li>
                             </ul>
                         </li>
-                    </ul>
-                    <ul class="navbar-nav ms-auto align-items-center header-actions">
-                        {% if current_user.is_authenticated %}
-                            <li class="nav-item">
-                                <button class="notification-bell" id="notificationBell" data-bs-toggle="modal" data-bs-target="#notificationModal" data-bs-title="{{ trans('notifications_tooltip', default='View notifications') | e }}" aria-label="{{ trans('notifications', default='Notifications') | e }}">
-                                    <i class="bi bi-bell"></i>
-                                    <span class="notification-badge" id="notificationBadge"></span>
-                                </button>
-                            </li>
-                            <li class="nav-item">
-                                <a class="profile-icon" href="{{ url_for('settings_blueprint.profile') | e }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('profile_tooltip', default='Manage your account') | e }}" aria-label="{{ trans('profile', default='Profile') | e }}">
-                                    <i class="bi bi-person-dash"></i>
-                                </a>
-                            </li>
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('profile_tooltip', default='Manage your account') | e }}" aria-label="{{ trans('profile', default='Profile') | e }}">
-                                    {{ current_user.display_name | default(trans('profile', default='Profile') | e) | e }}
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
-                                    <li><a class="dropdown-item" href="{{ url_for('settings_blueprint.profile') | e }}">{{ trans('profile', default='Profile') | e }}</a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('feedback') | e }}">{{ trans('feedback', default='Send Feedback') | e }}</a></li>
-                                    {% if current_user.get('is_admin', False) %}
-                                        <li><a class="dropdown-item" href="{{ url_for('admin_blueprint.dashboard') | e }}">{{ trans('admin_panel', default='Admin Panel') | e }}</a></li>
-                                    {% endif %}
-                                    <li><a class="dropdown-item" href="{{ url_for('users_blueprint.logout') | e }}">{{ trans('logout', default='Logout') | e }}</a></li>
-                                </ul>
-                            </li>
-                        {% else %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('users_blueprint.login') | e }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('login_tooltip', default='Log in to your account') | e }}">{{ trans('login', default='Login') | e }}</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('users_blueprint.signup') | e }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('signup_tooltip', default='Create a new account') | e }}">{{ trans('signup', default='Sign Up') | e }}</a>
-                            </li>
-                        {% endif %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="languageDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('language_tooltip', default='Change language') | e }}" aria-label="{{ trans('language', default='Language') | e }}">
-                                {{ session.get('lang', 'en').upper() | e }}
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('set_language', lang='en') | e }}">{{ trans('english', default='English') | e }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('set_language', lang='ha') | e }}">{{ trans('hausa', default='Hausa') | e }}</a></li>
-                            </ul>
-                        </li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav ms-auto align-items-center header-actions">
+                    {% if current_user.is_authenticated %}
                         <li class="nav-item">
-                            <button class="nav-link btn btn-link" id="darkModeToggle" onclick="toggleDarkMode()" data-bs-toggle="tooltip" data-bs-title="{{ trans('mode_toggle_tooltip_switch_to_dark', default='Switch to dark mode') | e }}" aria-label="{{ trans('mode_toggle_dark', default='Toggle dark mode') | e }}">
-                                <i class="bi bi-moon-stars"></i>
+                            <button class="notification-bell" id="notificationBell" data-bs-toggle="modal" data-bs-target="#notificationModal" data-bs-title="{{ trans('notifications_tooltip', default='View notifications') | e }}" aria-label="{{ trans('notifications', default='Notifications') | e }}">
+                                <i class="bi bi-bell"></i>
+                                <span class="notification-badge" id="notificationBadge"></span>
                             </button>
                         </li>
-                    </ul>
-                </div>
+                        <li class="nav-item">
+                            <a class="profile-icon" href="{{ url_for('settings_blueprint.profile') | e }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('profile_tooltip', default='Manage your account') | e }}" aria-label="{{ trans('profile', default='Profile') | e }}">
+                                <i class="bi bi-person-dash"></i>
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('profile_tooltip', default='Manage your account') | e }}" aria-label="{{ trans('profile', default='Profile') | e }}">
+                                {{ current_user.display_name | default(trans('profile', default='Profile') | e) | e }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('settings_blueprint.profile') | e }}">{{ trans('profile', default='Profile') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('feedback') | e }}">{{ trans('feedback', default='Send Feedback') | e }}</a></li>
+                                {% if current_user.get('is_admin', False) %}
+                                    <li><a class="dropdown-item" href="{{ url_for('admin_blueprint.dashboard') | e }}">{{ trans('admin_panel', default='Admin Panel') | e }}</a></li>
+                                {% endif %}
+                                <li><a class="dropdown-item" href="{{ url_for('users_blueprint.logout') | e }}">{{ trans('logout', default='Logout') | e }}</a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('users_blueprint.login') | e }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('login_tooltip', default='Log in to your account') | e }}">{{ trans('login', default='Login') | e }}</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('users_blueprint.signup') | e }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('signup_tooltip', default='Create a new account') | e }}">{{ trans('signup', default='Sign Up') | e }}</a>
+                        </li>
+                    {% endif %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="languageDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('language_tooltip', default='Change language') | e }}" aria-label="{{ trans('language', default='Language') | e }}">
+                            {{ session.get('lang', 'en').upper() | e }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('set_language', lang='en') | e }}">{{ trans('english', default='English') | e }}</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('set_language', lang='ha') | e }}">{{ trans('hausa', default='Hausa') | e }}</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link btn btn-link" id="darkModeToggle" onclick="toggleDarkMode()" data-bs-toggle="tooltip" data-bs-title="{{ trans('mode_toggle_tooltip_switch_to_dark', default='Switch to dark mode') | e }}" aria-label="{{ trans('mode_toggle_dark', default='Toggle dark mode') | e }}">
+                            <i class="bi bi-moon-stars"></i>
+                        </button>
+                    </li>
+                </ul>
             </div>
-        </nav>
+        </div>
+    </nav>
     {% endif %}
 
     <div class="container alert-container">
