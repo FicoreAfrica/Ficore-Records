@@ -748,7 +748,7 @@ h3 { font-size: 1.25rem; }
 
 /* --- Navbar --- */
 .navbar {
-    background: var(--navbar-bg);
+    background: var(--navbar-bg) !important;
     border-bottom: 1px solid var(--card-border);
     position: fixed;
     top: 0;
@@ -1219,7 +1219,7 @@ h2.card-title {
 
 /* --- Footer --- */
 .footer {
-    background: var(--footer-bg);
+    background: var(--footer-bg) !important;
     color: var(--navbar-text-color);
     padding: 1.5rem 0;
     text-align: center;
