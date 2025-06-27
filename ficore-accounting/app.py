@@ -780,14 +780,14 @@ def about():
 def feedback():
     lang = session.get('lang', 'en')
     tool_options = [
-        ['profile', trans('tool_profile', default='Profile')],
-        ['coins', trans('tool_coins', default='Coins')],
-        ['debtors', trans('people', default='People')],
-        ['creditors', trans('people')],
-        ['receipts', trans('receipts', default='Receipts')],
-        ['payment', trans('payment', default='Payments')],
-        ['inventory', trans('inventory', default='Inventory')],
-        ['report', trans('report', default='Reports')]
+        ['profile', trans('profile_section', default='Profile')],
+        ['coins', trans('coins_section', default='Coins')],
+        ['debtors', trans('debtors_section', default='People')],
+        ['creditors', trans('creditors_section')],
+        ['receipts', trans('receipts_section', default='Receipts')],
+        ['payment', trans('payments_section', default='Payments')],
+        ['inventory', trans('inventory_section', default='Inventory')],
+        ['report', trans('report_section', default='Reports')]
     ]
     if request.method == 'POST':
         try:
