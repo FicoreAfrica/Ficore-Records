@@ -257,7 +257,7 @@
                                             <td>{{ receipt.amount | format_currency }}</td>
                                             <td>
                                                 <div class="responsive-btn-group" role="group">
-                                                    <a href="{{ url_for('receipts_blueprint.view_page', id=receipt._id) }}"
+                                                    <a href="{{ url_for('receipts_blueprint.view', id=receipt._id) }}"
                                                        class="btn btn-info btn-sm"
                                                        data-bs-toggle="tooltip"
                                                        title="{{ trans('view_details', default='View Details') }}">
