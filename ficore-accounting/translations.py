@@ -542,7 +542,7 @@ TRANSLATIONS = {
         'feedback': 'Ra’ayi',
         'feedback_desc': 'Raba ra’ayoyinku',
         'welcome': 'Maraba da zuwa Ficore Records',
-        'welcome_desc': 'Ajiye Bayanan Kudinku. Sarrafa Harkar Kauwancinku. Bi Diddigin Hajarku.',
+        'welcome_desc': 'Ajiye Bayanan Kudinku. Sarrafa Harkar Kasuwancinku. Bi Diddigin Hajarku.',
         'signup': 'Yi Rajista',
         'login': 'Shiga',
         'debts': 'Bashi',
