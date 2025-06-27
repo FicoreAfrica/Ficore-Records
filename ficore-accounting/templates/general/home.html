@@ -3,7 +3,6 @@
 {% block content %}
 <div class="container">
     {% if current_user.is_authenticated %}
-        <!-- Top Header with Personalization & Notifications -->
         <div class="top-header d-flex justify-content-between align-items-center mb-4">
             <div class="welcome-section">
                 <h2 class="welcome-text mb-0">{{ trans('hello_user', default='Hello') }}, {{ current_user.display_name | default(current_user.id) }}!</h2>
@@ -13,9 +12,7 @@
                 <a href="{{ url_for('settings_blueprint.profile') }}" class="profile-icon">
                     <i class="bi bi-person-circle"></i>
                 </a>
-                <!-- Language and Dark Mode Toggles -->
                 <div class="header-toggles d-flex align-items-center gap-2">
-                    <!-- Language Toggle -->
                     <div class="dropdown">
                         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="langDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                             {{ session.get('lang', 'EN').upper() }}
@@ -25,7 +22,6 @@
                             <li><a class="dropdown-item" href="{{ url_for('set_language', lang='ha') }}">Hausa</a></li>
                         </ul>
                     </div>
-                    <!-- Dark Mode Toggle -->
                     <button class="btn btn-outline-secondary btn-sm" id="quickDarkModeToggle" onclick="toggleDarkMode()" aria-label="{{ trans('mode_toggle_dark', default='Toggle dark mode') }}">
                         <i class="bi bi-moon-stars"></i>
                     </button>
@@ -33,7 +29,6 @@
             </div>
         </div>
 
-        <!-- Primary Summary Section -->
         <div class="financial-summary mb-4">
             <div class="row g-3 mb-3">
                 <div class="col-6">
@@ -62,7 +57,6 @@
                 </div>
             </div>
             
-            <!-- Net Position -->
             <div class="net-position-card mb-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="net-position-info">
@@ -76,7 +70,6 @@
                 </div>
             </div>
 
-            <!-- View Details Button -->
             <div class="text-center">
                 <a href="{{ url_for('dashboard_blueprint.index') }}" class="btn btn-outline-primary btn-sm">
                     {{ trans('view_detailed_summary', default='View Detailed Summary') }}
@@ -85,7 +78,6 @@
             </div>
         </div>
 
-        <!-- General Financial Snapshots -->
         <div class="financial-snapshots mb-4">
             <div class="stat-cards-container">
                 <div class="stat-card">
@@ -118,27 +110,22 @@
             </div>
         </div>
 
-        <!-- Quick Actions -->
         <div class="quick-actions mb-4">
             <h3 class="section-title">{{ trans('quick_actions', default='Quick Actions') }}</h3>
             <div class="actions-grid">
-                <!-- NEW: Two side-by-side CTA cards for Creditors and Debtors -->
-                <div class="cta-action-cards">
-                    <a href="{{ url_for('creditors_blueprint.add') }}" class="action-card cta-creditor-card">
-                        <div class="action-icon">
-                            <i class="bi bi-person-dash"></i>
-                        </div>
-                        <div class="action-label">{{ trans('add_new_creditor', default='Add New I Owe') }}</div>
-                    </a>
-                    <a href="{{ url_for('debtors_blueprint.add') }}" class="action-card cta-debtor-card">
-                        <div class="action-icon">
-                            <i class="bi bi-person-plus"></i>
-                        </div>
-                        <div class="action-label">{{ trans('add_new_debtor', default='Add New They Owe') }}</div>
-                    </a>
-                </div>
+                <a href="{{ url_for('creditors_blueprint.add') }}" class="action-card cta-creditor-card">
+                    <div class="action-icon">
+                        <i class="bi bi-person-dash"></i>
+                    </div>
+                    <div class="action-label">{{ trans('add_new_creditor', default='Add New I Owe') }}</div>
+                </a>
+                <a href="{{ url_for('debtors_blueprint.add') }}" class="action-card cta-debtor-card">
+                    <div class="action-icon">
+                        <i class="bi bi-person-plus"></i>
+                    </div>
+                    <div class="action-label">{{ trans('add_new_debtor', default='Add New They Owe') }}</div>
+                </a>
 
-                <!-- Existing Quick Actions -->
                 <a href="{{ url_for('receipts_blueprint.add') }}" class="action-card">
                     <div class="action-icon">
                         <i class="bi bi-arrow-down-circle"></i>
@@ -160,7 +147,6 @@
             </div>
         </div>
 
-        <!-- Recent Activity -->
         <div class="recent-activity mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h3 class="section-title mb-0">{{ trans('recent_activity', default='Recent Activity') }}</h3>
@@ -169,7 +155,6 @@
                 </a>
             </div>
             <div class="activity-list" id="recentActivityList">
-                <!-- Activity items will be loaded here -->
                 <div class="activity-item">
                     <div class="activity-icon">
                         <i class="bi bi-plus-circle text-success"></i>
@@ -182,7 +167,6 @@
             </div>
         </div>
 
-        <!-- Navigation Cards -->
         <div class="navigation-cards">
             <h3 class="section-title mb-3">{{ trans('explore_features', default='Explore Features') }}</h3>
             <div class="row g-3">
@@ -264,7 +248,6 @@
         </div>
 
     {% else %}
-        <!-- Non-authenticated user content -->
         <div class="text-center">
             <div class="page-title">
                 <h1>{{ trans('welcome') | default('Welcome to Ficore Records') }}</h1>
@@ -278,7 +261,6 @@
     {% endif %}
 </div>
 
-<!-- Bottom Navigation -->
 {% if current_user.is_authenticated %}
 <nav class="bottom-navigation">
     <div class="nav-container">
