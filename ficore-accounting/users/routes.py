@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, session
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, TextAreaField, SelectField, SubmitField, validators
+from wtforms import StringField, PasswordField, TextAreaField, SelectField, SubmitField, BooleanField, validators
 from flask_login import login_required, current_user, login_user, logout_user
 from pymongo import errors
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 users_bp = Blueprint('users_blueprint', __name__, template_folder='templates/users')
 
 USERNAME_REGEX = re.compile(r'^[a-zA-Z0-9_]{3,50}$')
-PASSWORD_REGEX = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$')
+PASSWORD_REGEX = re.compile(r'.{6,}')
+PHONE_REGEX = re.compile(r'^\+?\d{10,15}$')
 
 # Initialize limiter
 limiter = get_limiter(current_app)
@@ -32,7 +33,7 @@ class LoginForm(FlaskForm):
     ], render_kw={'class': 'form-control'})
     password = PasswordField(trans_function('password', default='Password'), [
         validators.DataRequired(message=trans_function('password_required', default='Password is required')),
-        validators.Length(min=8, message=trans_function('password_length', default='Password must be at least 8 characters'))
+        validators.Length(min=6, message=trans_function('password_length', default='Password must be at least 6 characters'))
     ], render_kw={'class': 'form-control'})
     submit = SubmitField(trans_function('login', default='Login'), render_kw={'class': 'btn btn-primary w-100'})
 
@@ -57,8 +58,8 @@ class SignupForm(FlaskForm):
     ], render_kw={'class': 'form-control'})
     password = PasswordField(trans_function('password', default='Password'), [
         validators.DataRequired(message=trans_function('password_required', default='Password is required')),
-        validators.Length(min=8, message=trans_function('password_length', default='Password must be at least 8 characters')),
-        validators.Regexp(PASSWORD_REGEX, message=trans_function('password_format', default='Password must include uppercase, lowercase, number, and special character'))
+        validators.Length(min=6, message=trans_function('password_length', default='Password must be at least 6 characters')),
+        validators.Regexp(PASSWORD_REGEX, message=trans_function('password_format', default='Password must be at least 6 characters'))
     ], render_kw={'class': 'form-control'})
     role = SelectField(trans_function('role', default='Role'), choices=[
         ('personal', trans_function('personal', default='Personal')),
@@ -68,7 +69,7 @@ class SignupForm(FlaskForm):
     language = SelectField(trans_function('language', default='Language'), choices=[
         ('en', trans_function('english', default='English')),
         ('ha', trans_function('hausa', default='Hausa'))
-    ], validators=[validators.DataRequired(message=trans_function('language_required', default='Language is required'))], render_kw={'class': ' Gform-select'})
+    ], validators=[validators.DataRequired(message=trans_function('language_required', default='Language is required'))], render_kw={'class': 'form-select'})
     submit = SubmitField(trans_function('signup', default='Sign Up'), render_kw={'class': 'btn btn-primary w-100'})
 
 class ForgotPasswordForm(FlaskForm):
@@ -81,15 +82,15 @@ class ForgotPasswordForm(FlaskForm):
 class ResetPasswordForm(FlaskForm):
     password = PasswordField(trans_function('password', default='Password'), [
         validators.DataRequired(message=trans_function('password_required', default='Password is required')),
-        validators.Length(min=8, message=trans_function('password_length', default='Password must be at least 8 characters')),
-        validators.Regexp(PASSWORD_REGEX, message=trans_function('password_format', default='Password must include uppercase, lowercase, number, and special character'))
+        validators.Length(min=6, message=trans_function('password_length', default='Password must be at least 6 characters')),
+        validators.Regexp(PASSWORD_REGEX, message=trans_function('password_format', default='Password must be at least 6 characters'))
     ], render_kw={'class': 'form-control'})
     confirm_password = PasswordField(trans_function('confirm_password', default='Confirm Password'), [
         validators.DataRequired(message=trans_function('confirm_password_required', default='Confirm password is required')),
-        validators.EqualTo('password', message=trans_function('passwords_must_match', default='Passwords must match'))
+        validators.EqualTo('password', message=trans_function('passwords_must_match', default='Passwords must match')),
     ], render_kw={'class': 'form-control'})
     submit = SubmitField(trans_function('reset_password', default='Reset Password'), render_kw={'class': 'btn btn-primary w-100'})
-
+    
 class BusinessSetupForm(FlaskForm):
     business_name = StringField(trans_function('business_name', default='Business Name'),
                                validators=[validators.DataRequired(message=trans_function('business_name_required', default='Business name is required')),
@@ -108,28 +109,139 @@ class BusinessSetupForm(FlaskForm):
                           ],
                           validators=[validators.DataRequired(message=trans_function('industry_required', default='Industry is required'))],
                           render_kw={'class': 'form-control'})
+    products_services = TextAreaField(trans_function('products_services', default='Products/Services'),
+                                     validators=[validators.DataRequired(message=trans_function('products_services_required', default='Products/Services is required')),
+                                                 validators.Length(max=500)],
+                                     render_kw={'class': 'form-control'})
+    phone_number = StringField(trans_function('phone_number', default='Phone Number'),
+                              validators=[
+                                  validators.DataRequired(message=trans_function('phone_number_required', default='Phone number is required')),
+                                  validators.Regexp(PHONE_REGEX, message=trans_function('phone_number_format', default='Phone number must be 10-15 digits'))
+                              ],
+                              render_kw={'class': 'form-control'})
+    language = SelectField(trans_function('language', default='Language'),
+                          choices=[
+                              ('en', trans_function('english', default='English')),
+                              ('ha', trans_function('hausa', default='Hausa'))
+                          ],
+                          validators=[validators.DataRequired(message=trans_function('language_required', default='Language is required'))],
+                          render_kw={'class': 'form-select'})
+    terms = BooleanField(trans_function('terms', default='I accept the Terms and Conditions'),
+                        validators=[validators.DataRequired(message=trans_function('terms_required', default='You must accept the terms'))],
+                        render_kw={'class': 'form-check-input'})
+    submit = SubmitField(trans_function('save_and_continue', default='Save and Continue'), render_kw={'class': 'btn btn-primary w-100'})
+    back = SubmitField(trans_function('back', default='Back'), render_kw={'class': 'btn btn-secondary w-100 mt-2'})
+
+class PersonalSetupForm(FlaskForm):
+    first_name = StringField(trans_function('first_name', default='First Name'),
+                            validators=[validators.DataRequired(message=trans_function('first_name_required', default='First name is required')),
+                                        validators.Length(min=1, max=255)],
+                            render_kw={'class': 'form-control'})
+    last_name = StringField(trans_function('last_name', default='Last Name'),
+                           validators=[validators.DataRequired(message=trans_function('last_name_required', default='Last name is required')),
+                                       validators.Length(min=1, max=255)],
+                           render_kw={'class': 'form-control'})
+    phone_number = StringField(trans_function('phone_number', default='Phone Number'),
+                              validators=[
+                                  validators.DataRequired(message=trans_function('phone_number_required', default='Phone number is required')),
+                                  validators.Regexp(PHONE_REGEX, message=trans_function('phone_number_format', default='Phone number must be 10-15 digits'))
+                              ],
+                              render_kw={'class': 'form-control'})
+    address = TextAreaField(trans_function('address', default='Address'),
+                           validators=[validators.DataRequired(message=trans_function('address_required', default='Address is required')),
+                                       validators.Length(max=500)],
+                           render_kw={'class': 'form-control'})
+    language = SelectField(trans_function('language', default='Language'),
+                          choices=[
+                              ('en', trans_function('english', default='English')),
+                              ('ha', trans_function('hausa', default='Hausa'))
+                          ],
+                          validators=[validators.DataRequired(message=trans_function('language_required', default='Language is required'))],
+                          render_kw={'class': 'form-select'})
+    terms = BooleanField(trans_function('terms', default='I accept the Terms and Conditions'),
+                        validators=[validators.DataRequired(message=trans_function('terms_required', default='You must accept the terms'))],
+                        render_kw={'class': 'form-check-input'})
+    submit = SubmitField(trans_function('save_and_continue', default='Save and Continue'), render_kw={'class': 'btn btn-primary w-100'})
+    back = SubmitField(trans_function('back', default='Back'), render_kw={'class': 'btn btn-secondary w-100 mt-2'})
+
+class AgentSetupForm(FlaskForm):
+    agent_name = StringField(trans_function('agent_name', default='Agent Name'),
+                            validators=[validators.DataRequired(message=trans_function('agent_name_required', default='Agent name is required')),
+                                        validators.Length(min=1, max=255)],
+                            render_kw={'class': 'form-control'})
+    agent_id = StringField(trans_function('agent_id', default='Agent ID'),
+                          validators=[validators.DataRequired(message=trans_function('agent_id_required', default='Agent ID is required')),
+                                      validators.Length(min=1, max=50)],
+                          render_kw={'class': 'form-control'})
+    area = StringField(trans_function('area', default='Geographic Area'),
+                      validators=[validators.DataRequired(message=trans_function('area_required', default='Geographic area is required')),
+                                  validators.Length(max=255)],
+                      render_kw={'class': 'form-control'})
+    role = SelectField(trans_function('role', default='Primary Role'),
+                      choices=[
+                          ('user_onboarding', trans_function('user_onboarding', default='User Onboarding')),
+                          ('financial_literacy', trans_function('financial_literacy', default='Financial Literacy Educator')),
+                          ('technical_support', trans_function('technical_support', default='Technical Support')),
+                          ('cash_point', trans_function('cash_point', default='Cash-In/Cash-Out Point'))
+                      ],
+                      validators=[validators.DataRequired(message=trans_function('role_required', default='Role is required'))],
+                      render_kw={'class': 'form-select'})
+    email = StringField(trans_function('email', default='Email'),
+                       validators=[
+                           validators.DataRequired(message=trans_function('email_required', default='Email is required')),
+                           validators.Email(message=trans_function('email_invalid', default='Invalid email address')),
+                           validators.Length(max=254),
+                           lambda form, field: is_valid_email(field.data) or validators.ValidationError(trans_function('email_domain_invalid', default='Invalid email domain'))
+                       ],
+                       render_kw={'class': 'form-control'})
+    phone = StringField(trans_function('phone', default='Phone Number'),
+                       validators=[
+                           validators.DataRequired(message=trans_function('phone_required', default='Phone number is required')),
+                           validators.Regexp(PHONE_REGEX, message=trans_function('phone_format', default='Phone number must be 10-15 digits'))
+                       ],
+                       render_kw={'class': 'form-control'})
+    language = SelectField(trans_function('language', default='Language'),
+                          choices=[
+                              ('en', trans_function('english', default='English')),
+                              ('ha', trans_function('hausa', default='Hausa'))
+                          ],
+                          validators=[validators.DataRequired(message=trans_function('language_required', default='Language is required'))],
+                          render_kw={'class': 'form-select'})
+    terms = BooleanField(trans_function('terms', default='I accept the Terms and Conditions'),
+                        validators=[validators.DataRequired(message=trans_function('terms_required', default='You must accept the terms'))],
+                        render_kw={'class': 'form-check-input'})
     submit = SubmitField(trans_function('save_and_continue', default='Save and Continue'), render_kw={'class': 'btn btn-primary w-100'})
     back = SubmitField(trans_function('back', default='Back'), render_kw={'class': 'btn btn-secondary w-100 mt-2'})
 
 def log_audit_action(action, details=None):
-    """Log an audit action."""
     try:
         db = get_mongo_db()
         db.audit_logs.insert_one({
             'admin_id': str(current_user.id) if current_user.is_authenticated else 'system',
             'action': action,
             'details': details or {},
-            'timestamp': datetime.utcnow()
+            'timestamp': datetime.utcnow(),
         })
     except Exception as e:
         logger.error(f"Error logging audit action: {str(e)}")
 
+def get_setup_wizard_route(role):
+    if role == 'personal':
+        return 'users_blueprint.personal_setup_wizard'
+    elif role == 'trader':
+        return 'users_blueprint.setup_wizard'
+    elif role == 'agent':
+        return 'users_blueprint.agent_setup_wizard'
+    else:
+        return 'users_blueprint.setup_wizard'  # Fallback to trader setup
+
 @users_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit("50/hour")
 def login():
-    """Handle user login."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard_blueprint.index'))
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
     form = LoginForm()
     if form.validate_on_submit():
         try:
@@ -138,17 +250,17 @@ def login():
             if not USERNAME_REGEX.match(username):
                 flash(trans_function('username_format', default='Username must be alphanumeric with underscores'), 'danger')
                 logger.warning(f"Invalid username format: {username}")
-                return render_template('users/login.html', form=form)
+                return render_template('users/login.html', form=form), 401
             db = get_mongo_db()
             user = db.users.find_one({'_id': username})
             if not user:
                 flash(trans_function('username_not_found', default='Username does not exist. Please check your signup details.'), 'danger')
                 logger.warning(f"Login attempt for non-existent username: {username}")
-                return render_template('users/login.html', form=form)
+                return render_template('users/login.html', form=form), 401
             if not check_password_hash(user['password'], form.password.data):
                 logger.warning(f"Failed login attempt for username: {username} (invalid password)")
                 flash(trans_function('invalid_password', default='Incorrect password'), 'danger')
-                return render_template('users/login.html', form=form)
+                return render_template('users/login.html', form=form), 401
             logger.info(f"User found: {username}, proceeding with login")
             if os.environ.get('ENABLE_2FA', 'true').lower() == 'true':
                 otp = ''.join(str(random.randint(0, 9)) for _ in range(6))
@@ -173,32 +285,35 @@ def login():
                     user_obj = User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal'))
                     login_user(user_obj, remember=True)
                     session['lang'] = user.get('language', 'en')
-                    session['user_id'] = user['_id']  # Explicitly set user_id in session
                     log_audit_action('login_without_2fa', {'user_id': username, 'reason': 'email_failure'})
                     logger.info(f"User {username} logged in without 2FA due to email failure. Session: {session}")
                     if not user.get('setup_complete', False):
-                        return redirect(url_for('users_blueprint.setup_wizard'))
+                        setup_route = get_setup_wizard_route(user.get('role', 'personal'))
+                        return redirect(url_for(setup_route))
                     return redirect(url_for('settings_blueprint.profile'))
             from app import User
             user_obj = User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal'))
             login_user(user_obj, remember=True)
             session['lang'] = user.get('language', 'en')
-            session['user_id'] = user['_id']  # Explicitly set user_id in session
             log_audit_action('login', {'user_id': username})
             logger.info(f"User {username} logged in successfully. Session: {session}")
             if not user.get('setup_complete', False):
-                return redirect(url_for('users_blueprint.setup_wizard'))
+                setup_route = get_setup_wizard_route(user.get('role', 'personal'))
+                return redirect(url_for(setup_route))
             return redirect(url_for('settings_blueprint.profile'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during login: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
             return render_template('users/login.html', form=form), 500
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", 'danger')
     return render_template('users/login.html', form=form)
 
 @users_bp.route('/verify_2fa', methods=['GET', 'POST'])
 @limiter.limit("50/hour")
 def verify_2fa():
-    """Verify 2FA OTP."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard_blueprint.index'))
     if 'pending_user_id' not in session:
@@ -221,7 +336,6 @@ def verify_2fa():
                 user_obj = User(user['_id'], user['email'], user.get('display_name'), user.get('role', 'personal'))
                 login_user(user_obj, remember=True)
                 session['lang'] = user.get('language', 'en')
-                session['user_id'] = user['_id']  # Explicitly set user_id in session
                 db.users.update_one(
                     {'_id': username},
                     {'$unset': {'otp': '', 'otp_expiry': ''}}
@@ -230,7 +344,8 @@ def verify_2fa():
                 logger.info(f"User {username} verified 2FA successfully. Session: {session}")
                 session.pop('pending_user_id', None)
                 if not user.get('setup_complete', False):
-                    return redirect(url_for('users_blueprint.setup_wizard'))
+                    setup_route = get_setup_wizard_route(user.get('role', 'personal'))
+                    return redirect(url_for(setup_route))
                 return redirect(url_for('settings_blueprint.profile'))
             flash(trans_function('invalid_otp', default='Invalid or expired OTP'), 'danger')
             logger.warning(f"Failed 2FA attempt for username: {username}")
@@ -238,12 +353,15 @@ def verify_2fa():
             logger.error(f"MongoDB error during 2FA verification: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
             return render_template('users/verify_2fa.html', form=form), 500
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", 'danger')
     return render_template('users/verify_2fa.html', form=form)
 
 @users_bp.route('/signup', methods=['GET', 'POST'])
 @limiter.limit("50/hour")
 def signup():
-    """Handle user signup with MongoDB transaction for user creation and coin bonus."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard_blueprint.index'))
     form = SignupForm()
@@ -253,11 +371,10 @@ def signup():
             email = form.email.data.strip().lower()
             role = form.role.data
             language = form.language.data
+            logger.debug(f"Signup attempt: {username}, {email}")
             logger.info(f"Signup attempt: username={username}, email={email}, role={role}, language={language}")
             db = get_mongo_db()
-            client = db.client  # Get MongoDB client for session
 
-            # Check for existing username or email
             if db.users.find_one({'_id': username}):
                 flash(trans_function('username_exists', default='Username already exists'), 'danger')
                 logger.warning(f"Signup failed: Username {username} already exists")
@@ -272,7 +389,7 @@ def signup():
                 'email': email,
                 'password': generate_password_hash(form.password.data),
                 'role': role,
-                'coin_balance': 10,  # Grant 10 free coins
+                'coin_balance': 10,
                 'language': language,
                 'dark_mode': False,
                 'is_admin': False,
@@ -281,61 +398,48 @@ def signup():
                 'created_at': datetime.utcnow()
             }
 
-            # Use MongoDB transaction for user insertion and coin transaction
-            with client.start_session() as session:
-                with session.start_transaction():
-                    try:
-                        # Insert user
-                        result = db.users.insert_one(user_data, session=session)
-                        logger.info(f"User inserted: {username}, result: {result.inserted_id}")
+            result = db.users.insert_one(user_data)
+            if not result.inserted_id:
+                flash(trans_function('database_error', default='An error occurred while creating your account. Please try again later.'), 'danger')
+                logger.error(f"Failed to insert user: {username}")
+                return render_template('users/signup.html', form=form)
 
-                        # Insert coin transaction
-                        db.coin_transactions.insert_one({
-                            'user_id': username,
-                            'amount': 10,
-                            'type': 'credit',
-                            'ref': f"SIGNUP_BONUS_{datetime.utcnow().isoformat()}",
-                            'date': datetime.utcnow()
-                        }, session=session)
+            db.coin_transactions.insert_one({
+                'user_id': username,
+                'amount': 10,
+                'type': 'credit',
+                'ref': f"SIGNUP_BONUS_{datetime.utcnow().isoformat()}",
+                'date': datetime.utcnow()
+            })
 
-                        # Log audit action
-                        db.audit_logs.insert_one({
-                            'admin_id': 'system',
-                            'action': 'signup',
-                            'details': {'user_id': username, 'role': role},
-                            'timestamp': datetime.utcnow()
-                        }, session=session)
+            db.audit_logs.insert_one({
+                'admin_id': 'system',
+                'action': 'signup',
+                'details': {'user_id': username, 'role': role},
+                'timestamp': datetime.utcnow()
+            })
 
-                    except errors.DuplicateKeyError as e:
-                        logger.error(f"Duplicate key error during signup for username {username}: {str(e)}")
-                        session.abort_transaction()
-                        flash(trans_function('duplicate_error', default='Username or email already exists'), 'danger')
-                        return render_template('users/signup.html', form=form)
-                    except errors.PyMongoError as e:
-                        logger.error(f"MongoDB error during signup transaction for {username}: {str(e)}")
-                        session.abort_transaction()
-                        flash(trans_function('database_error', default='An error occurred while creating your account. Please try again later.'), 'danger')
-                        return render_template('users/signup.html', form=form), 500
-
-            # Login user after successful transaction
             from app import User
             user_obj = User(username, email, username, role)
             login_user(user_obj, remember=True)
             session['lang'] = language
-            session['user_id'] = username  # Explicitly set user_id in session
             logger.info(f"New user created and logged in: {username} (role: {role}). Session: {session}")
-            return redirect(url_for('users_blueprint.setup_wizard'))
+            setup_route = get_setup_wizard_route(role)
+            return redirect(url_for(setup_route))
 
         except Exception as e:
             logger.error(f"Unexpected error during signup for {username}: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
             return render_template('users/signup.html', form=form), 500
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", 'danger')
     return render_template('users/signup.html', form=form)
 
 @users_bp.route('/forgot_password', methods=['GET', 'POST'])
 @limiter.limit("50/hour")
 def forgot_password():
-    """Handle forgot password request."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard_blueprint.index'))
     form = ForgotPasswordForm()
@@ -358,7 +462,7 @@ def forgot_password():
             mail = get_mail(current_app)
             reset_url = url_for('users_blueprint.reset_password', token=reset_token, _external=True)
             msg = EmailMessage(
-                subject=trans_function('reset_password_subject', default='Reset Your Password'),
+                subject=trans_function('reset_the_password_subject', default='Reset Your Password'),
                 body=trans_function('reset_password_body', default=f'Click the link to reset your password: {reset_url}\nLink expires in 15 minutes.'),
                 to=[email]
             )
@@ -371,12 +475,15 @@ def forgot_password():
             logger.error(f"Error during forgot password for {email}: {str(e)}")
             flash(trans_function('email_send_error', default='An error occurred while sending the reset email'), 'danger')
             return render_template('users/forgot_password.html', form=form), 500
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", 'danger')
     return render_template('users/forgot_password.html', form=form)
 
 @users_bp.route('/reset_password', methods=['GET', 'POST'])
 @limiter.limit("50/hour")
 def reset_password():
-    """Handle password reset."""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard_blueprint.index'))
     token = request.args.get('token')
@@ -409,13 +516,16 @@ def reset_password():
             logger.error(f"MongoDB error during password reset for {email}: {str(e)}")
             flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
             return render_template('users/reset_password.html', form=form, token=token), 500
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", 'danger')
     return render_template('users/reset_password.html', form=form, token=token)
 
 @users_bp.route('/setup_wizard', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("50/hour")
 def setup_wizard():
-    """Handle business setup wizard."""
     db = get_mongo_db()
     user_id = request.args.get('user_id', current_user.id) if is_admin() and request.args.get('user_id') else current_user.id
     user = db.users.find_one({'_id': user_id})
@@ -425,8 +535,8 @@ def setup_wizard():
     if form.validate_on_submit():
         try:
             if form.back.data:
-                flash(trans('setup_completed', default='Business setup completed'), 'info')
-                logger.info(f"Business setup completed for user: {user_id}")
+                flash(trans_function('setup_canceled', default='Business setup canceled'), 'info')
+                logger.info(f"Business setup canceled for user: {user_id}")
                 return redirect(url_for('settings_blueprint.profile', user_id=user_id) if is_admin() else url_for('settings_blueprint.profile'))
             db.users.update_one(
                 {'_id': user_id},
@@ -435,27 +545,125 @@ def setup_wizard():
                         'business_details': {
                             'name': form.business_name.data.strip(),
                             'address': form.address.data.strip(),
-                            'industry': form.industry.data
+                            'industry': form.industry.data,
+                            'products_services': form.products_services.data.strip(),
+                            'phone_number': form.phone_number.data.strip()
                         },
+                        'language': form.language.data,
                         'setup_complete': True
                     }
                 }
             )
             log_audit_action('complete_setup_wizard', {'user_id': user_id, 'updated_by': current_user.id})
             logger.info(f"Business setup completed for user: {user_id} by {current_user.id}")
-            flash(trans('business_setup_success', default='Business setup completed'), 'success')
+            flash(trans_function('business_setup_success', default='Business setup completed'), 'success')
             return redirect(url_for('settings_blueprint.profile', user_id=user_id) if is_admin() else url_for('settings_blueprint.profile'))
         except errors.PyMongoError as e:
             logger.error(f"MongoDB error during business setup for {user_id}: {str(e)}")
-            flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'error')
+            flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
             return render_template('users/setup.html', form=form), 500
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", 'danger')
     return render_template('users/setup.html', form=form)
+
+@users_bp.route('/personal_setup_wizard', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("50/hour")
+def personal_setup_wizard():
+    db = get_mongo_db()
+    user_id = request.args.get('user_id', current_user.id) if is_admin() and request.args.get('user_id') else current_user.id
+    user = db.users.find_one({'_id': user_id})
+    if user.get('setup_complete', False):
+        return redirect(url_for('dashboard_blueprint.index'))
+    form = PersonalSetupForm()
+    if form.validate_on_submit():
+        try:
+            if form.back.data:
+                flash(trans_function('setup_canceled', default='Personal setup canceled'), 'info')
+                logger.info(f"Personal setup canceled for user: {user_id}")
+                return redirect(url_for('settings_blueprint.profile', user_id=user_id) if is_admin() else url_for('settings_blueprint.profile'))
+            db.users.update_one(
+                {'_id': user_id},
+                {
+                    '$set': {
+                        'personal_details': {
+                            'first_name': form.first_name.data.strip(),
+                            'last_name': form.last_name.data.strip(),
+                            'phone_number': form.phone_number.data.strip(),
+                            'address': form.address.data.strip()
+                        },
+                        'language': form.language.data,
+                        'setup_complete': True
+                    }
+                }
+            )
+            log_audit_action('complete_personal_setup_wizard', {'user_id': user_id, 'updated_by': current_user.id})
+            logger.info(f"Personal setup completed for user: {user_id} by {current_user.id}")
+            flash(trans_function('personal_setup_success', default='Personal setup completed'), 'success')
+            return redirect(url_for('settings_blueprint.profile', user_id=user_id) if is_admin() else url_for('settings_blueprint.profile'))
+        except errors.PyMongoError as e:
+            logger.error(f"MongoDB error during personal setup for {user_id}: {str(e)}")
+            flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
+            return render_template('users/personal_setup.html', form=form), 500
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", 'danger')
+    return render_template('users/personal_setup.html', form=form)
+
+@users_bp.route('/agent_setup_wizard', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("50/hour")
+def agent_setup_wizard():
+    db = get_mongo_db()
+    user_id = request.args.get('user_id', current_user.id) if is_admin() and request.args.get('user_id') else current_user.id
+    user = db.users.find_one({'_id': user_id})
+    if user.get('setup_complete', False):
+        return redirect(url_for('dashboard_blueprint.index'))
+    form = AgentSetupForm()
+    if form.validate_on_submit():
+        try:
+            if form.back.data:
+                flash(trans_function('setup_canceled', default='Agent setup canceled'), 'info')
+                logger.info(f"Agent setup canceled for user: {user_id}")
+                return redirect(url_for('settings_blueprint.profile', user_id=user_id) if is_admin() else url_for('settings_blueprint.profile'))
+            db.users.update_one(
+                {'_id': user_id},
+                {
+                    '$set': {
+                        'agent_details': {
+                            'agent_name': form.agent_name.data.strip(),
+                            'agent_id': form.agent_id.data.strip(),
+                            'area': form.area.data.strip(),
+                            'role': form.role.data,
+                            'email': form.email.data.strip().lower(),
+                            'phone': form.phone.data.strip()
+                        },
+                        'language': form.language.data,
+                        'setup_complete': True
+                    }
+                }
+            )
+            log_audit_action('complete_agent_setup_wizard', {'user_id': user_id, 'updated_by': current_user.id})
+            logger.info(f"Agent setup completed for user: {user_id} by {current_user.id}")
+            flash(trans_function('agent_setup_success', default='Agent setup completed'), 'success')
+            return redirect(url_for('settings_blueprint.profile', user_id=user_id) if is_admin() else url_for('settings_blueprint.profile'))
+        except errors.PyMongoError as e:
+            logger.error(f"MongoDB error during agent setup for {user_id}: {str(e)}")
+            flash(trans_function('database_error', default='An error occurred while accessing the database. Please try again later.'), 'danger')
+            return render_template('users/agent_setup.html', form=form), 500
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", 'danger')
+    return render_template('users/agent_setup.html', form=form)
 
 @users_bp.route('/logout')
 @login_required
 @limiter.limit("100/hour")
 def logout():
-    """Handle user logout."""
     user_id = current_user.id
     lang = session.get('lang', 'en')
     logout_user()
@@ -468,43 +676,16 @@ def logout():
 
 @users_bp.route('/auth/signin')
 def signin():
-    """Redirect to login."""
     return redirect(url_for('users_blueprint.login'))
 
 @users_bp.route('/auth/signup')
 def signup_redirect():
-    """Redirect to signup."""
     return redirect(url_for('users_blueprint.signup'))
 
 @users_bp.route('/auth/forgot-password')
 def forgot_password_redirect():
-    """Redirect to forgot password."""
     return redirect(url_for('users_blueprint.forgot_password'))
 
 @users_bp.route('/auth/reset-password')
 def reset_password_redirect():
-    """Redirect to reset password."""
     return redirect(url_for('users_blueprint.reset_password'))
-
-@users_bp.before_app_request
-def check_wizard_completion():
-    """Check if setup wizard is complete."""
-    if request.endpoint == 'static':
-        return
-    if not current_user.is_authenticated:
-        if request.endpoint not in ['users_blueprint.login', 'users_blueprint.signup', 'users_blueprint.forgot_password',
-                                   'users_blueprint.reset_password', 'users_blueprint.verify_2fa', 'users_blueprint.signin',
-                                   'users_blueprint.signup_redirect', 'users_blueprint.forgot_password_redirect',
-                                   'users_blueprint.reset_password_redirect', 'index', 'about',
-                                   'contact', 'privacy', 'users', 'terms', 'get_translations',
-                                   'set_language']:
-            flash(trans_function('login_required', default='Please log in'), 'danger')
-            return redirect(url_for('users_blueprint.login'))
-    elif current_user.is_authenticated:
-        db = get_mongo_db()
-        user = db.users.find_one({'_id': current_user.id})
-        if user and not user.get('setup_complete', False):
-            if request.endpoint not in ['users_blueprint.setup_wizard', 'users_blueprint.logout', 'settings_blueprint.profile',
-                                       'users_blueprint', 'coins_blueprint.purchase', 'coins_blueprint.get_balance', 'set_language',
-                                       'set_dark_mode']:
-                return redirect(url_for('users_blueprint.setup_wizard'))

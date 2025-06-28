@@ -60,25 +60,36 @@ app.config['SESSION_PERMANENT'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV', 'development') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_NAME'] = 'ficore_session'
 
-# Initialize MongoDB client at app startup
+# Initialize MongoDB client at app startup with pooling
 try:
     mongo_client = MongoClient(
         app.config['MONGO_URI'],
-        connect=False,  # Defer connection for fork-safety
+        connect=True,
+        connectTimeoutMS=30000,
+        socketTimeoutMS=None,
         serverSelectionTimeoutMS=5000,
-        connectTimeoutMS=20000,
-        socketTimeoutMS=20000
+        maxPoolSize=50,
+        minPoolSize=10,
+        maxIdleTimeMS=30000
     )
-    mongo_client.admin.command('ping')  # Test connection
+    db = mongo_client['ficore_accounting']
+    db.command('ping')  # Test connection at startup
     app.extensions['mongo_client'] = mongo_client
-    app.config['SESSION_MONGODB'] = mongo_client  # Set MongoClient instance for Flask-Session
-    logger.info("MongoDB client initialized at application startup")
+    app.config['SESSION_MONGODB'] = mongo_client
+    logger.info("MongoDB client initialized successfully")
 except (ConnectionFailure, ServerSelectionTimeoutError) as e:
     logger.error(f"Failed to initialize MongoDB client: {str(e)}")
     raise RuntimeError(f"MongoDB initialization failed: {str(e)}")
+
+# Verify MongoDB connection
+try:
+    db.command('ping')
+    logger.info("MongoDB connection successful")
+except Exception as e:
+    logger.critical(f"MongoDB connection failed: {str(e)}")
 
 # Initialize extensions
 mail = get_mail(app)
@@ -93,7 +104,7 @@ limiter = get_limiter(app)
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 babel = Babel(app)
 
-# Flask-Babel 4.0.0 compatibility fix
+# Flask-Babel locale selector
 def get_locale():
     return session.get('lang', request.accept_languages.best_match(['en', 'ha'], default='en'))
 babel.locale_selector = get_locale
@@ -124,16 +135,16 @@ class User(UserMixin):
 def load_user(user_id):
     try:
         user_data = get_mongo_db().users.find_one({'_id': user_id})
-        if user_data:
-            logger.info(f"User loaded successfully: {user_id}")
-            return User(user_data['_id'], user_data['email'], user_data.get('display_name'), user_data.get('role', 'personal'))
-        logger.warning(f"User not found in database: {user_id}")
-        return None
+        if not user_data:
+            logger.warning(f"User not found: {user_id}")
+            return None
+        logger.info(f"User loaded successfully: {user_id}")
+        return User(user_data['_id'], user_data['email'], user_data.get('display_name'), user_data.get('role', 'personal'))
     except Exception as e:
         logger.error(f"Error loading user {user_id}: {str(e)}")
         return None
 
-# Register blueprints with unique names to avoid conflicts
+# Register blueprints
 from users.routes import users_bp
 from coins.routes import coins_bp
 from admin.routes import admin_bp
@@ -264,31 +275,29 @@ def terms():
 def favicon():
     return send_from_directory(app.static_folder, 'favicon.ico')
 
+@app.route('/robots.txt')
+def robots_txt():
+    return Response("User-agent: *\nDisallow: /", mimetype='text/plain')
+
 # API Routes for Homepage Data
 @app.route('/api/debt-summary')
 @login_required
 def debt_summary():
-    """Get debt summary for current user."""
     try:
         db = get_mongo_db()
         user_id = current_user.id
-        
-        # Calculate total I owe (creditors)
         creditors_pipeline = [
             {'$match': {'user_id': user_id, 'type': 'creditor'}},
             {'$group': {'_id': None, 'total': {'$sum': '$amount_owed'}}}
         ]
         creditors_result = list(db.records.aggregate(creditors_pipeline))
         total_i_owe = creditors_result[0]['total'] if creditors_result else 0
-        
-        # Calculate total I am owed (debtors)
         debtors_pipeline = [
             {'$match': {'user_id': user_id, 'type': 'debtor'}},
             {'$group': {'_id': None, 'total': {'$sum': '$amount_owed'}}}
         ]
         debtors_result = list(db.records.aggregate(debtors_pipeline))
         total_i_am_owed = debtors_result[0]['total'] if debtors_result else 0
-        
         return jsonify({
             'totalIOwe': total_i_owe,
             'totalIAmOwed': total_i_am_owed
@@ -300,33 +309,25 @@ def debt_summary():
 @app.route('/api/cashflow-summary')
 @login_required
 def cashflow_summary():
-    """Get cashflow summary for current month."""
     try:
         db = get_mongo_db()
         user_id = current_user.id
-        
-        # Get current month start and end
         now = datetime.utcnow()
         month_start = datetime(now.year, now.month, 1)
         next_month = month_start.replace(month=month_start.month + 1) if month_start.month < 12 else month_start.replace(year=month_start.year + 1, month=1)
-        
-        # Calculate net cashflow for current month
         receipts_pipeline = [
             {'$match': {'user_id': user_id, 'type': 'receipt', 'created_at': {'$gte': month_start, '$lt': next_month}}},
             {'$group': {'_id': None, 'total': {'$sum': '$amount'}}}
         ]
         receipts_result = list(db.cashflows.aggregate(receipts_pipeline))
         total_receipts = receipts_result[0]['total'] if receipts_result else 0
-        
         payments_pipeline = [
             {'$match': {'user_id': user_id, 'type': 'payment', 'created_at': {'$gte': month_start, '$lt': next_month}}},
             {'$group': {'_id': None, 'total': {'$sum': '$amount'}}}
         ]
         payments_result = list(db.cashflows.aggregate(payments_pipeline))
         total_payments = payments_result[0]['total'] if payments_result else 0
-        
         net_cashflow = total_receipts - total_payments
-        
         return jsonify({
             'netCashflow': net_cashflow,
             'totalReceipts': total_receipts,
@@ -339,12 +340,9 @@ def cashflow_summary():
 @app.route('/api/inventory-summary')
 @login_required
 def inventory_summary():
-    """Get inventory value summary."""
     try:
         db = get_mongo_db()
         user_id = current_user.id
-        
-        # Calculate total inventory value
         pipeline = [
             {'$match': {'user_id': user_id}},
             {'$addFields': {
@@ -357,10 +355,8 @@ def inventory_summary():
             }},
             {'$group': {'_id': None, 'totalValue': {'$sum': '$item_value'}}}
         ]
-        
         result = list(db.inventory.aggregate(pipeline))
         total_value = result[0]['totalValue'] if result else 0
-        
         return jsonify({
             'totalValue': total_value
         })
@@ -371,17 +367,13 @@ def inventory_summary():
 @app.route('/api/recent-activity')
 @login_required
 def recent_activity():
-    """Get recent activity for current user."""
     try:
         db = get_mongo_db()
         user_id = current_user.id
         activities = []
-        
-        # Get recent debts/credits
         recent_records = list(db.records.find(
             {'user_id': user_id}
         ).sort('created_at', -1).limit(3))
-        
         for record in recent_records:
             activity_type = 'debt_added'
             description = f"Added {record['type']}: {record['name']}"
@@ -391,12 +383,9 @@ def recent_activity():
                 'amount': record['amount_owed'],
                 'timestamp': record['created_at']
             })
-        
-        # Get recent cashflows
         recent_cashflows = list(db.cashflows.find(
             {'user_id': user_id}
         ).sort('created_at', -1).limit(3))
-        
         for cashflow in recent_cashflows:
             activity_type = 'money_in' if cashflow['type'] == 'receipt' else 'money_out'
             description = f"{'Received' if cashflow['type'] == 'receipt' else 'Paid'} {cashflow['party_name']}"
@@ -406,15 +395,10 @@ def recent_activity():
                 'amount': cashflow['amount'],
                 'timestamp': cashflow['created_at']
             })
-        
-        # Sort all activities by timestamp and limit to 5
         activities.sort(key=lambda x: x['timestamp'], reverse=True)
         activities = activities[:5]
-        
-        # Convert datetime objects to ISO strings for JSON serialization
         for activity in activities:
             activity['timestamp'] = activity['timestamp'].isoformat()
-        
         return jsonify(activities)
     except Exception as e:
         logger.error(f"Error fetching recent activity: {str(e)}")
@@ -423,17 +407,13 @@ def recent_activity():
 @app.route('/api/notifications/count')
 @login_required
 def notification_count():
-    """Get the total number of unread notifications for the current user."""
     try:
         db = get_mongo_db()
         user_id = current_user.id
-        
-        # Count unread notifications from reminder_logs
         count = db.reminder_logs.count_documents({
             'user_id': user_id,
             'read_status': False
         })
-        
         return jsonify({'count': count})
     except Exception as e:
         logger.error(f"Error fetching notification count: {str(e)}")
@@ -442,25 +422,18 @@ def notification_count():
 @app.route('/api/notifications')
 @login_required
 def notifications():
-    """Get recent notifications for the current user."""
     try:
         db = get_mongo_db()
         user_id = current_user.id
-        
-        # Fetch recent notifications (limit to 10)
         notifications = list(db.reminder_logs.find({
             'user_id': user_id
         }).sort('sent_at', DESCENDING).limit(10))
-        
-        # Mark notifications as read
         notification_ids = [n['notification_id'] for n in notifications if not n.get('read_status', False)]
         if notification_ids:
             db.reminder_logs.update_many(
                 {'notification_id': {'$in': notification_ids}},
                 {'$set': {'read_status': True}}
             )
-        
-        # Format response
         result = [{
             'id': str(n['notification_id']),
             'message': n['message'],
@@ -468,7 +441,6 @@ def notifications():
             'timestamp': n['sent_at'].isoformat(),
             'read': n.get('read_status', False)
         } for n in notifications]
-        
         return jsonify(result)
     except Exception as e:
         logger.error(f"Error fetching notifications: {str(e)}")
@@ -480,22 +452,18 @@ def setup_database(initialize=False):
         collections = db.list_collection_names()
         db.command('ping')
         logger.info("MongoDB connection successful during setup")
-
-        # Only drop collections if explicitly requested via initialize=True
         if initialize:
             for collection in collections:
                 db.drop_collection(collection)
                 logger.info(f"Dropped collection: {collection}")
         else:
             logger.info("Skipping collection drop to preserve data")
-
-        # Define collections and their schemas
         collection_schemas = {
             'users': {
                 'validator': {
                     '$jsonSchema': {
                         'bsonType': 'object',
-                        'required': ['_id', 'email', 'password', 'role', 'coin_balance', 'created_at'],
+                        'required': ['_id', 'email', 'password', 'role'],
                         'properties': {
                             '_id': {'bsonType': 'string'},
                             'email': {'bsonType': 'string', 'pattern': r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'},
@@ -507,7 +475,40 @@ def setup_database(initialize=False):
                             'display_name': {'bsonType': ['string', 'null']},
                             'is_admin': {'bsonType': 'bool'},
                             'setup_complete': {'bsonType': 'bool'},
-                            'reset_token': {'bsonType': ['string', 'null']}
+                            'reset_token': {'bsonType': ['string', 'null']},
+                            'reset_token_expiry': {'bsonType': ['date', 'null']},
+                            'otp': {'bsonType': ['string', 'null']},
+                            'otp_expiry': {'bsonType': ['date', 'null']},
+                            'business_details': {
+                                'bsonType': ['object', 'null'],
+                                'properties': {
+                                    'name': {'bsonType': 'string'},
+                                    'address': {'bsonType': 'string'},
+                                    'industry': {'bsonType': 'string'},
+                                    'products_services': {'bsonType': 'string'},
+                                    'phone_number': {'bsonType': 'string'}
+                                }
+                            },
+                            'personal_details': {
+                                'bsonType': ['object', 'null'],
+                                'properties': {
+                                    'first_name': {'bsonType': 'string'},
+                                    'last_name': {'bsonType': 'string'},
+                                    'phone_number': {'bsonType': 'string'},
+                                    'address': {'bsonType': 'string'}
+                                }
+                            },
+                            'agent_details': {
+                                'bsonType': ['object', 'null'],
+                                'properties': {
+                                    'agent_name': {'bsonType': 'string'},
+                                    'agent_id': {'bsonType': 'string'},
+                                    'area': {'bsonType': 'string'},
+                                    'role': {'bsonType': 'string'},
+                                    'email': {'bsonType': 'string'},
+                                    'phone': {'bsonType': 'string'}
+                                }
+                            }
                         }
                     }
                 },
@@ -672,26 +673,19 @@ def setup_database(initialize=False):
                 ]
             }
         }
-
-        # Create collections and indexes only if they don't exist
         for collection_name, config in collection_schemas.items():
             if collection_name not in collections:
                 db.create_collection(collection_name, validator=config.get('validator', {}))
                 logger.info(f"Created collection: {collection_name}")
-            
-            # Check existing indexes to avoid conflicts
             existing_indexes = db[collection_name].index_information()
             for index in config.get('indexes', []):
                 keys = index['key']
                 options = {k: v for k, v in index.items() if k != 'key'}
-                index_key_tuple = tuple(keys)  # Convert to tuple for comparison
+                index_key_tuple = tuple(keys)
                 index_name = options.get('name', '')
-                
-                # Check if index already exists with matching keys
                 index_exists = False
                 for existing_index_name, existing_index_info in existing_indexes.items():
                     if tuple(existing_index_info['key']) == index_key_tuple:
-                        # Index exists, check if options match
                         existing_options = {k: v for k, v in existing_index_info.items() if k not in ['key', 'v', 'ns']}
                         if existing_options == options:
                             logger.info(f"Index already exists on {collection_name}: {keys} with options {options}")
@@ -699,12 +693,14 @@ def setup_database(initialize=False):
                         else:
                             logger.warning(f"Index conflict on {collection_name}: {keys}. Existing options: {existing_options}, Requested: {options}")
                         break
-                
                 if not index_exists:
-                    db[collection_name].create_index(keys, **options)
-                    logger.info(f"Created index on {collection_name}: {keys} with options {options}")
-
-        # Admin user creation
+                    if collection_name == 'sessions' and index_name == 'expiration_1':
+                        if 'expiration_1' not in existing_indexes:
+                            db[collection_name].create_index(keys, **options)
+                            logger.info(f"Created index on {collection_name}: {keys} with options {options}")
+                    else:
+                        db[collection_name].create_index(keys, **options)
+                        logger.info(f"Created index on {collection_name}: {keys} with options {options}")
         admin_username = os.getenv('ADMIN_USERNAME', 'admin')
         admin_email = os.getenv('ADMIN_EMAIL', 'ficore@gmail.com')
         admin_password = os.getenv('ADMIN_PASSWORD', 'Admin123!')
@@ -722,7 +718,6 @@ def setup_database(initialize=False):
                 'created_at': datetime.utcnow()
             })
             logger.info(f"Default admin user created: {admin_username}")
-
         logger.info("Database setup completed successfully")
         return True
     except Exception as e:
@@ -759,7 +754,7 @@ def manifest():
         'background_color': '#ffffff',
         'display': 'standalone',
         'scope': '/',
-        'end_url': '/',
+        'start_url': '/',
         'icons': [
             {'src': '/static/icons/icon-192x192.png', 'sizes': '192x192', 'type': 'image/png'},
             {'src': '/static/icons/icon-512x512.png', 'sizes': '512x512', 'type': 'image/png'}
@@ -869,7 +864,6 @@ def internal_server_error(e):
 
 # Gunicorn hooks
 def worker_init():
-    """Initialize MongoDB client for each Gunicorn worker."""
     with app.app_context():
         try:
             db = get_mongo_db()
@@ -880,17 +874,70 @@ def worker_init():
             raise RuntimeError(f"MongoDB access failed in worker_init: {str(e)}")
 
 def worker_exit(server, worker):
-    """Clean up request-specific MongoDB resources on worker exit."""
     close_mongo_db()
     logger.info("MongoDB request context cleaned up on worker exit")
 
+# Updated before_request to handle session initialization and role-based setup wizard
+@app.before_request
+def check_wizard_completion():
+    if request.path.startswith('/static/') or request.path in [
+        '/manifest.json', '/service-worker.js', '/favicon.ico', '/robots.txt'
+    ]:
+        return
+    if not current_user.is_authenticated:
+        if request.endpoint not in [
+            'users_blueprint.login',
+            'users_blueprint.signup',
+            'users_blueprint.forgot_password',
+            'users_blueprint.reset_password',
+            'users_blueprint.verify_2fa',
+            'users_blueprint.signin',
+            'users_blueprint.signup_redirect',
+            'users_blueprint.forgot_password_redirect',
+            'users_blueprint.reset_password_redirect',
+            'index',
+            'about',
+            'contact',
+            'privacy',
+            'terms',
+            'get_translations',
+            'set_language'
+        ]:
+            flash(trans_function('login_required', default='Please log in'), 'danger')
+            return redirect(url_for('users_blueprint.login'))
+    elif current_user.is_authenticated:
+        if 'session_id' not in session:
+            session['session_id'] = str(uuid.uuid4())
+        db = get_mongo_db()
+        user = db.users.find_one({'_id': current_user.id})
+        if user and not user.get('setup_complete', False):
+            allowed_endpoints = [
+                'users_blueprint.personal_setup_wizard',
+                'users_blueprint.setup_wizard',
+                'users_blueprint.agent_setup_wizard',
+                'users_blueprint.logout',
+                'settings_blueprint.profile',
+                'coins_blueprint.purchase',
+                'coins_blueprint.get_balance',
+                'set_language'
+            ]
+            if request.endpoint not in allowed_endpoints:
+                role = user.get('role', 'personal')
+                if role == 'personal':
+                    return redirect(url_for('users_blueprint.personal_setup_wizard'))
+                elif role == 'trader':
+                    return redirect(url_for('users_blueprint.setup_wizard'))
+                elif role == 'agent':
+                    return redirect(url_for('users_blueprint.agent_setup_wizard'))
+                else:
+                    return redirect(url_for('users_blueprint.setup_wizard'))  # Fallback
+
 with app.app_context():
-    # Initialize database without dropping collections
     if not setup_database(initialize=False):
         logger.error("Application startup aborted due to database initialization failure")
         raise RuntimeError("Database initialization failed")
 
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.getenv('PORT', 10000))
     logger.info(f"Starting Flask app on port {port} at {datetime.now().strftime('%I:%M %p WAT on %B %d, %Y')}")
     app.run(host='0.0.0.0', port=port, debug=os.getenv('FLASK_ENV', 'development') == 'development')
