@@ -5,30 +5,54 @@ venv/
 .pytest_cache/
 Procfile
 README.md
-requirements.txt  # Will be merged in a later dedicated step or manually
+requirements.txt
 gunicorn.conf.py
 scheduler_setup.py
 schema.md
 session_utils.py
 site.webmanifest
 backup_json_files.py
-gitignore.txt     # The ignore file itself
+gitignore.txt # The ignore file itself
 
-# Ignore most existing feature blueprints from original ficore-accounting for now
-agents/           # We just integrated it; its internal files aren't touched in *this* batch.
+# Ignore all specific feature blueprints not being touched in this mini-batch
+admin/
+agents/
 coins/
 creditors/
-dashboard/        # The folder itself, unless a specific file like dashboard/index.html is needed for initial redirect in base.html
+dashboard/
 debtors/
 inventory/
 payments/
 receipts/
 reports/
 settings/
+users/ # We are not touching user roles/auth in this specific mini-batch
 
-# Ignore the specific blueprint files *inside* the 'personal/' folder for this batch.
-# We need the 'personal/' directory to exist as a target for future blueprint files,
-# but their internal logic isn't touched in this batch.
+# Ignore common_features as it will be created in a later batch
+common_features/
+
+# Ignore static files
+static/
+static_personal/
+
+# Ignore template sub-folders not being directly modified or moved in this mini-batch
+templates/admin/
+templates/agents/
+templates/coins/
+templates/creditors/
+templates/dashboard/
+templates/debtors/
+templates/inventory/
+templates/payments/
+templates/receipts/
+templates/reports/
+templates/settings/
+templates/users/
+templates/base.html # Not modifying content of base.html yet
+templates/home.html # Not creating home.html yet
+
+# Explicitly list contents of 'personal/' to ignore their internal logic for this batch,
+# as we are only moving them as files/folders.
 personal/admin.py
 personal/auth.py
 personal/bill.py
@@ -39,24 +63,8 @@ personal/learning_hub.py
 personal/net_worth.py
 personal/quiz.py
 
-# Ignore static files (will be unified later or handled separately)
-static/
-static_personal/
-
-# Ignore template sub-folders that are not being modified in this batch
-templates/admin/
-templates/agents/
-templates/coins/
-templates/creditors/
-templates/dashboard/  # The contents of dashboard/, if it exists beyond index.html
-templates/debtors/
-templates/inventory/
-templates/payments/
-templates/receipts/
-templates/reports/
-templates/settings/
-
-# Ignore the *old* personal finance app's template folders, as they will be merged into templates/personal_finance/
+# Explicitly list contents of templates/personal to ignore their internal logic for this batch,
+# as we are only moving/creating their containing folders.
 templates/BILL/
 templates/BUDGET/
 templates/EMERGENCYFUND/
