@@ -42,16 +42,28 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('contact') | e }}" data-bs-toggle="tooltip" data-bs-title="{{ trans('contact_tooltip', default='Get in touch') | e }}">{{ trans('contact', default='Contact') | e }}</a>
                     </li>
-                    {% if current_user.is_authenticated %}
+                    
+                    {% if current_user.role == 'agent' %}
+                        <!-- Agent Navigation -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="agentDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('agent_tools_tooltip', default='Agent tools') | e }}" aria-label="{{ trans('agent_tools', default='Agent Tools') | e }}">
+                                {{ trans('agent_tools', default='Agent Tools') | e }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="agentDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('agents_bp.dashboard') | e }}">{{ trans('agent_dashboard', default='Agent Dashboard') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('agents_bp.register_trader') | e }}">{{ trans('register_trader', default='Register Trader') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('agents_bp.manage_tokens') | e }}">{{ trans('manage_tokens', default='Manage Tokens') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('agents_bp.my_activity') | e }}">{{ trans('my_activity', default='My Activity') | e }}</a></li>
+                            </ul>
+                        </li>
+                    {% elif current_user.role == 'trader' %}
+                        <!-- Trader Navigation -->
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="dashboardDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('dashboard_tooltip', default='View dashboards') | e }}" aria-label="{{ trans('dashboard', default='Dashboard') | e }}">
                                 {{ trans('dashboard', default='Dashboard') | e }}
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="dashboardDropdown">
                                 <li><a class="dropdown-item" href="{{ url_for('dashboard_blueprint.index') | e }}">{{ trans('general_dashboard', default='General Dashboard') | e }}</a></li>
-                                {% if current_user.get('is_admin', False) %}
-                                    <li><a class="dropdown-item" href="{{ url_for('admin_blueprint.dashboard') | e }}">{{ trans('admin_dashboard', default='Admin Dashboard') | e }}</a></li>
-                                {% endif %}
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
@@ -115,16 +127,98 @@
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="coinsDropdown">
                                 <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.get_balance') | e }}">{{ trans('coin_balance', default='Coin Balance') | e }}</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.purchase') | e }}">{{ trans('purchase_coins', default='Purchase Coins Podobne artykuły: Coins') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.purchase') | e }}">{{ trans('purchase_coins', default='Purchase Coins') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.history') | e }}">{{ trans('coin_history', default='Coin History') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.receipt_upload') | e }}">{{ trans('receipt_upload', default='Upload Receipt') | e }}</a></li>
+                            </ul>
+                        </li>
+                    {% elif current_user.role == 'personal' %}
+                        <!-- Personal User Navigation -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="dashboardDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('dashboard_tooltip', default='View dashboards') | e }}" aria-label="{{ trans('dashboard', default='Dashboard') | e }}">
+                                {{ trans('dashboard', default='Dashboard') | e }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="dashboardDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('dashboard_blueprint.index') | e }}">{{ trans('general_dashboard', default='General Dashboard') | e }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="debtorsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('what_they_owe_you_tooltip', default='Manage what they owe you') | e }}" aria-label="{{ trans('what_they_owe_you', default='What They Owe You') | e }}">
+                                {{ trans('what_they_owe_you', default='What They Owe You') | e }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="debtorsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('debtors_blueprint.index') | e }}">{{ trans('view_what_they_owe_you', default='View What They Owe You') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('debtors_blueprint.add') | e }}">{{ trans('create_what_they_owe_you', default='Create What They Owe You') | e }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="creditorsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('what_you_owe_tooltip', default='Manage what you owe') | e }}" aria-label="{{ trans('what_you_owe', default='What You Owe') | e }}">
+                                {{ trans('what_you_owe', default='What You Owe') | e }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="creditorsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('creditors_blueprint.index') | e }}">{{ trans('view_what_you_owe', default='View What You Owe') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('creditors_blueprint.add') | e }}">{{ trans('create_what_you_owe', default='Create What You Owe') | e }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="receiptsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('money_in_tooltip', default='Manage money in') | e }}" aria-label="{{ trans('money_in', default='Money In') | e }}">
+                                {{ trans('money_in', default='Money In') | e }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="receiptsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('receipts_blueprint.index') | e }}">{{ trans('view_money_in', default='View Money In') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('receipts_blueprint.add') | e }}">{{ trans('add_money_in', default='Add Money In') | e }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="paymentsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('money_out_tooltip', default='Manage money out') | e }}" aria-label="{{ trans('money_out', default='Money Out') | e }}">
+                                {{ trans('money_out', default='Money Out') | e }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="paymentsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('payments_blueprint.index') | e }}">{{ trans('view_money_out', default='View Money Out') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('payments_blueprint.add') | e }}">{{ trans('add_money_out', default='Add Money Out') | e }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="inventoryDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('goods_stock_tooltip', default='Manage your goods & stock') | e }}" aria-label="{{ trans('your_goods_stock', default='Your Goods & Stock') | e }}">
+                                {{ trans('your_goods_stock', default='Your Goods & Stock') | e }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="inventoryDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('inventory_blueprint.index') | e }}">{{ trans('view_your_goods_stock', default='View Your Goods & Stock') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('inventory_blueprint.add') | e }}">{{ trans('add_goods_stock', default='Add Goods & Stock') | e }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('reports_tooltip', default='View reports') | e }}" aria-label="{{ trans('reports', default='Reports') | e }}">
+                                {{ trans('reports', default='Reports') | e }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="reportsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('reports_blueprint.index') | e }}">{{ trans('view_reports', default='View Reports') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('reports_blueprint.profit_loss') | e }}">{{ trans('profit_loss', default='Profit & Loss') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('reports_blueprint.inventory') | e }}">{{ trans('inventory_report', default='Inventory Report') | e }}</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="coinsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-title="{{ trans('wallet_tooltip', default='Manage your wallet') | e }}" aria-label="{{ trans('your_wallet', default='Your Wallet') | e }}">
+                                {{ trans('your_wallet', default='Your Wallet') | e }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="coinsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.get_balance') | e }}">{{ trans('coin_balance', default='Coin Balance') | e }}</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.purchase') | e }}">{{ trans('purchase_coins', default='Purchase Coins') | e }}</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.history') | e }}">{{ trans('coin_history', default='Coin History') | e }}</a></li>
                                 <li><a class="dropdown-item" href="{{ url_for('coins_blueprint.receipt_upload') | e }}">{{ trans('receipt_upload', default='Upload Receipt') | e }}</a></li>
                             </ul>
                         </li>
                     {% endif %}
+                    
+                    {% if current_user.get('is_admin', False) %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_blueprint.dashboard') | e }}">{{ trans('admin_panel', default='Admin Panel') | e }}</a>
+                        </li>
+                    {% endif %}
                 </ul>
                 <ul class="navbar-nav ms-auto align-items-center header-actions">
                     {% if current_user.is_authenticated %}
-                        <li بیشتری: class="nav-item">
+                        <li class="nav-item">
                             <button class="notification-bell" id="notificationBell" data-bs-toggle="modal" data-bs-target="#notificationModal" data-bs-title="{{ trans('notifications_tooltip', default='View notifications') | e }}" aria-label="{{ trans('notifications', default='Notifications') | e }}">
                                 <i class="bi bi-bell"></i>
                                 <span class="notification-badge" id="notificationBadge"></span>
@@ -195,7 +289,7 @@
         </div>
     </main>
 
-    {% if current_user.is_authenticated %}
+    {% if current_user.is_authenticated and current_user.role in ['trader', 'personal'] %}
     <nav class="bottom-navigation">
         <div class="nav-container">
             <a href="{{ url_for('index') }}" class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">

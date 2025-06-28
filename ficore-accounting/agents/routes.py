@@ -11,7 +11,7 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
-agents_bp = Blueprint('agents', __name__, url_prefix='/agent')
+agents_bp = Blueprint('agents', __name__, url_prefix='/agents')
 
 class RegisterTraderForm(FlaskForm):
     username = StringField(trans_function('username', default='Username'), [
@@ -246,7 +246,7 @@ def manage_tokens():
     
     return render_template('agents/manage_tokens.html', form=form)
 
-@agents_bp.route('/assist_trader/<trader_id>')
+@agents_bp.route('/assist_trader_records/<trader_id>')
 @login_required
 @requires_role('agent')
 def assist_trader_records(trader_id):

@@ -156,6 +156,7 @@ from creditors.routes import creditors_bp
 from receipts.routes import receipts_bp
 from payments.routes import payments_bp
 from dashboard.routes import dashboard_bp
+from agents.routes import agents_bp
 
 app.register_blueprint(users_bp, url_prefix='/users', name='users_blueprint')
 app.register_blueprint(coins_bp, url_prefix='/coins', name='coins_blueprint')
@@ -168,6 +169,7 @@ app.register_blueprint(creditors_bp, url_prefix='/creditors', name='creditors_bl
 app.register_blueprint(receipts_bp, url_prefix='/receipts', name='receipts_blueprint')
 app.register_blueprint(payments_bp, url_prefix='/payments', name='payments_blueprint')
 app.register_blueprint(dashboard_bp, url_prefix='/dashboard', name='dashboard_blueprint')
+app.register_blueprint(agents_bp, url_prefix='/agents', name='agents_blueprint')
 
 # Jinja2 globals and filters
 with app.app_context():
@@ -596,13 +598,38 @@ def setup_database(initialize=False):
                             'amount': {'bsonType': 'int'},
                             'type': {'enum': ['purchase', 'spend', 'credit', 'admin_credit']},
                             'date': {'bsonType': 'date'},
-                            'ref': {'bsonType': ['string', 'null']}
+                            'ref': {'bsonType': ['string', 'null']},
+                            'facilitated_by_agent': {'bsonType': ['string', 'null']},
+                            'payment_method': {'bsonType': ['string', 'null']},
+                            'cash_amount': {'bsonType': ['double', 'null']},
+                            'notes': {'bsonType': ['string', 'null']}
                         }
                     }
                 },
                 'indexes': [
                     {'key': [('user_id', ASCENDING)]},
-                    {'key': [('date', DESCENDING)]}
+                    {'key': [('date', DESCENDING)]},
+                    {'key': [('facilitated_by_agent', ASCENDING)], 'sparse': True}
+                ]
+            },
+            'agent_activities': {
+                'validator': {
+                    '$jsonSchema': {
+                        'bsonType': 'object',
+                        'required': ['agent_id', 'activity_type', 'timestamp'],
+                        'properties': {
+                            'agent_id': {'bsonType': 'string'},
+                            'activity_type': {'enum': ['trader_registration', 'token_facilitation', 'report_generation', 'trader_assistance']},
+                            'trader_id': {'bsonType': ['string', 'null']},
+                            'details': {'bsonType': ['object', 'null']},
+                            'timestamp': {'bsonType': 'date'}
+                        }
+                    }
+                },
+                'indexes': [
+                    {'key': [('agent_id', ASCENDING)]},
+                    {'key': [('timestamp', DESCENDING)]},
+                    {'key': [('trader_id', ASCENDING)], 'sparse': True}
                 ]
             },
             'audit_logs': {
@@ -764,6 +791,16 @@ def manifest():
 # Routes
 @app.route('/')
 def index():
+    # Role-based dashboard routing
+    if current_user.is_authenticated:
+        if current_user.role == 'agent':
+            return redirect(url_for('agents_bp.dashboard'))
+        elif current_user.role == 'trader':
+            return redirect(url_for('dashboard_blueprint.index'))
+        elif current_user.role == 'admin':
+            return redirect(url_for('admin_blueprint.dashboard'))
+        else:  # personal role
+            return render_template('general/home.html')
     return render_template('general/home.html')
 
 @app.route('/about')
