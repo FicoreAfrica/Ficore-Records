@@ -1,0 +1,44 @@
+# General ignores (always safe)
+__pycache__/
+*.pyc
+venv/
+.pytest_cache/
+Procfile
+README.md
+requirements.txt
+gunicorn.conf.py
+scheduler_setup.py
+schema.md
+session_utils.py
+site.webmanifest
+backup_json_files.py
+gitignore.txt # The ignore file itself
+
+# Ignore all specific feature blueprints and their contents
+admin/
+agents/
+coins/
+creditors/
+dashboard/
+debtors/
+inventory/
+payments/
+personal/ # Ignore the entire personal folder and its contents
+receipts/
+reports/
+settings/
+users/
+
+# Ignore all templates
+templates/
+
+# Ignore translations
+translations/
+translations.py # The root-level one
+
+# Explicitly *don't* ignore the files needed for this batch:
+# __init__.py
+# app.py
+# app_personal.py
+# database.py
+# extensions.py
