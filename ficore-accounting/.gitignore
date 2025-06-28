@@ -1,0 +1,73 @@
+node_modules/
+.env
+# Ignore compiled Python files and caches - Always safe
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Ignore virtual environment - Crucial for saving space
+venv/
+
+# Ignore test files - not needed for feature implementation
+tests/
+
+# Ignore static assets - not needed for backend logic or template structure
+static/
+
+# Ignore database migrations - not relevant for blueprint/template setup
+migrations/
+
+# Ignore various project-level configuration, deployment, or non-code files
+Procfile
+README.md
+requirements.txt
+gunicorn.conf.py
+mailersend_email.py
+robots.txt
+runtime.txt
+scheduler_setup.py
+schema.md
+session_utils.py
+site.webmanifest
+backup_json_files.py
+
+# Ignore files/directories that belong to the *separate* Personal Finance App.
+# This assumes the 'lueprints' folder (or similar for the other app) is not within 'ficore-accounting'.
+# If it is, you'd need to add its path here. This is a placeholder for safety.
+# For example, if the personal finance app is in a folder named 'personal_finance_app' at the root:
+# personal_finance_app/
+
+# --- Conditional Ignores for specific tasks ---
+
+# For the current task of implementing the AGENTS blueprint and overall integration:
+# We will temporarily ignore other *feature-specific* blueprints
+# This is to keep the context focused on 'users', 'agents', and overall app structure.
+
+admin/
+coins/
+creditors/
+dashboard/ # If 'dashboard/index.html' is meant for traders, we might need its content, but the folder can be ignored if only users/dashboard.html is used.
+debtors/
+inventory/
+payments/
+receipts/
+reports/
+settings/
+
+# Also ignore templates that are not immediately relevant to the agent/user core
+templates/admin/
+templates/coins/
+templates/creditors/
+templates/dashboard/
+templates/debtors/
+templates/inventory/
+templates/payments/
+templates/receipts/
+templates/reports/
+templates/settings/
+
+# Be careful with these next few. Only ignore if the AI truly doesn't need to touch them
+# for the *current* instruction. For blueprint registration, 'app.py'/'__init__.py' are needed.
+# database.py
+# extensions.py
+# translations.py 
