@@ -1,0 +1,165 @@
+{% extends "agents/base_agent.html" %}
+{% block title %}{{ trans('manage_tokens', default='Manage Tokens') }} - FiCore{% endblock %}
+
+{% block agent_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ trans('manage_tokens', default='Manage Tokens') }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('agents_bp.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>{{ trans('back_to_dashboard', default='Back to Dashboard') }}
+        </a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{{ trans('token_facilitation_form', default='Token Facilitation Form') }}</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="tokenForm">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.trader_username.id }}" class="form-label">{{ form.trader_username.label.text }}</label>
+                        <div class="input-group">
+                            {{ form.trader_username }}
+                            <button class="btn btn-outline-secondary" type="button" id="searchTraderBtn">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        {% if form.trader_username.errors %}
+                            {% for error in form.trader_username.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                        <div id="traderSuggestions" class="list-group position-absolute w-100" style="z-index: 1000; display: none;"></div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.token_amount.id }}" class="form-label">{{ form.token_amount.label.text }}</label>
+                            {{ form.token_amount }}
+                            {% if form.token_amount.errors %}
+                                {% for error in form.token_amount.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                            <div class="form-text">{{ trans('token_conversion', default='₦50 = 1 coin') }}</div>
+                            <div id="coinCalculation" class="text-success small"></div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.payment_method.id }}" class="form-label">{{ form.payment_method.label.text }}</label>
+                            {{ form.payment_method }}
+                            {% if form.payment_method.errors %}
+                                {% for error in form.payment_method.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.notes.id }}" class="form-label">{{ form.notes.label.text }}</label>
+                        {{ form.notes }}
+                        {% if form.notes.errors %}
+                            {% for error in form.notes.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        {% endif %}
+                        <div class="form-text">{{ trans('notes_help', default='Optional notes about this transaction') }}</div>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        {{ trans('token_warning', default='Please ensure you have received the correct payment amount before processing tokens. This action cannot be undone.') }}
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('agents_bp.dashboard') }}" class="btn btn-outline-secondary me-md-2">
+                            {{ trans('cancel', default='Cancel') }}
+                        </a>
+                        {{ form.submit }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const traderInput = document.getElementById('trader_username');
+    const suggestionsDiv = document.getElementById('traderSuggestions');
+    const amountInput = document.getElementById('token_amount');
+    const calculationDiv = document.getElementById('coinCalculation');
+    
+    // Trader search functionality
+    let searchTimeout;
+    traderInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim();
+        
+        if (query.length < 2) {
+            suggestionsDiv.style.display = 'none';
+            return;
+        }
+        
+        searchTimeout = setTimeout(() => {
+            fetch(`/agent/api/search_traders?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(traders => {
+                    suggestionsDiv.innerHTML = '';
+                    if (traders.length > 0) {
+                        traders.forEach(trader => {
+                            const item = document.createElement('a');
+                            item.className = 'list-group-item list-group-item-action';
+                            item.href = '#';
+                            item.innerHTML = `
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">${trader.business_name}</h6>
+                                    <small>${trader.username}</small>
+                                </div>
+                                <small class="text-muted">${trader.email}</small>
+                            `;
+                            item.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                traderInput.value = trader.username;
+                                suggestionsDiv.style.display = 'none';
+                            });
+                            suggestionsDiv.appendChild(item);
+                        });
+                        suggestionsDiv.style.display = 'block';
+                    } else {
+                        suggestionsDiv.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error searching traders:', error);
+                    suggestionsDiv.style.display = 'none';
+                });
+        }, 300);
+    });
+    
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!traderInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+            suggestionsDiv.style.display = 'none';
+        }
+    });
+    
+    // Coin calculation
+    amountInput.addEventListener('input', function() {
+        const amount = parseFloat(this.value) || 0;
+        const coins = Math.floor(amount / 50);
+        if (amount > 0) {
+            calculationDiv.textContent = `= ${coins} coins`;
+        } else {
+            calculationDiv.textContent = '';
+        }
+    });
+});
+</script>
+{% endblock %}

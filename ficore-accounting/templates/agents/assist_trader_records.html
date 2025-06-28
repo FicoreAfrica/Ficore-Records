@@ -1,0 +1,190 @@
+{% extends "agents/base_agent.html" %}
+{% block title %}{{ trans('assist_trader_records', default='Assist Trader Records') }} - FiCore{% endblock %}
+
+{% block agent_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ trans('assist_trader_records', default='Assist Trader Records') }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('agents_bp.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>{{ trans('back_to_dashboard', default='Back to Dashboard') }}
+        </a>
+    </div>
+</div>
+
+<!-- Trader Information -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{{ trans('trader_information', default='Trader Information') }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>{{ trans('username', default='Username') }}:</strong> {{ trader._id }}</p>
+                        <p><strong>{{ trans('email', default='Email') }}:</strong> {{ trader.email }}</p>
+                        <p><strong>{{ trans('business_name', default='Business Name') }}:</strong> 
+                           {{ trader.business_details.name if trader.business_details else 'N/A' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>{{ trans('phone_number', default='Phone Number') }}:</strong> 
+                           {{ trader.business_details.phone_number if trader.business_details else 'N/A' }}</p>
+                        <p><strong>{{ trans('industry', default='Industry') }}:</strong> 
+                           {{ trader.business_details.industry if trader.business_details else 'N/A' }}</p>
+                        <p><strong>{{ trans('coin_balance', default='Coin Balance') }}:</strong> 
+                           {{ trader.coin_balance or 0 }} coins</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{{ trans('quick_actions', default='Quick Actions') }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('debtors_blueprint.add') }}?trader_id={{ trader._id }}" class="btn btn-success w-100">
+                            <i class="bi bi-person-plus me-2"></i>{{ trans('add_debtor', default='Add Debtor') }}
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('creditors_blueprint.add') }}?trader_id={{ trader._id }}" class="btn btn-warning w-100">
+                            <i class="bi bi-person-dash me-2"></i>{{ trans('add_creditor', default='Add Creditor') }}
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('receipts_blueprint.add') }}?trader_id={{ trader._id }}" class="btn btn-info w-100">
+                            <i class="bi bi-arrow-down-circle me-2"></i>{{ trans('add_receipt', default='Add Receipt') }}
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('payments_blueprint.add') }}?trader_id={{ trader._id }}" class="btn btn-danger w-100">
+                            <i class="bi bi-arrow-up-circle me-2"></i>{{ trans('add_payment', default='Add Payment') }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Records Overview -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{{ trans('recent_debtors', default='Recent Debtors') }}</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_debtors %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{{ trans('name', default='Name') }}</th>
+                                    <th>{{ trans('amount_owed', default='Amount Owed') }}</th>
+                                    <th>{{ trans('date', default='Date') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for debtor in recent_debtors %}
+                                <tr>
+                                    <td>{{ debtor.name }}</td>
+                                    <td>{{ format_currency(debtor.amount_owed) }}</td>
+                                    <td>{{ format_date(debtor.created_at) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">{{ trans('no_recent_debtors', default='No recent debtors') }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{{ trans('recent_creditors', default='Recent Creditors') }}</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_creditors %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{{ trans('name', default='Name') }}</th>
+                                    <th>{{ trans('amount_owed', default='Amount Owed') }}</th>
+                                    <th>{{ trans('date', default='Date') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for creditor in recent_creditors %}
+                                <tr>
+                                    <td>{{ creditor.name }}</td>
+                                    <td>{{ format_currency(creditor.amount_owed) }}</td>
+                                    <td>{{ format_date(creditor.created_at) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">{{ trans('no_recent_creditors', default='No recent creditors') }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{{ trans('recent_cashflows', default='Recent Cashflows') }}</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_cashflows %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{{ trans('type', default='Type') }}</th>
+                                    <th>{{ trans('party_name', default='Party Name') }}</th>
+                                    <th>{{ trans('amount', default='Amount') }}</th>
+                                    <th>{{ trans('date', default='Date') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cashflow in recent_cashflows %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if cashflow.type == 'receipt' else 'danger' }}">
+                                            {{ trans(cashflow.type, default=cashflow.type.title()) }}
+                                        </span>
+                                    </td>
+                                    <td>{{ cashflow.party_name }}</td>
+                                    <td>{{ format_currency(cashflow.amount) }}</td>
+                                    <td>{{ format_date(cashflow.created_at) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">{{ trans('no_recent_cashflows', default='No recent cashflows') }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}{{ trans('core_login') | default('Sign In') }}{% endblock %}
+{% block content %}
+<div class="container my-5">
+    <h1 class="text-center mb-4">{{ trans('core_login') | default('Sign In') }}</h1>
+    <div class="card mx-auto" style="max-width: 400px;">
+        <div class="card-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="alert alert-{{ messages[0][1] }} alert-dismissible fade show" role="alert">
+                        {{ messages[0][0] }}
+                        {% if messages[0][1] in ['danger', 'error'] %}
+                            <p>{{ trans('check_credentials', default='Please ensure your username andWallets are correct. If you just registered, use the exact username and email you provided.') }}</p>
+                        {% endif %}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endif %}
+            {% endwith %}
+            <form class="validate-form needs-validation" method="POST" action="{{ url_for('users_blueprint.login') }}" novalidate>
+                {{ form.hidden_tag() }}
+                <div class="form-group mb-3">
+                    {{ form.username.label(class="form-label") | safe }}
+                    {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), value=form.username.data or '', required=True) | safe }}
+                    {% if form.username.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.username.errors %}
+                                {{ error | escape }}<br>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="form-group mb-3 position-relative">
+                    {{ form.password.label(class="form-label") | safe }}
+                    {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), required=True, id="password") | safe }}
+                    <span class="password-toggle" onclick="togglePassword('password', 'toggle-password-icon')">
+                        <i class="bi bi-eye" id="toggle-password-icon"></i>
+                    </span>
+                    {% if form.password.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.password.errors %}
+                                {{ error | escape }}<br>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary">{{ trans('core_login') | default('Sign In') }}</button>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('users_blueprint.forgot_password') }}">{{ trans('forgot_password') | default('Forgot Password?') }}</a>
+                    <br>
+                    <a href="{{ url_for('users_blueprint.signup') }}">{{ trans('create_account') | default('Create an Account') }}</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+function togglePassword(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+    }
+}
+// Bootstrap form validation
+(function () {
+    'use strict';
+    const forms = document.querySelectorAll('.needs-validation');
+    Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
+    });
+})();
+</script>
+{% endblock %}

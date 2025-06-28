@@ -1,0 +1,214 @@
+{% extends "agents/base_agent.html" %}
+{% block title %}{{ trans('generate_trader_report', default='Generate Trader Report') }} - FiCore{% endblock %}
+
+{% block agent_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ trans('generate_trader_report', default='Generate Trader Report') }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('agents_bp.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>{{ trans('back_to_dashboard', default='Back to Dashboard') }}
+        </a>
+    </div>
+</div>
+
+<!-- Trader Information -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{{ trans('trader_information', default='Trader Information') }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>{{ trans('username', default='Username') }}:</strong> {{ trader._id }}</p>
+                        <p><strong>{{ trans('email', default='Email') }}:</strong> {{ trader.email }}</p>
+                        <p><strong>{{ trans('business_name', default='Business Name') }}:</strong> 
+                           {{ trader.business_details.name if trader.business_details else 'N/A' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>{{ trans('phone_number', default='Phone Number') }}:</strong> 
+                           {{ trader.business_details.phone_number if trader.business_details else 'N/A' }}</p>
+                        <p><strong>{{ trans('industry', default='Industry') }}:</strong> 
+                           {{ trader.business_details.industry if trader.business_details else 'N/A' }}</p>
+                        <p><strong>{{ trans('coin_balance', default='Coin Balance') }}:</strong> 
+                           {{ trader.coin_balance or 0 }} coins</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Financial Summary -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{{ trans('financial_summary', default='Financial Summary') }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body">
+                                <h4>{{ format_currency(total_debtors) }}</h4>
+                                <p class="mb-0">{{ trans('total_debtors', default='Total Debtors') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body">
+                                <h4>{{ format_currency(total_creditors) }}</h4>
+                                <p class="mb-0">{{ trans('total_creditors', default='Total Creditors') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body">
+                                <h4>{{ format_currency(total_receipts) }}</h4>
+                                <p class="mb-0">{{ trans('total_receipts', default='Total Receipts') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body">
+                                <h4>{{ format_currency(total_payments) }}</h4>
+                                <p class="mb-0">{{ trans('total_payments', default='Total Payments') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3 text-center">
+                    <div class="col-md-6">
+                        <div class="card bg-{{ 'success' if net_position >= 0 else 'danger' }} text-white">
+                            <div class="card-body">
+                                <h4>{{ format_currency(net_position) }}</h4>
+                                <p class="mb-0">{{ trans('net_position', default='Net Position') }}</p>
+                                <small>{{ trans('debtors_minus_creditors', default='(Debtors - Creditors)') }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-{{ 'success' if net_cashflow >= 0 else 'danger' }} text-white">
+                            <div class="card-body">
+                                <h4>{{ format_currency(net_cashflow) }}</h4>
+                                <p class="mb-0">{{ trans('net_cashflow', default='Net Cashflow') }}</p>
+                                <small>{{ trans('receipts_minus_payments', default='(Receipts - Payments)') }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Generation Options -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{{ trans('generate_reports', default='Generate Reports') }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <a href="{{ url_for('reports_blueprint.index') }}?trader_id={{ trader._id }}" class="btn btn-primary w-100">
+                            <i class="bi bi-file-earmark-text me-2"></i>{{ trans('comprehensive_report', default='Comprehensive Report') }}
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="{{ url_for('debtors_blueprint.index') }}?trader_id={{ trader._id }}" class="btn btn-success w-100">
+                            <i class="bi bi-people me-2"></i>{{ trans('debtors_report', default='Debtors Report') }}
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="{{ url_for('creditors_blueprint.index') }}?trader_id={{ trader._id }}" class="btn btn-warning w-100">
+                            <i class="bi bi-person-dash me-2"></i>{{ trans('creditors_report', default='Creditors Report') }}
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="{{ url_for('receipts_blueprint.index') }}?trader_id={{ trader._id }}" class="btn btn-info w-100">
+                            <i class="bi bi-arrow-down-circle me-2"></i>{{ trans('receipts_report', default='Receipts Report') }}
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="{{ url_for('payments_blueprint.index') }}?trader_id={{ trader._id }}" class="btn btn-danger w-100">
+                            <i class="bi bi-arrow-up-circle me-2"></i>{{ trans('payments_report', default='Payments Report') }}
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="{{ url_for('inventory_blueprint.index') }}?trader_id={{ trader._id }}" class="btn btn-secondary w-100">
+                            <i class="bi bi-box-seam me-2"></i>{{ trans('inventory_report', default='Inventory Report') }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Business Insights -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">{{ trans('business_insights', default='Business Insights') }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6>{{ trans('financial_health_analysis', default='Financial Health Analysis') }}</h6>
+                    {% if net_position > 0 %}
+                        <p class="mb-1"><i class="bi bi-check-circle text-success"></i> {{ trans('positive_net_position', default='Positive net position indicates good debt management') }}</p>
+                    {% else %}
+                        <p class="mb-1"><i class="bi bi-exclamation-triangle text-warning"></i> {{ trans('negative_net_position', default='Negative net position - consider debt collection strategies') }}</p>
+                    {% endif %}
+                    
+                    {% if net_cashflow > 0 %}
+                        <p class="mb-1"><i class="bi bi-check-circle text-success"></i> {{ trans('positive_cashflow', default='Positive cashflow indicates healthy business operations') }}</p>
+                    {% else %}
+                        <p class="mb-1"><i class="bi bi-exclamation-triangle text-warning"></i> {{ trans('negative_cashflow', default='Negative cashflow - review expenses and revenue streams') }}</p>
+                    {% endif %}
+                </div>
+                
+                <div class="mt-3">
+                    <button class="btn btn-outline-primary" onclick="window.print()">
+                        <i class="bi bi-printer me-2"></i>{{ trans('print_report', default='Print Report') }}
+                    </button>
+                    <button class="btn btn-outline-success" onclick="exportToCSV()">
+                        <i class="bi bi-file-earmark-spreadsheet me-2"></i>{{ trans('export_csv', default='Export to CSV') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportToCSV() {
+    const data = [
+        ['Metric', 'Amount'],
+        ['Total Debtors', '{{ total_debtors }}'],
+        ['Total Creditors', '{{ total_creditors }}'],
+        ['Total Receipts', '{{ total_receipts }}'],
+        ['Total Payments', '{{ total_payments }}'],
+        ['Net Position', '{{ net_position }}'],
+        ['Net Cashflow', '{{ net_cashflow }}']
+    ];
+    
+    const csvContent = data.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'trader_report_{{ trader._id }}.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Agent Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+            <div class="position-sticky pt-3">
+                <div class="text-center mb-4">
+                    <img src="{{ url_for('static', filename='img/ficore_records_logo.png') }}" alt="FiCore Logo" class="img-fluid mb-2" style="max-height: 60px;">
+                    <h6 class="text-muted">{{ trans('agent_portal', default='Agent Portal') }}</h6>
+                    <small class="text-muted">{{ current_user.display_name }}</small>
+                </div>
+                
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'agents_bp.dashboard' %}active{% endif %}" href="{{ url_for('agents_bp.dashboard') }}">
+                            <i class="bi bi-speedometer2 me-2"></i>
+                            {{ trans('dashboard', default='Dashboard') }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'agents_bp.register_trader' %}active{% endif %}" href="{{ url_for('agents_bp.register_trader') }}">
+                            <i class="bi bi-person-plus me-2"></i>
+                            {{ trans('register_trader', default='Register Trader') }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'agents_bp.manage_tokens' %}active{% endif %}" href="{{ url_for('agents_bp.manage_tokens') }}">
+                            <i class="bi bi-coin me-2"></i>
+                            {{ trans('manage_tokens', default='Manage Tokens') }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'agents_bp.my_activity' %}active{% endif %}" href="{{ url_for('agents_bp.my_activity') }}">
+                            <i class="bi bi-activity me-2"></i>
+                            {{ trans('my_activity', default='My Activity') }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('settings_blueprint.profile') }}">
+                            <i class="bi bi-gear me-2"></i>
+                            {{ trans('settings', default='Settings') }}
+                        </a>
+                    </li>
+                    <li class="nav-item mt-3">
+                        <a class="nav-link text-danger" href="{{ url_for('users_blueprint.logout') }}">
+                            <i class="bi bi-box-arrow-right me-2"></i>
+                            {{ trans('logout', default='Logout') }}
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            {% block agent_content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Agent-specific JavaScript functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips for agent interface
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Auto-refresh dashboard metrics every 30 seconds
+    if (window.location.pathname.includes('/agent/dashboard')) {
+        setInterval(function() {
+            // Refresh dashboard metrics
+            fetch('/agent/dashboard')
+                .then(response => response.text())
+                .then(html => {
+                    // Update specific metric elements without full page reload
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    
+                    const metricsToUpdate = ['traders-registered', 'tokens-today'];
+                    metricsToUpdate.forEach(id => {
+                        const newElement = doc.getElementById(id);
+                        const currentElement = document.getElementById(id);
+                        if (newElement && currentElement) {
+                            currentElement.textContent = newElement.textContent;
+                        }
+                    });
+                })
+                .catch(error => console.log('Dashboard refresh failed:', error));
+        }, 30000);
+    }
+});
+</script>
+{% endblock %}
