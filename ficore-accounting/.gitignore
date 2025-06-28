@@ -1,0 +1,67 @@
+# General ignores (always safe)
+__pycache__/
+*.pyc
+venv/
+.pytest_cache/
+Procfile
+README.md
+requirements.txt  # Will be merged in a later dedicated step or manually
+gunicorn.conf.py
+scheduler_setup.py
+schema.md
+session_utils.py
+site.webmanifest
+backup_json_files.py
+gitignore.txt     # The ignore file itself
+
+# Ignore most existing feature blueprints from original ficore-accounting for now
+agents/           # We just integrated it; its internal files aren't touched in *this* batch.
+coins/
+creditors/
+dashboard/        # The folder itself, unless a specific file like dashboard/index.html is needed for initial redirect in base.html
+debtors/
+inventory/
+payments/
+receipts/
+reports/
+settings/
+
+# Ignore the specific blueprint files *inside* the 'personal/' folder for this batch.
+# We need the 'personal/' directory to exist as a target for future blueprint files,
+# but their internal logic isn't touched in this batch.
+personal/admin.py
+personal/auth.py
+personal/bill.py
+personal/budget.py
+personal/emergency_fund.py
+personal/financial_health.py
+personal/learning_hub.py
+personal/net_worth.py
+personal/quiz.py
+
+# Ignore static files (will be unified later or handled separately)
+static/
+static_personal/
+
+# Ignore template sub-folders that are not being modified in this batch
+templates/admin/
+templates/agents/
+templates/coins/
+templates/creditors/
+templates/dashboard/  # The contents of dashboard/, if it exists beyond index.html
+templates/debtors/
+templates/inventory/
+templates/payments/
+templates/receipts/
+templates/reports/
+templates/settings/
+
+# Ignore the *old* personal finance app's template folders, as they will be merged into templates/personal_finance/
+templates/BILL/
+templates/BUDGET/
+templates/EMERGENCYFUND/
+templates/GENERAL/
+templates/HEALTHSCORE/
+templates/LEARNINGHUB/
+templates/NETWORTH/
+templates/QUIZ/
